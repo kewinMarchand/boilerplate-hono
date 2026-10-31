@@ -1,6 +1,6 @@
-# CLAUDE.md — hono-mongo-test-api
+# CLAUDE.md — boilerplate-hono
 
-Seconde API de test des boilerplates front, interchangeable avec `../api-platform-test-api` (8090). Les conventions générales sont dans `~/.claude/CLAUDE.md` : ce fichier ne note que les choix propres au projet.
+Seconde API de test des boilerplates front, interchangeable avec `../boilerplate-api-platform` (8090). Les conventions générales sont dans `~/.claude/CLAUDE.md` : ce fichier ne note que les choix propres au projet.
 
 ## Règle d'or
 
@@ -8,7 +8,7 @@ Seconde API de test des boilerplates front, interchangeable avec `../api-platfor
 
 ## Choix du projet
 
-- **Pas d'administration** ([ADR 0001 de l'API Platform](https://github.com/kewinMarchand/api-platform-test-api/blob/main/doc/adr/0001-administration-easyadmin-dans-l-api.md), commit `46df658` de l'API Platform) : l'admin d'un projet client vit dans l'API Platform. Hono reste une API de contrat, en lecture hors contact, alimentée par ses fixtures. Les nouvelles ressources de lecture (carrousel, pages légales) y seront ajoutées pour garder `make contract` vert.
+- **Pas d'administration** ([ADR 0001 de l'API Platform](https://github.com/kewinMarchand/boilerplate-api-platform/blob/main/doc/adr/0001-administration-easyadmin-dans-l-api.md), commit `46df658` de l'API Platform) : l'admin d'un projet client vit dans l'API Platform. Hono reste une API de contrat, en lecture hors contact, alimentée par ses fixtures. Les nouvelles ressources de lecture (carrousel, pages légales) y seront ajoutées pour garder `make contract` vert.
 - **Architecture** : un seul contexte, quatre modules (`task`, `blog`, `contact`, `catalog`), comme l'API Platform. `domain/` = types en namespaces, constantes, port du dépôt, règles pures, sans aucune dépendance. `application/` n'existe que dans le catalogue (D9) : `searchProducts` charge l'arbre, résout la catégorie (404) et délègue au dépôt, la route ne fait plus que traduire. Blog, contact et tâches restent des transaction scripts sans couche application (Khononov p. 124). `infrastructure/` = schéma zod du document, adaptateur, fixtures. `http/` = contrat publié, routes `createRoute` et adaptation HTTP. `app.ts`, `database.ts` et `server.ts` composent (seuls fichiers autorisés à importer tous les modules), `shared/` porte le transverse technique et n'importe aucun module.
 - **Le domaine n'est pas le contrat** (décision D10 de `boilerplates-commun/ARCHITECTURE-DDD.md`, Evans p. 264) : cette API est conformiste au langage publié de l'API Platform. Tout ce qui fige la parité (schémas OpenAPI avec `.meta({ id })`, messages exacts, codes Symfony, `phpTrim`, sémantique de requête PHP) vit dans `http/` (`contract.ts` par module, `productQuery.ts`, `deserializeContactMessage.ts`). Le domaine garde des types, des constantes et des règles qui renvoient des violations neutres. Le compilateur vérifie à chaque route que le type du domaine est assignable au type du contrat. Le document MongoDB a son propre schéma zod, traduit en `$jsonSchema` par `toBsonSchema`.
 - **Node exécute les `.ts`** (type stripping natif de Node 24) : pas d'étape de build, l'image de prod copie `src/`. D'où `erasableSyntaxOnly` (ni `enum`, ni propriétés de paramètre, namespaces de types en `declare namespace`), les imports en `.ts` et l'alias `#/` par le champ `imports` de `package.json` (résolu par Node, TypeScript et Vite sans configuration).

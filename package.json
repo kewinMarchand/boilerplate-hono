@@ -1,8 +1,8 @@
 {
-  "name": "hono-mongo-test-api",
+  "name": "boilerplate-hono",
   "version": "1.0.0",
   "private": true,
-  "description": "API de test NoSQL (Hono, zod, MongoDB), interchangeable avec api-platform-test-api",
+  "description": "API de test NoSQL (Hono, zod, MongoDB), interchangeable avec boilerplate-api-platform",
   "license": "MIT",
   "type": "module",
   "imports": {

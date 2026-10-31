@@ -2,7 +2,7 @@
     "openapi": "3.1.0",
     "info": {
         "title": "API de test Kewin",
-        "description": "API de test commune aux boilerplates front (Next, Nuxt, SvelteKit, Symfony Twig, HTML).\nImplémentation Hono, zod et MongoDB, interchangeable avec api-platform-test-api : mêmes chemins, mêmes paramètres, mêmes formes JSON.\nFormat : JSON simple (`application/json`).\nEn dev et en test, l'en-tête `X-Scenario: error` renvoie une 500 et `X-Scenario: empty` une collection vide.",
+        "description": "API de test commune aux boilerplates front (Next, Nuxt, SvelteKit, Symfony Twig, HTML).\nImplémentation Hono, zod et MongoDB, interchangeable avec boilerplate-api-platform : mêmes chemins, mêmes paramètres, mêmes formes JSON.\nFormat : JSON simple (`application/json`).\nEn dev et en test, l'en-tête `X-Scenario: error` renvoie une 500 et `X-Scenario: empty` une collection vide.",
         "version": "1.0.0"
     },
     "servers": [

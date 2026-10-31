@@ -1,11 +1,11 @@
-name: hono-mongo-test-api
+name: boilerplate-hono
 
 services:
   api:
     build:
       context: .
       target: dev
-    image: hono-mongo-test-api:dev
+    image: boilerplate-hono:dev
     user: '${HOST_UID:-1000}:${HOST_GID:-1000}'
     env_file:
       - path: .env
@@ -30,7 +30,7 @@ services:
   # Comparaison avec l'API Platform : réseau de la machine pour joindre 8090 et 8091.
   contract:
     profiles: [tools]
-    image: hono-mongo-test-api:dev
+    image: boilerplate-hono:dev
     user: '${HOST_UID:-1000}:${HOST_GID:-1000}'
     network_mode: host
     environment:

@@ -6,7 +6,7 @@ const SIMPLE_HEADERS = ['accept', 'accept-language', 'content-language', 'origin
 const MAX_AGE = '3600'
 
 /**
- * Reproduit nelmio/cors-bundle tel que configuré dans api-platform-test-api : préflight
+ * Reproduit nelmio/cors-bundle tel que configuré dans boilerplate-api-platform : préflight
  * répondu avant le routage, en-têtes renvoyés même pour une origine refusée (sans
  * Access-Control-Allow-Origin), 405 pour une méthode refusée, 400 pour un en-tête refusé.
  */

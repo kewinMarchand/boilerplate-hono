@@ -51,6 +51,6 @@ lint-staged: ## Vérifie les fichiers indexés (appelé par le hook pre-commit)
 	$(RUN) yarn -s lint-staged
 
 docker-build-prod: ## Construit l'image de production
-	docker build --target prod -t hono-mongo-test-api:prod .
+	docker build --target prod -t boilerplate-hono:prod .
 
 .PHONY: help install build up down logs sh mongo-sh db-reset openapi contract lint-staged docker-build-prod
