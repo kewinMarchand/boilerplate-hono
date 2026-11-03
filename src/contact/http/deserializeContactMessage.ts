@@ -2,7 +2,18 @@ import { createMiddleware } from 'hono/factory'
 
 import { DeserializationError } from '#/shared/http/httpErrors.ts'
 
-const WRITABLE_FIELDS = new Set(['name', 'email', 'message'])
+import { ContactMessageValidationError } from './ContactMessageValidationError.ts'
+import { CONSTRAINT_CODES } from './contract.ts'
+
+import type { ContactMessage } from '#/contact/domain/ContactMessage.ts'
+
+const WRITABLE_FIELDS: ReadonlySet<string> = new Set<ContactMessage.Field>([
+  'name',
+  'email',
+  'message',
+])
+
+const isWritableField = (key: string): key is ContactMessage.Field => WRITABLE_FIELDS.has(key)
 
 /** Nom du type PHP (gettype) d'une valeur JSON décodée par json_decode. */
 const phpType = (value: unknown): string => {
@@ -21,8 +32,7 @@ const phpType = (value: unknown): string => {
 
 /**
  * Erreurs de désérialisation du serializer Symfony, que l'API Platform renvoie en 500 avant
- * toute validation : corps non objet, identifiant fourni sur une création, champ ni chaîne
- * ni null (le premier rencontré dans l'ordre du corps).
+ * toute validation : corps non objet, identifiant fourni sur une création.
  */
 export const deserializationError = (body: unknown): string | null => {
   if (typeof body === 'string') {
@@ -32,17 +42,25 @@ export const deserializationError = (body: unknown): string | null => {
     return `The type of the "ContactMessage" resource must be "array" (nested document) or "string" (IRI), "${phpType(body)}" given.`
   }
 
-  const entries = Object.entries(body)
-  if (entries.some(([key, value]) => key === 'id' && value !== null)) {
-    return 'Update is not allowed for this operation.'
+  return Object.entries(body).some(([key, value]) => key === 'id' && value !== null)
+    ? 'Update is not allowed for this operation.'
+    : null
+}
+
+/**
+ * Premier champ du corps ni chaîne ni null : l'API Platform le refuse en 422 (contrainte Type),
+ * seul, avant les règles du formulaire.
+ */
+export const invalidTypeField = (body: unknown): ContactMessage.Field | null => {
+  if (typeof body !== 'object' || body === null) {
+    return null
   }
-  const invalid = entries.find(
-    ([key, value]) => WRITABLE_FIELDS.has(key) && value !== null && typeof value !== 'string',
+  const invalid = Object.entries(body).find(
+    (entry): entry is [ContactMessage.Field, unknown] =>
+      isWritableField(entry[0]) && entry[1] !== null && typeof entry[1] !== 'string',
   )
 
-  return invalid === undefined
-    ? null
-    : `The type of the "${invalid[0]}" attribute must be "null|string", "${phpType(invalid[1])}" given.`
+  return invalid === undefined ? null : invalid[0]
 }
 
 export const deserializeContactMessage = createMiddleware(async (c, next) => {
@@ -55,6 +73,16 @@ export const deserializeContactMessage = createMiddleware(async (c, next) => {
   const error = deserializationError(body)
   if (error !== null) {
     throw new DeserializationError(error)
+  }
+  const field = invalidTypeField(body)
+  if (field !== null) {
+    throw new ContactMessageValidationError([
+      {
+        propertyPath: field,
+        message: 'This value should be of type null|string.',
+        code: CONSTRAINT_CODES.type,
+      },
+    ])
   }
   await next()
 })

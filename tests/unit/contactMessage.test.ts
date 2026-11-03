@@ -10,7 +10,7 @@ import {
   phpTrim,
   violationsFromIssues,
 } from '#/contact/http/contract.ts'
-import { deserializationError } from '#/contact/http/deserializeContactMessage.ts'
+import { deserializationError, invalidTypeField } from '#/contact/http/deserializeContactMessage.ts'
 
 const VALID = { name: 'Camille', email: 'a@b.fr', message: 'Un message assez long.' }
 
@@ -112,18 +112,33 @@ describe('deserializationError', () => {
   it.each([
     ['"abc"', 'Invalid IRI "abc".'],
     ['{"id":5,"name":"Cam"}', 'Update is not allowed for this operation.'],
+    ['{"id":5,"name":1}', 'Update is not allowed for this operation.'],
     [
-      '{"message":1,"name":true}',
-      'The type of the "message" attribute must be "null|string", "integer" given.',
+      'true',
+      'The type of the "ContactMessage" resource must be "array" (nested document) or "string" (IRI), "boolean" given.',
     ],
-    ['{"name":1.5}', 'The type of the "name" attribute must be "null|string", "double" given.'],
-    ['{"name":{}}', 'The type of the "name" attribute must be "null|string", "array" given.'],
   ])('%s', (body, expected) => {
     expect(deserializationError(JSON.parse(body))).toBe(expected)
   })
 
-  it('accepte les objets et tableaux bien typés', () => {
-    expect(deserializationError({ id: null, name: null, foo: 1 })).toBeNull()
+  it('accepte les objets et tableaux, même mal typés', () => {
+    expect(deserializationError({ id: null, name: 1, foo: 1 })).toBeNull()
     expect(deserializationError([])).toBeNull()
+  })
+})
+
+describe('invalidTypeField', () => {
+  it.each([
+    ['{"message":1,"name":true}', 'message'],
+    ['{"name":1.5}', 'name'],
+    ['{"name":{}}', 'name'],
+    ['{"email":["a"]}', 'email'],
+  ])('%s : %s', (body, expected) => {
+    expect(invalidTypeField(JSON.parse(body))).toBe(expected)
+  })
+
+  it('ignore null, les chaînes et les champs inconnus', () => {
+    expect(invalidTypeField({ name: null, email: 'a', foo: 1 })).toBeNull()
+    expect(invalidTypeField([])).toBeNull()
   })
 })

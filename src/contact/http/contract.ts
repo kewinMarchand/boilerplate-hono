@@ -24,6 +24,7 @@ export const CONSTRAINT_CODES = {
   tooShort: '9ff3fdc4-b214-49db-8718-39c315e33d45',
   tooLong: 'd94b19cc-114f-4f44-9cc4-4138e80a87b9',
   invalidEmail: 'bd79c0ab-ddba-46cc-a703-a7a4b08de310',
+  type: 'ba785a8c-82cb-4283-967c-3cf342181b40',
 } as const
 
 export interface ContactViolation {
