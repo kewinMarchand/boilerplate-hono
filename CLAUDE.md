@@ -36,7 +36,7 @@ Seconde API de test des boilerplates front, interchangeable avec `../boilerplate
 | zod                                          | 4.6                                         | `z.toJSONSchema` natif, `.meta()` lu par zod-openapi                                                                       |
 | mongodb (driver)                             | 7.8                                         | Driver officiel, pas d'ODM : les schémas zod suffisent                                                                     |
 | MongoDB                                      | **8.2** (8.2.12)                            | `mongo:8` (8.3.8) refuse de démarrer sur un noyau Linux ≥ 6.19 (SERVER-121912). 8.2 démarre sur le noyau 7.0 de la machine |
-| ESLint                                       | 9                                           | Même ligne que les boilerplates (typescript-eslint accepterait aussi la 10)                                                |
+| ESLint                                       | 10                                          | Même ligne que les boilerplates                                                                                            |
 | Vitest / Vite                                | 5.1 / 8                                     | Vitest 5 attend `vite` en dépendance pair, à installer explicitement                                                       |
 
 ## Dépendances ajoutées, et pourquoi
