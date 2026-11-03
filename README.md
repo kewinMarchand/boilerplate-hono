@@ -18,7 +18,7 @@ Le détail du contrat (formats, paramètres du catalogue, règles du formulaire,
 
 | Brique                                                     | Rôle                                                              |
 | ---------------------------------------------------------- | ----------------------------------------------------------------- |
-| Node 24.14, TypeScript 6 (strict)                          | Exécution directe des `.ts` (type stripping natif de Node)        |
+| Node 26.13, TypeScript 6 (strict)                          | Exécution directe des `.ts` (type stripping natif de Node)        |
 | Hono 4.13, @hono/node-server 2.1                           | Serveur HTTP                                                      |
 | zod 4.6, @hono/zod-openapi 1.6                             | Schémas, validation, OpenAPI 3.1 générés depuis les mêmes schémas |
 | Driver officiel `mongodb` 7.8                              | Persistance, collections typées, sans ODM                         |

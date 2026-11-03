@@ -1,4 +1,6 @@
-FROM node:24.14-alpine AS base
+# Node 26 ne fournit plus Yarn (Corepack n'est plus livré depuis Node 25) : version de `packageManager`
+FROM node:26-alpine AS base
+RUN npm install --global yarn@1.22.22
 WORKDIR /app
 ENV HOME=/tmp \
     YARN_CACHE_FOLDER=/tmp/yarn-cache \
