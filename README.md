@@ -21,7 +21,7 @@ Le détail du contrat (formats, paramètres du catalogue, règles du formulaire,
 | Node 24.14, TypeScript 6 (strict)                         | Exécution directe des `.ts` (type stripping natif de Node)        |
 | Hono 4.13, @hono/node-server 2.1                          | Serveur HTTP                                                      |
 | zod 4.6, @hono/zod-openapi 1.6                            | Schémas, validation, OpenAPI 3.1 générés depuis les mêmes schémas |
-| Driver officiel `mongodb` 7.7                             | Persistance, collections typées, sans ODM                         |
+| Driver officiel `mongodb` 7.8                             | Persistance, collections typées, sans ODM                         |
 | MongoDB 8.2                                               | Base de données, non exposée sur la machine                       |
 | Vitest 5, ESLint 9 (typescript-eslint strict), Prettier 3 | Tests, lint avec les types, format                                |
 

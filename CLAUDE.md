@@ -31,19 +31,19 @@ Seconde API de test des boilerplates front, interchangeable avec `../boilerplate
 | Brique                                       | Version                                     | Raison                                                                                                                     |
 | -------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Node                                         | 24.14 (`.nvmrc`, image `node:24.14-alpine`) | Demandé. Type stripping stable, sans avertissement                                                                         |
-| TypeScript                                   | ~6.0.3                                      | Même ligne que les boilerplates. typescript-eslint 8.71 exige `<6.1.0`, TypeScript 7 est donc exclu                        |
+| TypeScript                                   | ~6.0.3                                      | Même ligne que les boilerplates. typescript-eslint 8.72 exige `<6.1.0`, TypeScript 7 est donc exclu                        |
 | hono / @hono/zod-openapi / @hono/node-server | 4.13 / 1.6 / 2.1                            | Versions vérifiées demandées                                                                                               |
 | zod                                          | 4.6                                         | `z.toJSONSchema` natif, `.meta()` lu par zod-openapi                                                                       |
-| mongodb (driver)                             | 7.7                                         | Driver officiel, pas d'ODM : les schémas zod suffisent                                                                     |
+| mongodb (driver)                             | 7.8                                         | Driver officiel, pas d'ODM : les schémas zod suffisent                                                                     |
 | MongoDB                                      | **8.2** (8.2.12)                            | `mongo:8` (8.3.8) refuse de démarrer sur un noyau Linux ≥ 6.19 (SERVER-121912). 8.2 démarre sur le noyau 7.0 de la machine |
 | ESLint                                       | 9                                           | Même ligne que les boilerplates (typescript-eslint accepterait aussi la 10)                                                |
-| Vitest / Vite                                | 5.0 / 8                                     | Vitest 5 attend `vite` en dépendance pair, à installer explicitement                                                       |
+| Vitest / Vite                                | 5.1 / 8                                     | Vitest 5 attend `vite` en dépendance pair, à installer explicitement                                                       |
 
 ## Dépendances ajoutées, et pourquoi
 
 - `@hono/swagger-ui` : Swagger UI sur `/api/docs` (navigateur), comme l'API Platform. Sans Accept HTML, `/api/docs` sert le JSON OpenAPI.
 - `vite` (dev) : dépendance pair de Vitest 5.
-- `@sentry/node` 11.6 : suivi des erreurs dans GlitchTip, imposé par la section 16 de SPEC-COMMUNE. Poids mesuré à l'installation : 27 paquets ajoutés, environ 85 Mo sur disque, surtout les instrumentations OpenTelemetry dont dépend le SDK (`@sentry/core` 8,5 Mo, `@sentry/node` 2,8 Mo). Aucun effet de bundle (serveur), effet sur l'image de production non mesuré. Le SDK n'est initialisé que si `GLITCHTIP_DSN` est renseigné, avec les seules intégrations utiles (exceptions et rejets non gérés, erreurs liées, dédoublonnage) : pas d'instrumentation HTTP, pas de trace.
+- `@sentry/node` 11.10 : suivi des erreurs dans GlitchTip, imposé par la section 16 de SPEC-COMMUNE. Poids mesuré à l'installation de la 11.6 : 27 paquets ajoutés, environ 85 Mo sur disque, surtout les instrumentations OpenTelemetry dont dépend le SDK (`@sentry/core` 8,5 Mo, `@sentry/node` 2,8 Mo). Aucun effet de bundle (serveur), effet sur l'image de production non mesuré. Le SDK n'est initialisé que si `GLITCHTIP_DSN` est renseigné, avec les seules intégrations utiles (exceptions et rejets non gérés, erreurs liées, dédoublonnage) : pas d'instrumentation HTTP, pas de trace.
 - `globals`, `@eslint/js`, `typescript-eslint` (dev) : configuration ESLint plate.
 - `eslint-plugin-simple-import-sort` 14 (dev, un seul paquet sans dépendance, aucun effet sur l'image) : ordre des imports, le même que dans les fronts.
 
