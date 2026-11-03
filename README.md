@@ -2,13 +2,15 @@
 
 Seconde API de test des boilerplates front, en NoSQL. Elle sert exactement le même contrat que [boilerplate-api-platform](../boilerplate-api-platform) (API Platform, PostgreSQL, port 8090) : mêmes chemins, mêmes paramètres, mêmes formes JSON, mêmes codes et messages d'erreur, mêmes données. Un front passe de l'une à l'autre en changeant une seule variable d'URL.
 
-| Ressource        | Opération                    | Ce qu'elle renvoie                                                                          |
-| ---------------- | ---------------------------- | ------------------------------------------------------------------------------------------- |
-| `Task`           | `GET /api/tasks`             | Les 3 tâches de démonstration (`id`, `title`, `done`)                                       |
-| `Article`        | `GET /api/articles`          | 3 articles (`id`, `slug`, `title`, `excerpt`, `publishedAt`), du plus récent au plus ancien |
-| `ContactMessage` | `POST /api/contact_messages` | 201 et le message enregistré, ou 422 avec les violations en français                        |
-| `Category`       | `GET /api/categories`        | L'arbre des 14 catégories du catalogue                                                      |
-| `ProductList`    | `GET /api/products`          | Une page des 24 produits, filtrée et triée, avec le total et les compteurs de facettes      |
+| Ressource        | Opération                     | Ce qu'elle renvoie                                                                          |
+| ---------------- | ----------------------------- | ------------------------------------------------------------------------------------------- |
+| `Task`           | `GET /api/tasks`              | Les 3 tâches de démonstration (`id`, `title`, `done`)                                       |
+| `Article`        | `GET /api/articles`           | 3 articles (`id`, `slug`, `title`, `excerpt`, `publishedAt`), du plus récent au plus ancien |
+| `ContactMessage` | `POST /api/contact_messages`  | 201 et le message enregistré, ou 422 avec les violations en français                        |
+| `Category`       | `GET /api/categories`         | L'arbre des 14 catégories du catalogue                                                      |
+| `ProductList`    | `GET /api/products`           | Une page des 24 produits, filtrée et triée, avec le total et les compteurs de facettes      |
+| `Slide`          | `GET /api/slides`             | Les 5 diapositives du carrousel, dans l'ordre                                               |
+| `LegalPage`      | `GET /api/legal_pages/{slug}` | Une page légale découpée en sections HTML, ou 404                                           |
 
 Le détail du contrat (formats, paramètres du catalogue, règles du formulaire, `X-Scenario`, CORS) est celui du [README de l'API Platform](../boilerplate-api-platform/README.md#consommer-lapi-depuis-un-front) : il s'applique tel quel ici, à l'exception des écarts listés plus bas.
 
@@ -222,16 +224,17 @@ git fetch upstream
 
 ### Retirer les modules d'exemple
 
-Les quatre modules (`task`, `blog`, `contact`, `catalog`) sont des exemples. Pour en retirer un, noté `<module>` :
+Les cinq modules (`task`, `blog`, `contact`, `catalog`, `content`) sont des exemples. Pour en retirer un, noté `<module>` :
 
 1. **Dossier** : supprimer `src/<module>/`.
-2. **Routes et erreurs** (`src/app.ts`) : ses imports, son champ dans `AppDependencies`, son `.route('/', …Routes(…))`, son entrée dans `NOT_EXPOSED_ITEMS` (`/api/tasks/:id`, `/api/articles/:id`, `/api/contact_messages/:id`, `/api/categories/:slug`). Pour `catalog`, la ligne `CategoryNotFoundError` de `statusOf`. Pour `contact`, la branche `ContactMessageValidationError` de `onError`.
+2. **Routes et erreurs** (`src/app.ts`) : ses imports, son champ dans `AppDependencies`, son `.route('/', …Routes(…))`, son entrée dans `NOT_EXPOSED_ITEMS` (`/api/tasks/:id`, `/api/articles/:id`, `/api/contact_messages/:id`, `/api/categories/:slug`, `/api/slides/:id`). Pour `catalog`, la ligne `CategoryNotFoundError` de `statusOf`. Pour `contact`, la branche `ContactMessageValidationError` de `onError`.
 3. **Base et données de départ** (`src/database.ts`) : ses imports, ses collections dans `COLLECTIONS` (`counters` part avec `contact`), son dépôt dans `createRepositories`, ses `insertMany` dans `resetDatabase`. Puis `make db-reset` : la base est supprimée et recréée sans ses collections.
 4. **Export OpenAPI** (`src/scripts/exportOpenapi.ts`) : son entrée dans `offline`. Puis `make openapi`.
 5. **Règles d'architecture** : retirer le module de `MODULES` dans `eslint.architecture.mjs`. Dans `tools/archSelftest.ts`, chaque violation dont le fichier ou l'import vise le module retiré doit être déplacée vers un module gardé, sans en retirer aucune : les six règles doivent rester couvertes. Sont concernés `blog` (« module vers autre module »), `contact` (« domaine vers http par chemin relatif ») et `catalog` (quatre violations). Il faut garder au moins un module pour que l'auto-test ait où écrire.
 6. **Tests** :
    - `contact` : `tests/unit/contactMessage.test.ts`, `tests/integration/contact.test.ts`.
    - `catalog` : `tests/unit/catalog.test.ts`, `price.test.ts`, `productCriteria.test.ts`, `searchProducts.test.ts`, `tests/integration/products.test.ts`, et le bloc `GET /api/categories` de `tests/integration/resources.test.ts`.
+   - `content` : les blocs `GET /api/slides` et `GET /api/legal_pages/{slug}` de `tests/integration/resources.test.ts`.
    - `task` et `blog` n'ont pas de fichier propre, mais `resources.test.ts`, `scenarioAndCors.test.ts` et `typedClient.test.ts` passent par `/api/tasks` et `/api/articles` : leurs cas sont à supprimer ou à pointer vers une route gardée.
 7. **Contrat** : si `make contract` est conservé, retirer les cas du module dans `contract/cases.ts` et ses schémas de `COMPARED_SCHEMAS` dans `contract/openapi.ts`.
 

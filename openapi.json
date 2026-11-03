@@ -411,6 +411,76 @@
                     "name",
                     "count"
                 ]
+            },
+            "Slide": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "image": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "id",
+                    "slug",
+                    "title",
+                    "text",
+                    "image"
+                ],
+                "description": "Liste les diapositives dans l'ordre du carrousel, sans pagination."
+            },
+            "LegalPage": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "introduction": {
+                        "type": "string"
+                    },
+                    "sections": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LegalSection"
+                        }
+                    }
+                },
+                "required": [
+                    "slug",
+                    "title",
+                    "introduction",
+                    "sections"
+                ],
+                "description": "Lit une page légale par son slug (mentions-legales, donnees-personnelles, accessibilite)."
+            },
+            "LegalSection": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "html": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "title",
+                    "html"
+                ]
             }
         },
         "parameters": {}
@@ -730,6 +800,80 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ProductList"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/slides": {
+            "get": {
+                "operationId": "api_slides_get_collection",
+                "tags": [
+                    "Slide"
+                ],
+                "summary": "Retrieves the collection of Slide resources.",
+                "description": "Retrieves the collection of Slide resources.",
+                "responses": {
+                    "200": {
+                        "description": "Slide collection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Slide"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/legal_pages/{slug}": {
+            "get": {
+                "operationId": "api_legal_pages_slug_get",
+                "tags": [
+                    "LegalPage"
+                ],
+                "summary": "Retrieves a LegalPage resource.",
+                "description": "Retrieves a LegalPage resource.",
+                "parameters": [
+                    {
+                        "schema": {
+                            "type": "string",
+                            "description": "LegalPage identifier"
+                        },
+                        "required": true,
+                        "description": "LegalPage identifier",
+                        "name": "slug",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "LegalPage resource",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegalPage"
                                 }
                             }
                         }

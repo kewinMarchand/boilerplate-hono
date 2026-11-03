@@ -24,17 +24,19 @@ import { articleRoutes } from '#/blog/http/articleRoutes.ts'
 import { catalogRoutes } from '#/catalog/http/catalogRoutes.ts'
 import { contactMessageRoutes } from '#/contact/http/contactMessageRoutes.ts'
 import { ContactMessageValidationError } from '#/contact/http/ContactMessageValidationError.ts'
+import { contentRoutes } from '#/content/http/contentRoutes.ts'
 import { taskRoutes } from '#/task/http/taskRoutes.ts'
 
 import type { Article } from '#/blog/domain/Article.ts'
 import type { CatalogRepositories } from '#/catalog/application/searchProducts.ts'
 import type { Config } from '#/config.ts'
 import type { ContactMessage } from '#/contact/domain/ContactMessage.ts'
+import type { ContentRepositories } from '#/content/http/contentRoutes.ts'
 import type { ErrorReporter } from '#/shared/infrastructure/errorReporting.ts'
 import type { Task } from '#/task/domain/Task.ts'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
-export interface AppDependencies extends CatalogRepositories {
+export interface AppDependencies extends CatalogRepositories, ContentRepositories {
   readonly tasks: Task.Repository
   readonly articles: Article.Repository
   readonly contactMessages: ContactMessage.Repository
@@ -48,6 +50,7 @@ const NOT_EXPOSED_ITEMS = [
   '/api/articles/:id',
   '/api/categories/:slug',
   '/api/contact_messages/:id',
+  '/api/slides/:id',
 ]
 
 const statusOf = (error: unknown): ContentfulStatusCode => {
@@ -100,6 +103,7 @@ export const createApp = (
     .route('/', articleRoutes(dependencies.articles, options))
     .route('/', contactMessageRoutes(dependencies.contactMessages, options))
     .route('/', catalogRoutes(dependencies, options))
+    .route('/', contentRoutes(dependencies, options))
 
   for (const path of NOT_EXPOSED_ITEMS) {
     app.get(path, negotiateFormat(), () => {

@@ -19,6 +19,14 @@ import {
   MongoContactMessageRepository,
 } from '#/contact/infrastructure/mongoContactMessage.ts'
 import {
+  legalPageCollection,
+  legalPageFixtures,
+  MongoLegalPageRepository,
+  MongoSlideRepository,
+  slideCollection,
+  slideFixtures,
+} from '#/content/infrastructure/mongoContent.ts'
+import {
   MongoTaskRepository,
   taskCollection,
   taskFixtures,
@@ -34,6 +42,8 @@ const COLLECTIONS = [
   counterCollection,
   categoryCollection,
   productCollection,
+  slideCollection,
+  legalPageCollection,
 ] as const
 
 export const ensureSchema = (db: Db): Promise<void> => ensureCollections(db, COLLECTIONS)
@@ -47,6 +57,8 @@ export const createRepositories = (db: Db): AppDependencies => ({
   ),
   categories: new MongoCategoryRepository(typedCollection(db, categoryCollection)),
   products: new MongoProductRepository(typedCollection(db, productCollection)),
+  slides: new MongoSlideRepository(typedCollection(db, slideCollection)),
+  legalPages: new MongoLegalPageRepository(typedCollection(db, legalPageCollection)),
 })
 
 /** Recrée la base : collections validées, index, puis les mêmes données que les fixtures Doctrine. */
@@ -56,6 +68,8 @@ export const resetDatabase = async (db: Db): Promise<void> => {
 
   await typedCollection(db, taskCollection).insertMany(taskFixtures)
   await typedCollection(db, articleCollection).insertMany(articleFixtures)
+  await typedCollection(db, slideCollection).insertMany(slideFixtures)
+  await typedCollection(db, legalPageCollection).insertMany(legalPageFixtures)
   await typedCollection(db, categoryCollection).insertMany(
     categoryFixtures.map(({ slug, ...category }) => ({ _id: slug, ...category })),
   )

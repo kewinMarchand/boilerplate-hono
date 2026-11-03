@@ -32,6 +32,8 @@ const failingDatabase: AppDependencies = {
   contactMessages: { save: unavailable },
   categories: { findAll: () => Promise.resolve(categoryFixtures) },
   products: { search: unavailable },
+  slides: { findInOrder: unavailable },
+  legalPages: { findBySlug: unavailable },
 }
 
 const appWith = (dsn: string | undefined) =>

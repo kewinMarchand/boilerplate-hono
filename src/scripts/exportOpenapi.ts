@@ -15,6 +15,8 @@ const offline: AppDependencies = {
   contactMessages: { save: unavailable },
   categories: { findAll: unavailable },
   products: { search: unavailable },
+  slides: { findInOrder: unavailable },
+  legalPages: { findBySlug: unavailable },
 }
 
 const output = process.argv[2] ?? 'openapi.json'

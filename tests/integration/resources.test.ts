@@ -62,6 +62,56 @@ describe('GET /api/articles', () => {
   })
 })
 
+describe('GET /api/slides', () => {
+  it("liste les diapositives dans l'ordre du carrousel", async () => {
+    const { response, body } = await getJson(context, '/api/slides')
+
+    expect(response.status).toBe(200)
+    expect(body).toEqual([
+      {
+        id: 1,
+        slug: 'heliconia',
+        title: 'Heliconia',
+        text: 'Des bractées rouges et jaunes en pinces de homard, qui tiennent des semaines au jardin.',
+        image: 1,
+      },
+      expect.objectContaining({ slug: 'anthurium', image: 2 }),
+      expect.objectContaining({ slug: 'calliandra', image: 3 }),
+      expect.objectContaining({ slug: 'strelitzia', image: 4 }),
+      expect.objectContaining({ slug: 'nenuphar', image: 5 }),
+    ])
+  })
+})
+
+describe('GET /api/legal_pages/{slug}', () => {
+  it('renvoie la page découpée en sections HTML', async () => {
+    const { response, body } = await getJson(context, '/api/legal_pages/donnees-personnelles')
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({
+      slug: 'donnees-personnelles',
+      title: 'Données personnelles',
+      introduction: '',
+    })
+    expect(body).toHaveProperty(
+      'sections',
+      expect.arrayContaining([
+        {
+          title: 'Durée de conservation',
+          html: '<p>Les messages sont conservés trois ans à compter du dernier échange, puis supprimés.</p>',
+        },
+      ]),
+    )
+  })
+
+  it('répond 404 sur une page inconnue', async () => {
+    const { response, body } = await getJson(context, '/api/legal_pages/cgv')
+
+    expect(response.status).toBe(404)
+    expect(body).toMatchObject({ detail: 'Not Found' })
+  })
+})
+
 describe('GET /api/categories', () => {
   it("renvoie l'arbre complet, parent null à la racine", async () => {
     const { body } = await getJson(context, '/api/categories')

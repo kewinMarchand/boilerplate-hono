@@ -4,7 +4,7 @@
  * fiables, et un import relatif qui remonte d'un dossier (`../`) est interdit partout.
  * `make arch-selftest` vérifie qu'une violation volontaire de chaque règle fait échouer le lint.
  */
-const MODULES = ['task', 'blog', 'contact', 'catalog']
+const MODULES = ['task', 'blog', 'contact', 'catalog', 'content']
 
 const NO_PARENT_RELATIVE = {
   regex: '^\\.\\./',

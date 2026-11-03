@@ -8,6 +8,9 @@ const COMPARED_SCHEMAS = [
   'ProductFacets',
   'FacetValue',
   'CategoryFacetValue',
+  'Slide',
+  'LegalPage',
+  'LegalSection',
   'ConstraintViolation',
   'Error',
 ]
