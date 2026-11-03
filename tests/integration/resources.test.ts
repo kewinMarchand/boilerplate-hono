@@ -98,7 +98,7 @@ describe('GET /api/legal_pages/{slug}', () => {
       expect.arrayContaining([
         {
           title: 'Durée de conservation',
-          html: '<p>Les messages sont conservés trois ans à compter du dernier échange, puis supprimés.</p>',
+          html: '<p>Les messages sont conservés trois ans au plus à compter du dernier échange, puis supprimés.</p>',
         },
       ]),
     )

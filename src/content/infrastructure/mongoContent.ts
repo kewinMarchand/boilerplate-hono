@@ -96,7 +96,7 @@ export const legalPageFixtures: LegalPageDocument[] = [
       { title: 'Hébergeur', html: '<p>Hébergeur Exemple, 2 avenue de l’Exemple, 75000 Paris.</p>' },
       {
         title: 'Propriété intellectuelle',
-        html: "<p>L'ensemble des contenus de ce site (textes, images, code) est la propriété de Exemple SAS (société fictive), sauf mention contraire. Toute reproduction sans autorisation écrite préalable est interdite.</p>",
+        html: "<p>L'ensemble des contenus de ce site (textes, images, code) est la propriété de Exemple SAS (société fictive), sauf mention contraire. Toute reproduction ou représentation, totale ou partielle, sans autorisation écrite préalable est interdite.</p>",
       },
     ],
   },
@@ -107,23 +107,31 @@ export const legalPageFixtures: LegalPageDocument[] = [
     sections: [
       {
         title: 'Responsable de traitement',
-        html: '<p>Exemple SAS (société fictive), 1 rue de l’Exemple, 13000 Marseille.</p>',
+        html: '<p>Exemple SAS (société fictive), 1 rue de l’Exemple, 13000 Marseille, représentée par Camille Exemple. Contact : <a href="mailto:contact@example.com">contact@example.com</a>.</p>',
       },
       {
-        title: 'Finalité et base légale',
-        html: "<p>Le formulaire de contact collecte votre nom, votre adresse e-mail et votre message, dans le seul but de vous répondre. Ce traitement repose sur votre consentement, exprimé par l'envoi du formulaire.</p>",
+        title: 'Finalité',
+        html: '<p>Le formulaire de contact collecte votre nom, votre adresse e-mail et votre message, dans le seul but de vous répondre. Ces données ne sont ni cédées ni utilisées à des fins commerciales.</p>',
+      },
+      {
+        title: 'Base légale',
+        html: "<p>Le traitement repose sur l'intérêt légitime de l'éditeur à répondre aux demandes qui lui sont adressées (article 6.1.f du RGPD).</p>",
       },
       {
         title: 'Durée de conservation',
-        html: '<p>Les messages sont conservés trois ans à compter du dernier échange, puis supprimés.</p>',
+        html: '<p>Les messages sont conservés trois ans au plus à compter du dernier échange, puis supprimés.</p>',
       },
       {
         title: 'Vos droits',
-        html: '<p>Vous disposez sur vos données des droits suivants :</p>\n<ul>\n<li>accès ;</li>\n<li>rectification ;</li>\n<li>effacement ;</li>\n<li>opposition.</li>\n</ul>\n<p>Pour les exercer, écrivez à <a href="mailto:contact@example.com">contact@example.com</a>. Si la réponse ne vous satisfait pas, vous pouvez adresser une réclamation à la <a href="https://www.cnil.fr/fr/plaintes">Commission nationale de l\'informatique et des libertés (CNIL)</a>.</p>',
+        html: '<p>Vous disposez sur vos données des droits suivants :</p>\n<ul>\n<li>accès ;</li>\n<li>rectification ;</li>\n<li>effacement ;</li>\n<li>opposition ;</li>\n<li>limitation du traitement.</li>\n</ul>\n<p>Pour les exercer, écrivez à <a href="mailto:contact@example.com">contact@example.com</a>. Nous répondons dans un délai d\'un mois.</p>',
+      },
+      {
+        title: 'Réclamation',
+        html: '<p>Si vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la <a href="https://www.cnil.fr/fr/plaintes">Commission nationale de l\'informatique et des libertés (CNIL)</a>.</p>',
       },
       {
         title: 'Cookies et stockage local',
-        html: "<p>Ce site ne dépose aucun cookie de mesure d'audience. Seule votre préférence pour le mode accessibilité renforcée est enregistrée dans votre navigateur, sans jamais nous être transmise.</p>",
+        html: "<p>Ce site ne dépose aucun cookie de mesure d'audience ni de publicité. Vos préférences d'affichage (mode accessibilité renforcée, thème clair ou sombre) sont enregistrées dans votre navigateur, sans jamais nous être transmises, jusqu'à ce que vous les changiez. Un cookie technique de session, exempté de consentement, peut être posé après l'envoi du formulaire de contact sans JavaScript, pour afficher la confirmation.</p>",
       },
     ],
   },
@@ -139,7 +147,7 @@ export const legalPageFixtures: LegalPageDocument[] = [
       },
       {
         title: 'Résultats des tests',
-        html: "<p>Tests automatisés axe-core uniquement (règles WCAG 2.1 A et AA), sur chaque page, sur ordinateur et mobile, dans les deux modes d'affichage. Ils ne couvrent qu'une partie des critères du RGAA et ne valent pas audit.</p>",
+        html: "<p>Seuls des tests automatisés ont été réalisés, avec axe-core (règles WCAG 2.1 niveaux A et AA), sur toutes les pages, en affichage ordinateur et mobile, en mode standard et en mode accessibilité renforcée. Ces tests ne valent pas audit : ils ne couvrent qu'une partie des critères du RGAA.</p>",
       },
       { title: 'Contenus non accessibles', html: '<p>À compléter après audit.</p>' },
       {
@@ -147,16 +155,20 @@ export const legalPageFixtures: LegalPageDocument[] = [
         html: "<p>Le bouton « Accessibilité renforcée » de l'en-tête agrandit le texte, augmente les espacements et le contraste, souligne les liens, épaissit l'indicateur de focus et coupe les animations. Le choix est mémorisé dans votre navigateur.</p>",
       },
       {
+        title: 'Établissement de cette déclaration',
+        html: '<p>Date : à compléter après audit.</p>\n<p>Technologies utilisées : HTML, CSS, JavaScript.</p>',
+      },
+      {
         title: 'Environnement de test',
-        html: '<ul>\n<li>Chromium (Playwright), affichage ordinateur et mobile ;</li>\n<li>axe-core, via @axe-core/playwright ;</li>\n<li>Lighthouse CI.</li>\n</ul>',
+        html: '<ul>\n<li>Chromium piloté par Playwright, affichage ordinateur (1280 × 720) ;</li>\n<li>Chromium piloté par Playwright, émulation mobile (Pixel 7) ;</li>\n<li>outils : axe-core (via @axe-core/playwright) et Lighthouse CI.</li>\n</ul>\n<p>Pages testées :</p>\n<ul>\n<li><a href="/">Accueil</a> ;</li>\n<li><a href="/taches">Tâches</a> ;</li>\n<li><a href="/contact">Contact</a> ;</li>\n<li><a href="/catalogue">Catalogue</a> ;</li>\n<li><a href="/mentions-legales">Mentions légales</a> ;</li>\n<li><a href="/donnees-personnelles">Données personnelles</a> ;</li>\n<li><a href="/accessibilite">Déclaration d\'accessibilité</a> ;</li>\n<li><a href="/plan-du-site">Plan du site</a>.</li>\n</ul>',
       },
       {
         title: "Retour d'information et contact",
-        html: '<p>Si vous ne parvenez pas à accéder à un contenu ou à un service, écrivez à <a href="mailto:contact@example.com">contact@example.com</a> pour être orienté vers une alternative accessible ou obtenir le contenu sous une autre forme.</p>',
+        html: '<p>Si vous ne parvenez pas à accéder à un contenu ou à un service, écrivez à <a href="mailto:contact@example.com">contact@example.com</a> ou passez par le <a href="/contact">formulaire de contact</a> pour être orienté vers une alternative accessible ou obtenir le contenu sous une autre forme.</p>',
       },
       {
         title: 'Voies de recours',
-        html: '<p>Si vous avez signalé un défaut d\'accessibilité sans obtenir de réponse satisfaisante, vous pouvez saisir le <a href="https://formulaire.defenseurdesdroits.fr/">Défenseur des droits</a> par le formulaire en ligne, contacter un délégué dans votre région ou écrire, sans affranchissement, à : Défenseur des droits, Libre réponse 71120, 75342 Paris CEDEX 07.</p>',
+        html: '<p>Si vous avez signalé un défaut d\'accessibilité qui vous empêche d\'accéder à un contenu ou à un service sans obtenir de réponse satisfaisante, vous pouvez :</p>\n<ul>\n<li>écrire un message au <a href="https://formulaire.defenseurdesdroits.fr/">Défenseur des droits</a> ;</li>\n<li>contacter le délégué du Défenseur des droits dans votre région ;</li>\n<li>envoyer un courrier par la poste, sans affranchissement : Défenseur des droits, Libre réponse 71120, 75342 Paris CEDEX 07.</li>\n</ul>',
       },
     ],
   },
