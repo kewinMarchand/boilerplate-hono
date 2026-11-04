@@ -30,6 +30,13 @@ const offline: AppDependencies = {
     remove: unavailable,
     moveCategory: unavailable,
   },
+  articleWriter: {
+    findById: unavailable,
+    findBySlug: unavailable,
+    create: unavailable,
+    update: unavailable,
+    remove: unavailable,
+  },
 }
 
 const output = process.argv[2] ?? 'openapi.json'

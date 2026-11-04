@@ -47,6 +47,13 @@ const failingDatabase: AppDependencies = {
     remove: unavailable,
     moveCategory: unavailable,
   },
+  articleWriter: {
+    findById: unavailable,
+    findBySlug: unavailable,
+    create: unavailable,
+    update: unavailable,
+    remove: unavailable,
+  },
 }
 
 const appWith = (dsn: string | undefined) =>

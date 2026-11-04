@@ -45,6 +45,7 @@ const MENU = [
   ['/admin', 'Tableau de bord'],
   ['/admin/categories', 'Catégories'],
   ['/admin/produits', 'Produits'],
+  ['/admin/articles', 'Articles'],
 ] as const
 
 const header = (current: string) =>

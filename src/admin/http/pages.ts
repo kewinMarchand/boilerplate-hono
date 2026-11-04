@@ -39,5 +39,6 @@ export const dashboardPage = (email: string) =>
       <ul>
         <li><a href="/admin/categories">Catégories du catalogue</a></li>
         <li><a href="/admin/produits">Produits du catalogue</a></li>
+        <li><a href="/admin/articles">Articles du blog</a></li>
       </ul>`,
   )

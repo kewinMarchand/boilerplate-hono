@@ -60,10 +60,14 @@ export const createRepositories = (db: Db): AppDependencies => {
     typedCollection(db, productCollection),
     typedCollection(db, counterCollection),
   )
+  const articles = new MongoArticleRepository(
+    typedCollection(db, articleCollection),
+    typedCollection(db, counterCollection),
+  )
 
   return {
     tasks: new MongoTaskRepository(typedCollection(db, taskCollection)),
-    articles: new MongoArticleRepository(typedCollection(db, articleCollection)),
+    articles,
     contactMessages: new MongoContactMessageRepository(
       typedCollection(db, contactMessageCollection),
       typedCollection(db, counterCollection),
@@ -72,6 +76,7 @@ export const createRepositories = (db: Db): AppDependencies => {
     products,
     categoryWriter: categories,
     productWriter: products,
+    articleWriter: articles,
     slides: new MongoSlideRepository(typedCollection(db, slideCollection)),
     legalPages: new MongoLegalPageRepository(typedCollection(db, legalPageCollection)),
     adminUsers: new MongoAdminUserRepository(typedCollection(db, adminUserCollection)),
