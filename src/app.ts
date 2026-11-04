@@ -27,6 +27,7 @@ import { adminCatalogRoutes } from '#/catalog/http/adminCatalogRoutes.ts'
 import { catalogRoutes } from '#/catalog/http/catalogRoutes.ts'
 import { contactMessageRoutes } from '#/contact/http/contactMessageRoutes.ts'
 import { ContactMessageValidationError } from '#/contact/http/ContactMessageValidationError.ts'
+import { adminContentRoutes } from '#/content/http/adminContent.ts'
 import { contentRoutes } from '#/content/http/contentRoutes.ts'
 import { taskRoutes } from '#/task/http/taskRoutes.ts'
 
@@ -36,6 +37,7 @@ import type { CatalogAdminDependencies } from '#/catalog/application/adminCatalo
 import type { CatalogRepositories } from '#/catalog/application/searchProducts.ts'
 import type { Config } from '#/config.ts'
 import type { ContactMessage } from '#/contact/domain/ContactMessage.ts'
+import type { ContentAdminDependencies } from '#/content/application/adminContent.ts'
 import type { ContentRepositories } from '#/content/http/contentRoutes.ts'
 import type { ErrorReporter } from '#/shared/infrastructure/errorReporting.ts'
 import type { Task } from '#/task/domain/Task.ts'
@@ -47,7 +49,8 @@ export interface AppDependencies
     ContentRepositories,
     AdminDependencies,
     CatalogAdminDependencies,
-    BlogAdminDependencies {
+    BlogAdminDependencies,
+    ContentAdminDependencies {
   readonly tasks: Task.Repository
   readonly contactMessages: ContactMessage.Repository
 }
@@ -138,7 +141,11 @@ export const createApp = (
     '/',
     adminRoutes(dependencies, {
       sessionSecret: config.ADMIN_SESSION_SECRET,
-      sections: [adminCatalogRoutes(dependencies), adminBlogRoutes(dependencies)],
+      sections: [
+        adminCatalogRoutes(dependencies),
+        adminBlogRoutes(dependencies),
+        adminContentRoutes(dependencies),
+      ],
     }),
   )
 

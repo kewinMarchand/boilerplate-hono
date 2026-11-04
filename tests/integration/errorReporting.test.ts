@@ -54,6 +54,16 @@ const failingDatabase: AppDependencies = {
     update: unavailable,
     remove: unavailable,
   },
+  slideWriter: {
+    findAll: unavailable,
+    findById: unavailable,
+    findBySlug: unavailable,
+    create: unavailable,
+    update: unavailable,
+    remove: unavailable,
+  },
+  legalPageWriter: { findAll: unavailable, findEditable: unavailable, update: unavailable },
+  legalPageRenderer: { split: () => ({ introduction: '', sections: [] }) },
 }
 
 const appWith = (dsn: string | undefined) =>

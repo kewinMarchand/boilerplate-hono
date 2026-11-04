@@ -23,6 +23,7 @@ import {
   contactMessageCollection,
   MongoContactMessageRepository,
 } from '#/contact/infrastructure/mongoContactMessage.ts'
+import { markdownLegalPage } from '#/content/infrastructure/markdownLegalPage.ts'
 import {
   legalPageCollection,
   legalPageFixtures,
@@ -60,6 +61,11 @@ export const createRepositories = (db: Db): AppDependencies => {
     typedCollection(db, productCollection),
     typedCollection(db, counterCollection),
   )
+  const slides = new MongoSlideRepository(
+    typedCollection(db, slideCollection),
+    typedCollection(db, counterCollection),
+  )
+  const legalPages = new MongoLegalPageRepository(typedCollection(db, legalPageCollection))
   const articles = new MongoArticleRepository(
     typedCollection(db, articleCollection),
     typedCollection(db, counterCollection),
@@ -77,8 +83,11 @@ export const createRepositories = (db: Db): AppDependencies => {
     categoryWriter: categories,
     productWriter: products,
     articleWriter: articles,
-    slides: new MongoSlideRepository(typedCollection(db, slideCollection)),
-    legalPages: new MongoLegalPageRepository(typedCollection(db, legalPageCollection)),
+    slides,
+    legalPages,
+    slideWriter: slides,
+    legalPageWriter: legalPages,
+    legalPageRenderer: markdownLegalPage,
     adminUsers: new MongoAdminUserRepository(typedCollection(db, adminUserCollection)),
     passwordHasher: new ScryptPasswordHasher(),
   }
