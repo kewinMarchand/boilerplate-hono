@@ -4,9 +4,6 @@ import { CategoryTree } from './categoryTree.ts'
 export const MAX_DEPTH = 3
 export const IMAGE_COUNT = 12
 
-/** Motif des slugs saisis dans l'admin : minuscules, chiffres et tirets, comme CategoryType::SLUG_PATTERN. */
-export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-
 /** Règle du catalogue refusée : le message est montré tel quel dans l'admin. */
 export class CatalogRuleViolation extends Error {
   constructor(message: string) {

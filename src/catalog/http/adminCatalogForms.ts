@@ -1,48 +1,17 @@
+import { field, integer, requiredText, slugField } from '#/shared/http/adminForms.ts'
+
 import { isExposure, isSize } from '#/catalog/domain/catalog.ts'
-import { IMAGE_COUNT, SLUG_PATTERN } from '#/catalog/domain/catalogRules.ts'
+import { IMAGE_COUNT } from '#/catalog/domain/catalogRules.ts'
 import { Price } from '#/catalog/domain/price.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
+import type { Errors, FormResult } from '#/shared/http/adminForms.ts'
 
 /**
- * Lecture des formulaires de l'admin du catalogue : la forme (champs obligatoires, longueurs,
- * slug, nombres) est vérifiée ici, à la frontière, avec les messages de Symfony des formulaires de
- * l'API Platform ; les règles du catalogue sont vérifiées ensuite par les cas d'usage.
+ * Lecture des formulaires de l'admin du catalogue : la forme est vérifiée ici, à la frontière
+ * (outils communs de shared/http/adminForms.ts) ; les règles du catalogue le sont ensuite par les
+ * cas d'usage.
  */
-export type Values = Record<string, string>
-export type Errors = Record<string, string>
-
-export interface FormResult<T> {
-  readonly values: Values
-  readonly errors: Errors
-  readonly data: T | null
-}
-
-const MAX_LENGTH = 255
-
-const field = (body: Record<string, unknown>, name: string): string => {
-  const value = body[name]
-  return typeof value === 'string' ? value.trim() : ''
-}
-
-const requiredText = (errors: Errors, name: string, value: string): void => {
-  if (value === '') {
-    errors[name] = 'Cette valeur ne doit pas être vide.'
-  } else if (Array.from(value).length > MAX_LENGTH) {
-    errors[name] =
-      `Cette chaîne est trop longue. Elle doit avoir au maximum ${MAX_LENGTH} caractères.`
-  }
-}
-
-const slugField = (errors: Errors, value: string): void => {
-  requiredText(errors, 'slug', value)
-  if (errors.slug === undefined && !SLUG_PATTERN.test(value)) {
-    errors.slug = 'Minuscules, chiffres et tirets seulement.'
-  }
-}
-
-const integer = (value: string): number | null => (/^-?\d+$/.test(value) ? Number(value) : null)
-
 /** Euros saisis (« 34,90 », « 34.9 », « 35 ») en centimes, null si ce n'est pas un montant. */
 export const euroCents = (value: string): number | null => {
   const match = /^(-?\d+)(?:[.,](\d{1,2}))?$/.exec(value.replace(/\s/g, ''))

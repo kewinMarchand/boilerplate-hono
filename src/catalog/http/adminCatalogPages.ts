@@ -1,5 +1,6 @@
 import { html } from 'hono/html'
 
+import { selectField, textField } from '#/shared/http/adminForms.ts'
 import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
 
 import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
@@ -8,46 +9,8 @@ import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
 
 import { centsToEuros } from './adminCatalogForms.ts'
 
-import type { Errors, Values } from './adminCatalogForms.ts'
 import type { Catalog } from '#/catalog/domain/catalog.ts'
-
-/** Champ avec son libellé et son erreur, reliée au champ pour les lecteurs d'écran. */
-const fieldError = (errors: Errors, name: string) =>
-  errors[name] === undefined
-    ? ''
-    : html`<p class="erreur-champ" id="erreur-${name}">${errors[name]}</p>`
-
-const described = (errors: Errors, name: string) =>
-  errors[name] === undefined ? '' : html`aria-invalid="true" aria-describedby="erreur-${name}"`
-
-const textField = (label: string, name: string, values: Values, errors: Errors, type = 'text') =>
-  html`<label for="${name}">${label}</label>
-    <input
-      id="${name}"
-      name="${name}"
-      type="${type}"
-      value="${values[name] ?? ''}"
-      ${described(errors, name)}
-    />
-    ${fieldError(errors, name)}`
-
-const selectField = (
-  label: string,
-  name: string,
-  options: readonly (readonly [string, string])[],
-  values: Values,
-  errors: Errors,
-) =>
-  html`<label for="${name}">${label}</label>
-    <select id="${name}" name="${name}" ${described(errors, name)}>
-      ${options.map(
-        ([value, text]) =>
-          html`<option value="${value}" ${values[name] === value ? 'selected' : ''}>
-            ${text}
-          </option>`,
-      )}
-    </select>
-    ${fieldError(errors, name)}`
+import type { Errors, Values } from '#/shared/http/adminForms.ts'
 
 /** Nom précédé d'un tiret par niveau : l'arbre se lit dans une liste ou un menu déroulant. */
 const indented = (tree: CategoryTree, category: Catalog.Category): string =>
