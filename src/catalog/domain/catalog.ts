@@ -130,4 +130,38 @@ export declare namespace Catalog {
   interface ProductRepository {
     search(query: SearchQuery): Promise<SearchResult>
   }
+
+  /** Saisie d'un produit dans l'admin, prix déjà vérifié. */
+  interface ProductInput {
+    readonly slug: string
+    readonly name: string
+    readonly categorySlug: string
+    readonly price: Price
+    readonly exposure: Exposure
+    readonly size: Size
+    readonly inStock: boolean
+    readonly image: number
+  }
+
+  /** Écritures de l'admin sur les catégories. */
+  interface CategoryWriter {
+    create(category: Category): Promise<void>
+    /** Remplace la catégorie `previousSlug` ; ses sous-catégories suivent un changement de slug. */
+    update(previousSlug: string, category: Category): Promise<void>
+    remove(slug: string): Promise<void>
+  }
+
+  /** Lectures et écritures de l'admin sur les produits. */
+  interface ProductWriter {
+    findById(id: number): Promise<Product | null>
+    findBySlug(slug: string): Promise<Product | null>
+    /** Tous les produits, par catégorie puis par nom : liste de l'admin. */
+    findAll(): Promise<Product[]>
+    countInCategory(slug: string): Promise<number>
+    create(input: ProductInput, categoryPath: readonly string[]): Promise<Product>
+    update(id: number, input: ProductInput, categoryPath: readonly string[]): Promise<void>
+    remove(id: number): Promise<void>
+    /** Produits rangés dans `previousSlug` : leur catégorie devient `slug`, avec son chemin. */
+    moveCategory(previousSlug: string, slug: string, categoryPath: readonly string[]): Promise<void>
+  }
 }

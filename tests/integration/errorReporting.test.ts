@@ -36,6 +36,17 @@ const failingDatabase: AppDependencies = {
   legalPages: { findBySlug: unavailable },
   adminUsers: { findByEmail: unavailable, save: unavailable },
   passwordHasher: { hash: unavailable, verify: unavailable },
+  categoryWriter: { create: unavailable, update: unavailable, remove: unavailable },
+  productWriter: {
+    findById: unavailable,
+    findBySlug: unavailable,
+    findAll: unavailable,
+    countInCategory: unavailable,
+    create: unavailable,
+    update: unavailable,
+    remove: unavailable,
+    moveCategory: unavailable,
+  },
 }
 
 const appWith = (dsn: string | undefined) =>

@@ -1,0 +1,271 @@
+import { html } from 'hono/html'
+
+import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
+
+import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
+import { IMAGE_COUNT, MAX_DEPTH } from '#/catalog/domain/catalogRules.ts'
+import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
+
+import { centsToEuros } from './adminCatalogForms.ts'
+
+import type { Errors, Values } from './adminCatalogForms.ts'
+import type { Catalog } from '#/catalog/domain/catalog.ts'
+
+/** Champ avec son libellé et son erreur, reliée au champ pour les lecteurs d'écran. */
+const fieldError = (errors: Errors, name: string) =>
+  errors[name] === undefined
+    ? ''
+    : html`<p class="erreur-champ" id="erreur-${name}">${errors[name]}</p>`
+
+const described = (errors: Errors, name: string) =>
+  errors[name] === undefined ? '' : html`aria-invalid="true" aria-describedby="erreur-${name}"`
+
+const textField = (label: string, name: string, values: Values, errors: Errors, type = 'text') =>
+  html`<label for="${name}">${label}</label>
+    <input
+      id="${name}"
+      name="${name}"
+      type="${type}"
+      value="${values[name] ?? ''}"
+      ${described(errors, name)}
+    />
+    ${fieldError(errors, name)}`
+
+const selectField = (
+  label: string,
+  name: string,
+  options: readonly (readonly [string, string])[],
+  values: Values,
+  errors: Errors,
+) =>
+  html`<label for="${name}">${label}</label>
+    <select id="${name}" name="${name}" ${described(errors, name)}>
+      ${options.map(
+        ([value, text]) =>
+          html`<option value="${value}" ${values[name] === value ? 'selected' : ''}>
+            ${text}
+          </option>`,
+      )}
+    </select>
+    ${fieldError(errors, name)}`
+
+/** Nom précédé d'un tiret par niveau : l'arbre se lit dans une liste ou un menu déroulant. */
+const indented = (tree: CategoryTree, category: Catalog.Category): string =>
+  `${'— '.repeat(CategoryTree.pathTo(tree, category.slug).length - 1)}${category.name}`
+
+/** Catégories dans l'ordre de l'arbre : chaque parent suivi de ses sous-catégories. */
+const inTreeOrder = (
+  tree: CategoryTree,
+  parent: Catalog.Category | null = null,
+): Catalog.Category[] =>
+  CategoryTree.childrenOf(tree, parent).flatMap((category) => [
+    category,
+    ...inTreeOrder(tree, category),
+  ])
+
+export const categoriesPage = (tree: CategoryTree, message?: string, error?: string) =>
+  adminPage(
+    'Catégories',
+    '/admin/categories',
+    html`<h1>Catégories</h1>
+      ${flash(message)} ${formError(error)}
+      <p><a href="/admin/categories/nouvelle">Nouvelle catégorie</a></p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Nom</th>
+            <th scope="col">Slug</th>
+            <th scope="col">Position</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${inTreeOrder(tree).map(
+            (category) =>
+              html`<tr>
+                <td>${indented(tree, category)}</td>
+                <td><code>${category.slug}</code></td>
+                <td>${category.position}</td>
+                <td>
+                  <a href="/admin/categories/${category.slug}/modifier"
+                    >Modifier<span class="sr"> ${category.name}</span></a
+                  >
+                  ·
+                  <a href="/admin/categories/${category.slug}/supprimer"
+                    >Supprimer<span class="sr"> ${category.name}</span></a
+                  >
+                </td>
+              </tr>`,
+          )}
+        </tbody>
+      </table>`,
+  )
+
+export const categoryFormPage = (
+  title: string,
+  action: string,
+  tree: CategoryTree,
+  values: Values,
+  errors: Errors = {},
+  error?: string,
+) => {
+  // Parents possibles : les catégories des niveaux au-dessus du dernier (une catégorie y serait au plus au niveau 3)
+  const parents = inTreeOrder(tree)
+    .filter((category) => CategoryTree.pathTo(tree, category.slug).length < MAX_DEPTH)
+    .map((category) => [category.slug, indented(tree, category)] as const)
+
+  return adminPage(
+    title,
+    '/admin/categories',
+    html`<h1>${title}</h1>
+      ${formError(error)}
+      <form method="post" action="${action}" novalidate>
+        ${textField('Nom', 'name', values, errors)} ${textField('Slug', 'slug', values, errors)}
+        ${textField('Position', 'position', values, errors, 'number')}
+        ${selectField('Parent', 'parent', [['', 'Aucun (catégorie racine)'], ...parents], values, errors)}
+        <button type="submit">Enregistrer</button>
+      </form>
+      <p><a href="/admin/categories">Retour aux catégories</a></p>`,
+  )
+}
+
+export const confirmDeletePage = (
+  title: string,
+  current: string,
+  question: string,
+  action: string,
+  back: string,
+) =>
+  adminPage(
+    title,
+    current,
+    html`<h1>${title}</h1>
+      <p>${question}</p>
+      <form method="post" action="${action}">
+        <button type="submit" class="danger">Supprimer</button>
+      </form>
+      <p><a href="${back}">Annuler</a></p>`,
+  )
+
+export const productsPage = (
+  products: readonly Catalog.Product[],
+  tree: CategoryTree,
+  message?: string,
+  error?: string,
+) => {
+  const names = new Map(tree.categories.map((category) => [category.slug, category.name]))
+
+  return adminPage(
+    'Produits',
+    '/admin/produits',
+    html`<h1>Produits</h1>
+      ${flash(message)} ${formError(error)}
+      <p><a href="/admin/produits/nouveau">Nouveau produit</a></p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Nom</th>
+            <th scope="col">Catégorie</th>
+            <th scope="col">Prix</th>
+            <th scope="col">Stock</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${products.map(
+            (product) =>
+              html`<tr>
+                <td>${product.name}</td>
+                <td>${names.get(product.categorySlug) ?? product.categorySlug}</td>
+                <td>${centsToEuros(product.price)} €</td>
+                <td>${product.inStock ? 'En stock' : 'Épuisé'}</td>
+                <td>
+                  <a href="/admin/produits/${product.id}/modifier"
+                    >Modifier<span class="sr"> ${product.name}</span></a
+                  >
+                  ·
+                  <a href="/admin/produits/${product.id}/supprimer"
+                    >Supprimer<span class="sr"> ${product.name}</span></a
+                  >
+                </td>
+              </tr>`,
+          )}
+        </tbody>
+      </table>`,
+  )
+}
+
+export const productFormPage = (
+  title: string,
+  action: string,
+  tree: CategoryTree,
+  values: Values,
+  errors: Errors = {},
+  error?: string,
+) =>
+  adminPage(
+    title,
+    '/admin/produits',
+    html`<h1>${title}</h1>
+      ${formError(error)}
+      <form method="post" action="${action}" novalidate>
+        ${textField('Nom', 'name', values, errors)} ${textField('Slug', 'slug', values, errors)}
+        ${selectField(
+          'Catégorie',
+          'categorySlug',
+          [
+            ['', 'Choisir une catégorie'],
+            ...inTreeOrder(tree).map(
+              (category) => [category.slug, indented(tree, category)] as const,
+            ),
+          ],
+          values,
+          errors,
+        )}
+        ${textField('Prix (€)', 'price', values, errors)}
+        ${selectField(
+          'Exposition',
+          'exposure',
+          EXPOSURES.map((value) => [value, value] as const),
+          values,
+          errors,
+        )}
+        ${selectField(
+          'Taille',
+          'size',
+          SIZES.map((value) => [value, value] as const),
+          values,
+          errors,
+        )}
+        <label for="inStock">
+          <input
+            id="inStock"
+            name="inStock"
+            type="checkbox"
+            ${values.inStock === 'on' ? 'checked' : ''}
+          />En stock
+        </label>
+        ${textField(`Visuel (1 à ${IMAGE_COUNT})`, 'image', values, errors, 'number')}
+        <button type="submit">Enregistrer</button>
+      </form>
+      <p><a href="/admin/produits">Retour aux produits</a></p>`,
+  )
+
+/** Valeurs du formulaire d'une catégorie ou d'un produit existants. */
+export const categoryValues = (category: Catalog.Category): Values => ({
+  name: category.name,
+  slug: category.slug,
+  position: String(category.position),
+  parent: category.parent ?? '',
+})
+
+export const productValues = (product: Catalog.Product): Values => ({
+  name: product.name,
+  slug: product.slug,
+  categorySlug: product.categorySlug,
+  price: centsToEuros(product.price),
+  exposure: product.exposure,
+  size: product.size,
+  inStock: product.inStock ? 'on' : '',
+  image: String(product.image),
+})

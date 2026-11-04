@@ -25,6 +25,8 @@ const text = (value: unknown): string => (typeof value === 'string' ? value : ''
 export interface AdminRouteOptions {
   readonly sessionSecret: string
   readonly throttle?: LoginThrottle
+  /** Pages des autres modules (catalogue, contenus), montées derrière la même session, le même CSRF et la même CSP. */
+  readonly sections?: readonly Hono[]
 }
 
 /**
@@ -88,6 +90,10 @@ export const adminRoutes = (dependencies: AdminDependencies, options: AdminRoute
   })
 
   app.get('/admin', (c) => c.html(dashboardPage(c.get('adminEmail'))))
+
+  for (const section of options.sections ?? []) {
+    app.route('/', section)
+  }
 
   return app
 }

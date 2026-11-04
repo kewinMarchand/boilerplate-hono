@@ -1,9 +1,12 @@
 import { z } from 'zod'
 
+import { nextSequence } from '#/shared/infrastructure/counters.ts'
+
 import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
 import { Price } from '#/catalog/domain/price.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
+import type { CounterDocument } from '#/shared/infrastructure/counters.ts'
 import type { CollectionDefinition } from '#/shared/infrastructure/mongo.ts'
 import type { Collection, Document, Filter, Sort } from 'mongodb'
 
@@ -11,7 +14,7 @@ const categoryDocumentSchema = z.object({
   _id: z.string().min(1),
   name: z.string().min(1),
   parent: z.string().nullable(),
-  position: z.int().min(1),
+  position: z.int().min(0),
 })
 
 const productDocumentSchema = z.object({
@@ -47,7 +50,7 @@ export const productCollection: CollectionDefinition<typeof productDocumentSchem
   ],
 }
 
-export class MongoCategoryRepository implements Catalog.CategoryRepository {
+export class MongoCategoryRepository implements Catalog.CategoryRepository, Catalog.CategoryWriter {
   private readonly collection: Collection<CategoryDocument>
 
   constructor(collection: Collection<CategoryDocument>) {
@@ -58,6 +61,25 @@ export class MongoCategoryRepository implements Catalog.CategoryRepository {
     const documents = await this.collection.find({}, { sort: { position: 1 } }).toArray()
 
     return documents.map(({ _id, ...category }) => ({ slug: _id, ...category }))
+  }
+
+  async create({ slug, ...category }: Catalog.Category): Promise<void> {
+    await this.collection.insertOne({ _id: slug, ...category })
+  }
+
+  /** Le slug est l'identifiant : en changer recrée le document et repointe les sous-catégories. */
+  async update(previousSlug: string, { slug, ...category }: Catalog.Category): Promise<void> {
+    if (slug === previousSlug) {
+      await this.collection.updateOne({ _id: slug }, { $set: category })
+      return
+    }
+    await this.collection.insertOne({ _id: slug, ...category })
+    await this.collection.updateMany({ parent: previousSlug }, { $set: { parent: slug } })
+    await this.collection.deleteOne({ _id: previousSlug })
+  }
+
+  async remove(slug: string): Promise<void> {
+    await this.collection.deleteOne({ _id: slug })
   }
 }
 
@@ -98,11 +120,72 @@ const toProduct = ({ _id, categoryPath, price, ...product }: ProductDocument): C
  * Une seule agrégation : la branche est filtrée d'abord, puis `$facet` calcule la page, le
  * total et chaque compteur disjonctif avec ses propres filtres (tous sauf ceux de sa facette).
  */
-export class MongoProductRepository implements Catalog.ProductRepository {
+export class MongoProductRepository implements Catalog.ProductRepository, Catalog.ProductWriter {
   private readonly collection: Collection<ProductDocument>
+  private readonly counters: Collection<CounterDocument>
 
-  constructor(collection: Collection<ProductDocument>) {
+  constructor(collection: Collection<ProductDocument>, counters: Collection<CounterDocument>) {
     this.collection = collection
+    this.counters = counters
+  }
+
+  async findById(id: number): Promise<Catalog.Product | null> {
+    const document = await this.collection.findOne({ _id: id })
+    return document === null ? null : toProduct(document)
+  }
+
+  async findBySlug(slug: string): Promise<Catalog.Product | null> {
+    const document = await this.collection.findOne({ slug })
+    return document === null ? null : toProduct(document)
+  }
+
+  async findAll(): Promise<Catalog.Product[]> {
+    const documents = await this.collection
+      .find({}, { sort: { categorySlug: 1, name: 1 }, collation: FRENCH_COLLATION })
+      .toArray()
+    return documents.map(toProduct)
+  }
+
+  countInCategory(slug: string): Promise<number> {
+    return this.collection.countDocuments({ categorySlug: slug })
+  }
+
+  async create(
+    input: Catalog.ProductInput,
+    categoryPath: readonly string[],
+  ): Promise<Catalog.Product> {
+    const [last] = await this.collection.find({}, { sort: { _id: -1 }, limit: 1 }).toArray()
+    const id = await nextSequence(this.counters, productCollection.name, last?._id ?? 0)
+    const document: ProductDocument = { _id: id, ...input, categoryPath: [...categoryPath] }
+    await this.collection.insertOne(document)
+
+    return toProduct(document)
+  }
+
+  async update(
+    id: number,
+    input: Catalog.ProductInput,
+    categoryPath: readonly string[],
+  ): Promise<void> {
+    await this.collection.updateOne(
+      { _id: id },
+      { $set: { ...input, categoryPath: [...categoryPath] } },
+    )
+  }
+
+  async remove(id: number): Promise<void> {
+    await this.collection.deleteOne({ _id: id })
+  }
+
+  async moveCategory(
+    previousSlug: string,
+    slug: string,
+    categoryPath: readonly string[],
+  ): Promise<void> {
+    await this.collection.updateMany(
+      { categorySlug: previousSlug },
+      { $set: { categorySlug: slug, categoryPath: [...categoryPath] } },
+    )
   }
 
   async search(query: Catalog.SearchQuery): Promise<Catalog.SearchResult> {

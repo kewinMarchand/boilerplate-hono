@@ -1,3 +1,4 @@
+import { counterCollection } from '#/shared/infrastructure/counters.ts'
 import { ensureCollections, typedCollection } from '#/shared/infrastructure/mongo.ts'
 
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
@@ -20,7 +21,6 @@ import {
 } from '#/catalog/infrastructure/mongoCatalog.ts'
 import {
   contactMessageCollection,
-  counterCollection,
   MongoContactMessageRepository,
 } from '#/contact/infrastructure/mongoContactMessage.ts'
 import {
@@ -54,20 +54,30 @@ const COLLECTIONS = [
 
 export const ensureSchema = (db: Db): Promise<void> => ensureCollections(db, COLLECTIONS)
 
-export const createRepositories = (db: Db): AppDependencies => ({
-  tasks: new MongoTaskRepository(typedCollection(db, taskCollection)),
-  articles: new MongoArticleRepository(typedCollection(db, articleCollection)),
-  contactMessages: new MongoContactMessageRepository(
-    typedCollection(db, contactMessageCollection),
+export const createRepositories = (db: Db): AppDependencies => {
+  const categories = new MongoCategoryRepository(typedCollection(db, categoryCollection))
+  const products = new MongoProductRepository(
+    typedCollection(db, productCollection),
     typedCollection(db, counterCollection),
-  ),
-  categories: new MongoCategoryRepository(typedCollection(db, categoryCollection)),
-  products: new MongoProductRepository(typedCollection(db, productCollection)),
-  slides: new MongoSlideRepository(typedCollection(db, slideCollection)),
-  legalPages: new MongoLegalPageRepository(typedCollection(db, legalPageCollection)),
-  adminUsers: new MongoAdminUserRepository(typedCollection(db, adminUserCollection)),
-  passwordHasher: new ScryptPasswordHasher(),
-})
+  )
+
+  return {
+    tasks: new MongoTaskRepository(typedCollection(db, taskCollection)),
+    articles: new MongoArticleRepository(typedCollection(db, articleCollection)),
+    contactMessages: new MongoContactMessageRepository(
+      typedCollection(db, contactMessageCollection),
+      typedCollection(db, counterCollection),
+    ),
+    categories,
+    products,
+    categoryWriter: categories,
+    productWriter: products,
+    slides: new MongoSlideRepository(typedCollection(db, slideCollection)),
+    legalPages: new MongoLegalPageRepository(typedCollection(db, legalPageCollection)),
+    adminUsers: new MongoAdminUserRepository(typedCollection(db, adminUserCollection)),
+    passwordHasher: new ScryptPasswordHasher(),
+  }
+}
 
 /** Recrée la base : collections validées, index, puis les mêmes données que les fixtures Doctrine. */
 export const resetDatabase = async (db: Db): Promise<void> => {

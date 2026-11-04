@@ -35,6 +35,20 @@ const pathTo = (tree: CategoryTree, slug: string): string[] => {
   return path
 }
 
+/** Niveaux sous la catégorie : 0 sans sous-catégorie. Ils descendent avec elle quand elle bouge. */
+const levelsBelow = (tree: CategoryTree, slug: string): number =>
+  tree.categories
+    .filter((category) => category.parent === slug)
+    .reduce((deepest, child) => Math.max(deepest, 1 + levelsBelow(tree, child.slug)), 0)
+
+/** La catégorie et toutes ses sous-catégories, à toute profondeur. */
+const branch = (tree: CategoryTree, slug: string): string[] => [
+  slug,
+  ...tree.categories
+    .filter((category) => category.parent === slug)
+    .flatMap((child) => branch(tree, child.slug)),
+]
+
 const toNodes = (
   tree: CategoryTree,
   parent: Catalog.Category | null = null,
@@ -53,5 +67,7 @@ export const CategoryTree = {
   find,
   childrenOf,
   pathTo,
+  levelsBelow,
+  branch,
   toNodes,
 }
