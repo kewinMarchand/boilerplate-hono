@@ -34,12 +34,18 @@ const failingDatabase: AppDependencies = {
   products: { search: unavailable },
   slides: { findInOrder: unavailable },
   legalPages: { findBySlug: unavailable },
+  adminUsers: { findByEmail: unavailable, save: unavailable },
+  passwordHasher: { hash: unavailable, verify: unavailable },
 }
 
 const appWith = (dsn: string | undefined) =>
   createApp(
     failingDatabase,
-    { APP_ENV: 'test', CORS_ALLOW_ORIGIN: '^$' },
+    {
+      APP_ENV: 'test',
+      CORS_ALLOW_ORIGIN: '^$',
+      ADMIN_SESSION_SECRET: 'secret-de-test-des-sessions-admin-32-car',
+    },
     initErrorReporting({ GLITCHTIP_DSN: dsn, GLITCHTIP_ENVIRONMENT: 'test' }, recordingTransport),
   )
 

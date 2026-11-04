@@ -41,6 +41,10 @@ mongo-sh: ## Ouvre mongosh sur la base de dev
 db-reset: ## Recrée la base de dev : collections validées, index, fixtures
 	$(YARN) db:reset
 
+admin: ## Crée un compte de l'admin /admin, ou change son mot de passe : make admin EMAIL=moi@exemple.fr
+	@test -n "$(EMAIL)" || { echo "Préciser l'adresse : make admin EMAIL=moi@exemple.fr"; exit 1; }
+	@printf 'Mot de passe : '; stty -echo; read -r P; stty echo; echo; printf '%s\n' "$$P" | $(YARN) admin:create "$(EMAIL)"
+
 openapi: ## Exporte le schéma OpenAPI dans openapi.json
 	$(YARN) openapi
 
@@ -53,4 +57,4 @@ lint-staged: ## Vérifie les fichiers indexés (appelé par le hook pre-commit)
 docker-build-prod: ## Construit l'image de production
 	docker build --target prod -t boilerplate-hono:prod .
 
-.PHONY: help install build up down logs sh mongo-sh db-reset openapi contract lint-staged docker-build-prod
+.PHONY: help install build up down logs sh mongo-sh db-reset admin openapi contract lint-staged docker-build-prod

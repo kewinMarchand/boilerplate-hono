@@ -2,6 +2,11 @@ import { ensureCollections, typedCollection } from '#/shared/infrastructure/mong
 
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
 import {
+  adminUserCollection,
+  MongoAdminUserRepository,
+} from '#/admin/infrastructure/mongoAdminUser.ts'
+import { ScryptPasswordHasher } from '#/admin/infrastructure/scryptPasswordHasher.ts'
+import {
   articleCollection,
   articleFixtures,
   MongoArticleRepository,
@@ -44,6 +49,7 @@ const COLLECTIONS = [
   productCollection,
   slideCollection,
   legalPageCollection,
+  adminUserCollection,
 ] as const
 
 export const ensureSchema = (db: Db): Promise<void> => ensureCollections(db, COLLECTIONS)
@@ -59,6 +65,8 @@ export const createRepositories = (db: Db): AppDependencies => ({
   products: new MongoProductRepository(typedCollection(db, productCollection)),
   slides: new MongoSlideRepository(typedCollection(db, slideCollection)),
   legalPages: new MongoLegalPageRepository(typedCollection(db, legalPageCollection)),
+  adminUsers: new MongoAdminUserRepository(typedCollection(db, adminUserCollection)),
+  passwordHasher: new ScryptPasswordHasher(),
 })
 
 /** Recrée la base : collections validées, index, puis les mêmes données que les fixtures Doctrine. */

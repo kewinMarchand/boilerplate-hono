@@ -20,6 +20,7 @@ import { scenario, SimulatedServerError } from '#/shared/http/scenario.ts'
 import { NO_ERROR_REPORTING } from '#/shared/infrastructure/errorReporting.ts'
 
 import { CategoryNotFoundError } from '#/catalog/domain/CategoryNotFoundError.ts'
+import { adminRoutes } from '#/admin/http/adminRoutes.ts'
 import { articleRoutes } from '#/blog/http/articleRoutes.ts'
 import { catalogRoutes } from '#/catalog/http/catalogRoutes.ts'
 import { contactMessageRoutes } from '#/contact/http/contactMessageRoutes.ts'
@@ -27,6 +28,7 @@ import { ContactMessageValidationError } from '#/contact/http/ContactMessageVali
 import { contentRoutes } from '#/content/http/contentRoutes.ts'
 import { taskRoutes } from '#/task/http/taskRoutes.ts'
 
+import type { AdminDependencies } from '#/admin/application/adminAccounts.ts'
 import type { Article } from '#/blog/domain/Article.ts'
 import type { CatalogRepositories } from '#/catalog/application/searchProducts.ts'
 import type { Config } from '#/config.ts'
@@ -36,13 +38,14 @@ import type { ErrorReporter } from '#/shared/infrastructure/errorReporting.ts'
 import type { Task } from '#/task/domain/Task.ts'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
-export interface AppDependencies extends CatalogRepositories, ContentRepositories {
+export interface AppDependencies
+  extends CatalogRepositories, ContentRepositories, AdminDependencies {
   readonly tasks: Task.Repository
   readonly articles: Article.Repository
   readonly contactMessages: ContactMessage.Repository
 }
 
-export type AppConfig = Pick<Config, 'APP_ENV' | 'CORS_ALLOW_ORIGIN'>
+export type AppConfig = Pick<Config, 'APP_ENV' | 'CORS_ALLOW_ORIGIN' | 'ADMIN_SESSION_SECRET'>
 
 /** Ressources dont API Platform déclare l'item (pour générer les IRI) sans l'exposer. */
 const NOT_EXPOSED_ITEMS = [
@@ -123,6 +126,8 @@ export const createApp = (
 
     return c.body(JSON.stringify(openApiDocument(app)), 200, { 'Content-Type': OPENAPI_MIME })
   })
+
+  app.route('/', adminRoutes(dependencies, { sessionSecret: config.ADMIN_SESSION_SECRET }))
 
   app.notFound((c) => routingErrorResponse(c, app.routes))
 
