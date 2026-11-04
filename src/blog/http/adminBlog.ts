@@ -8,7 +8,7 @@ import {
   textareaField,
   textField,
 } from '#/shared/http/adminForms.ts'
-import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
+import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLayout.ts'
 
 import { BlogRuleViolation } from '#/blog/domain/Article.ts'
 import { createArticle, deleteArticle, updateArticle } from '#/blog/application/adminBlog.ts'
@@ -170,14 +170,14 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
   app.get('/admin/articles/:id/modifier', async (c) => {
     const article = await find(c.req.param('id'))
     return article === null
-      ? c.notFound()
+      ? c.html(notFoundPage(), 404)
       : c.html(formPage(`Modifier « ${article.title} »`, c.req.path, valuesOf(article)))
   })
 
   app.post('/admin/articles/:id/modifier', async (c) => {
     const id = articleId(c.req.param('id'))
     if (id === null) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     const form = readArticleForm(await c.req.parseBody())
     if (form.data === null) {
@@ -196,13 +196,13 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
 
   app.get('/admin/articles/:id/supprimer', async (c) => {
     const article = await find(c.req.param('id'))
-    return article === null ? c.notFound() : c.html(confirmPage(article, c.req.path))
+    return article === null ? c.html(notFoundPage(), 404) : c.html(confirmPage(article, c.req.path))
   })
 
   app.post('/admin/articles/:id/supprimer', async (c) => {
     const id = articleId(c.req.param('id'))
     if (id === null) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     try {
       await deleteArticle(dependencies, id)

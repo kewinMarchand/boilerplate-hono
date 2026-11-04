@@ -69,6 +69,17 @@ describe('Admin : catalogue', () => {
     expect(await products.text()).toContain('Monstera deliciosa')
   })
 
+  it('répond 404 en HTML sur une catégorie ou un produit inconnu', async () => {
+    for (const response of [
+      await page('/admin/categories/inconnue/modifier'),
+      await page('/admin/produits/999/modifier'),
+      await post('/admin/produits/abc/supprimer', {}),
+    ]) {
+      expect(response.status).toBe(404)
+      expect(await response.text()).toContain('Page introuvable')
+    }
+  })
+
   it('refuse un formulaire mal rempli, champ par champ', async () => {
     const response = await post('/admin/categories/nouvelle', {
       name: '',

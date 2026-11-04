@@ -1,5 +1,7 @@
 import { Hono } from 'hono'
 
+import { notFoundPage } from '#/shared/http/adminLayout.ts'
+
 import { CatalogRuleViolation } from '#/catalog/domain/catalogRules.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
 import { InvalidPriceError } from '#/catalog/domain/price.ts'
@@ -98,7 +100,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
     const current = await tree()
     const category = current.categories.find((candidate) => candidate.slug === c.req.param('slug'))
     if (category === undefined) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     const title = `Modifier « ${category.name} »`
     return c.html(categoryFormPage(title, c.req.path, current, categoryValues(category)))
@@ -130,7 +132,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
       (candidate) => candidate.slug === c.req.param('slug'),
     )
     if (category === undefined) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     return c.html(
       confirmDeletePage(
@@ -197,7 +199,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
     const id = productId(c.req.param('id'))
     const product = id === null ? null : await dependencies.productWriter.findById(id)
     if (product === null) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     return c.html(
       productFormPage(
@@ -212,7 +214,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
   app.post('/admin/produits/:id/modifier', async (c) => {
     const id = productId(c.req.param('id'))
     if (id === null) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     const form = readProductForm(await c.req.parseBody())
     const title = 'Modifier le produit'
@@ -234,7 +236,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
     const id = productId(c.req.param('id'))
     const product = id === null ? null : await dependencies.productWriter.findById(id)
     if (product === null) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     return c.html(
       confirmDeletePage(
@@ -250,7 +252,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
   app.post('/admin/produits/:id/supprimer', async (c) => {
     const id = productId(c.req.param('id'))
     if (id === null) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     try {
       await deleteProduct(dependencies, id)

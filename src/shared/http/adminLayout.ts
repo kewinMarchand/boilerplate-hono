@@ -94,6 +94,19 @@ export const adminPage = (title: string, current: string, body: Html) =>
 export const publicPage = (title: string, body: Html) =>
   document(title, html`<main class="etroit">${body}</main>`)
 
+/**
+ * Élément demandé introuvable (supprimé, adresse modifiée). Pas `c.notFound()` : il passe par la
+ * réponse du routeur de l'API, qui voit la route POST du même chemin et répond 405 en JSON.
+ */
+export const notFoundPage = () =>
+  adminPage(
+    'Page introuvable',
+    '',
+    html`<h1>Page introuvable</h1>
+      <p>Cet élément n'existe pas ou a été supprimé.</p>
+      <p><a href="/admin">Retour au tableau de bord</a></p>`,
+  )
+
 /** Message de réussite, après une redirection (paramètre `ok` de l'adresse). */
 export const flash = (message: string | undefined) =>
   message === undefined ? '' : html`<p role="status">${message}</p>`

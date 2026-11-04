@@ -9,7 +9,7 @@ import {
   textareaField,
   textField,
 } from '#/shared/http/adminForms.ts'
-import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
+import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLayout.ts'
 
 import { ContentRuleViolation, IMAGE_COUNT } from '#/content/domain/contentRules.ts'
 import {
@@ -262,14 +262,14 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
   app.get('/admin/carrousel/:id/modifier', async (c) => {
     const slide = await findSlide(c.req.param('id'))
     return slide === null
-      ? c.notFound()
+      ? c.html(notFoundPage(), 404)
       : c.html(slideFormPage(`Modifier « ${slide.title} »`, c.req.path, slideValues(slide)))
   })
 
   app.post('/admin/carrousel/:id/modifier', async (c) => {
     const id = slideId(c.req.param('id'))
     if (id === null) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     const form = readSlideForm(await c.req.parseBody())
     if (form.data === null) {
@@ -291,13 +291,15 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
 
   app.get('/admin/carrousel/:id/supprimer', async (c) => {
     const slide = await findSlide(c.req.param('id'))
-    return slide === null ? c.notFound() : c.html(slideConfirmPage(slide, c.req.path))
+    return slide === null
+      ? c.html(notFoundPage(), 404)
+      : c.html(slideConfirmPage(slide, c.req.path))
   })
 
   app.post('/admin/carrousel/:id/supprimer', async (c) => {
     const id = slideId(c.req.param('id'))
     if (id === null) {
-      return c.notFound()
+      return c.html(notFoundPage(), 404)
     }
     try {
       await deleteSlide(dependencies, id)
@@ -320,7 +322,7 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
   app.get('/admin/pages-legales/:slug/modifier', async (c) => {
     const page = await dependencies.legalPageWriter.findEditable(c.req.param('slug'))
     return page === null
-      ? c.notFound()
+      ? c.html(notFoundPage(), 404)
       : c.html(
           legalPageFormPage(`Modifier « ${page.title} »`, c.req.path, {
             title: page.title,

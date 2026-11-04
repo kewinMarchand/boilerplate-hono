@@ -58,6 +58,18 @@ describe('Admin : contenus', () => {
     expect(await (await page('/admin/pages-legales')).text()).toContain('Mentions légales')
   })
 
+  it('répond 404 en HTML sur un article, une diapositive ou une page inconnus', async () => {
+    for (const response of [
+      await page('/admin/articles/999/modifier'),
+      await page('/admin/carrousel/999/supprimer'),
+      await page('/admin/pages-legales/cgv/modifier'),
+      await post('/admin/carrousel/abc/modifier', {}),
+    ]) {
+      expect(response.status).toBe(404)
+      expect(await response.text()).toContain('Page introuvable')
+    }
+  })
+
   it('refuse un formulaire mal rempli, champ par champ', async () => {
     const response = await post('/admin/carrousel/nouveau', {
       title: '',
