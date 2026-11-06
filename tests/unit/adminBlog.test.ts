@@ -4,11 +4,20 @@ import { BlogRuleViolation } from '#/blog/domain/Article.ts'
 import { createArticle, deleteArticle, updateArticle } from '#/blog/application/adminBlog.ts'
 import { readArticleForm } from '#/blog/http/adminBlog.ts'
 
+import { fakeMedia, PHOTO, testImage } from './fakeMedia.ts'
+
 import type { Article } from '#/blog/domain/Article.ts'
 
 const blog = () => {
   let articles: Article.Entity[] = [
-    { id: 1, slug: 'rempoter', title: 'Rempoter', excerpt: '', publishedAt: '2026-01-10' },
+    {
+      id: 1,
+      slug: 'rempoter',
+      title: 'Rempoter',
+      excerpt: '',
+      publishedAt: '2026-01-10',
+      image: testImage(''),
+    },
   ]
   const articleWriter: Article.Writer = {
     findById: (id) => Promise.resolve(articles.find((a) => a.id === id) ?? null),
@@ -28,16 +37,23 @@ const blog = () => {
     },
   }
   return {
-    dependencies: { articles: { findLatestFirst: () => Promise.resolve(articles) }, articleWriter },
+    dependencies: {
+      articles: { findLatestFirst: () => Promise.resolve(articles) },
+      articleWriter,
+      media: fakeMedia().media,
+    },
     all: () => articles,
   }
 }
 
-const input = (slug: string): Article.Input => ({
+const input = (slug: string, imageContent: Uint8Array | null = PHOTO): Article.Input => ({
   slug,
   title: 'Titre',
   excerpt: '',
   publishedAt: '2026-02-01',
+  imageContent,
+  imageAlt: '',
+  imageDecorative: true,
 })
 
 describe('Admin : blog', () => {
@@ -68,8 +84,22 @@ describe('Admin : blog', () => {
     expect(all().map((a) => a.slug)).toEqual(['rempoter'])
   })
 
-  it('refuse une date de publication qui n’existe pas', () => {
-    const form = readArticleForm({ title: 'T', slug: 't', excerpt: '', publishedAt: '2026-02-30' })
+  it('exige une image à la création, accepte une image décorative', async () => {
+    const { dependencies } = blog()
+
+    await expect(createArticle(dependencies, input('arroser', null))).rejects.toThrow(
+      "Un article a besoin d'une image.",
+    )
+    expect((await createArticle(dependencies, input('tailler'))).image?.alt).toBe('')
+  })
+
+  it('refuse une date de publication qui n’existe pas', async () => {
+    const form = await readArticleForm({
+      title: 'T',
+      slug: 't',
+      excerpt: '',
+      publishedAt: '2026-02-30',
+    })
 
     expect(form.data).toBeNull()
     expect(form.errors.publishedAt).toBe('Veuillez entrer une date valide.')

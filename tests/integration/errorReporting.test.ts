@@ -64,6 +64,11 @@ const failingDatabase: AppDependencies = {
   },
   legalPageWriter: { findAll: unavailable, findEditable: unavailable, update: unavailable },
   legalPageRenderer: { split: () => ({ introduction: '', sections: [] }) },
+  media: {
+    encoder: { inspect: unavailable, variants: unavailable },
+    storage: { has: unavailable, put: unavailable },
+    fingerprint: () => '',
+  },
 }
 
 const appWith = (dsn: string | undefined) =>
@@ -73,6 +78,8 @@ const appWith = (dsn: string | undefined) =>
       APP_ENV: 'test',
       CORS_ALLOW_ORIGIN: '^$',
       ADMIN_SESSION_SECRET: 'secret-de-test-des-sessions-admin-32-car',
+      MEDIA_BASE_URL: 'http://localhost:8091',
+      MEDIA_DIR: 'var/test-media',
     },
     initErrorReporting({ GLITCHTIP_DSN: dsn, GLITCHTIP_ENVIRONMENT: 'test' }, recordingTransport),
   )

@@ -9,12 +9,21 @@ import {
 } from '#/content/application/adminContent.ts'
 import { readLegalPageForm, readSlideForm } from '#/content/http/adminContent.ts'
 
+import { fakeMedia, PHOTO, testImage } from './fakeMedia.ts'
+
 import type { LegalPage } from '#/content/domain/LegalPage.ts'
 import type { Slide } from '#/content/domain/Slide.ts'
 
 const content = () => {
   let slides: Slide.Editable[] = [
-    { id: 1, slug: 'heliconia', title: 'Heliconia', text: '', image: 1, position: 1 },
+    {
+      id: 1,
+      slug: 'heliconia',
+      title: 'Heliconia',
+      text: '',
+      image: testImage('Heliconia'),
+      position: 1,
+    },
   ]
   let pages: (LegalPage.Editable & { introduction: string })[] = [
     { slug: 'mentions-legales', title: 'Mentions légales', body: 'Avant.', introduction: '' },
@@ -24,12 +33,12 @@ const content = () => {
       findAll: () => Promise.resolve(slides),
       findById: (id: number) => Promise.resolve(slides.find((s) => s.id === id) ?? null),
       findBySlug: (slug: string) => Promise.resolve(slides.find((s) => s.slug === slug) ?? null),
-      create: (input: Slide.Input) => {
+      create: (input: Slide.Saved) => {
         const slide = { id: slides.length + 1, ...input }
         slides = [...slides, slide]
         return Promise.resolve(slide)
       },
-      update: (id: number, input: Slide.Input) => {
+      update: (id: number, input: Slide.Saved) => {
         slides = slides.map((s) => (s.id === id ? { id, ...input } : s))
         return Promise.resolve()
       },
@@ -49,16 +58,19 @@ const content = () => {
     legalPageRenderer: {
       split: (body: string) => ({ introduction: `<p>${body}</p>`, sections: [] }),
     },
+    media: fakeMedia().media,
   }
   return { dependencies, slides: () => slides, pages: () => pages }
 }
 
-const slide = (slug: string, image = 2): Slide.Input => ({
+const slide = (slug: string, imageContent: Uint8Array | null = PHOTO): Slide.Input => ({
   slug,
   title: 'Titre',
   text: '',
-  image,
   position: 2,
+  imageContent,
+  imageAlt: 'Une photo',
+  imageDecorative: false,
 })
 
 describe('Admin : contenus', () => {
@@ -71,11 +83,24 @@ describe('Admin : contenus', () => {
     await expect(updateSlide(dependencies, 1, slide('heliconia'))).resolves.toBeUndefined()
   })
 
-  it('refuse un visuel hors des 5 livrés avec les fronts', async () => {
+  it('exige une image à la création, garde l’actuelle à la modification sans fichier', async () => {
+    const { dependencies, slides } = content()
+
+    await expect(createSlide(dependencies, slide('anthurium', null))).rejects.toThrow(
+      "Une diapositive a besoin d'une image.",
+    )
+    await updateSlide(dependencies, 1, { ...slide('heliconia', null), imageAlt: 'Bractées rouges' })
+
+    expect(slides()[0]?.image).toEqual({ key: 'a'.repeat(32), alt: 'Bractées rouges' })
+  })
+
+  it('refuse une image trop petite une fois recadrée', async () => {
     const { dependencies } = content()
 
-    await expect(createSlide(dependencies, slide('anthurium', 6))).rejects.toThrow(
-      'Le visuel est un numéro de 1 à 5 : 6.',
+    await expect(
+      createSlide(dependencies, slide('anthurium', new TextEncoder().encode('image/png 640x360'))),
+    ).rejects.toThrow(
+      "Recadrée au format 16:9, l'image doit faire au moins 1280 × 720 px : elle fait 640 × 360 px.",
     )
   })
 
@@ -112,13 +137,12 @@ describe('Admin : contenus', () => {
     )
   })
 
-  it('vérifie la forme des saisies', () => {
-    const slideForm = readSlideForm({ title: '', slug: 'Pas Un Slug', image: '0', position: 'x' })
+  it('vérifie la forme des saisies', async () => {
+    const slideForm = await readSlideForm({ title: '', slug: 'Pas Un Slug', position: 'x' })
     expect(slideForm.data).toBeNull()
     expect(slideForm.errors).toEqual({
       title: 'Cette valeur ne doit pas être vide.',
       slug: 'Minuscules, chiffres et tirets seulement.',
-      image: 'Cette valeur doit être comprise entre 1 et 5.',
       position: 'Cette valeur doit être un nombre entier.',
     })
 

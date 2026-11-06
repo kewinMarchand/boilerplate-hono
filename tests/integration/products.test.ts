@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { productListContract } from '#/catalog/http/contract.ts'
 
-import { createTestContext, getJson } from './context.ts'
+import { createTestContext, demoView, getJson } from './context.ts'
 
 import type { TestContext } from './context.ts'
 import type { z } from 'zod'
@@ -51,7 +51,7 @@ describe('GET /api/products (scénarios de ProductApiTest)', () => {
       exposure: 'mi-ombre',
       size: 'M',
       inStock: true,
-      image: 1,
+      image: demoView('product-1', 'product', 'Monstera deliciosa'),
     })
     expect(counts(list.facets.exposure)).toEqual({ soleil: 14, 'mi-ombre': 7, ombre: 3 })
     expect(counts(list.facets.size)).toEqual({ S: 6, M: 9, L: 9 })

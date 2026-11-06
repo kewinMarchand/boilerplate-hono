@@ -1,10 +1,11 @@
+import { readFile } from 'node:fs/promises'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { saveAdmin } from '#/admin/application/adminAccounts.ts'
 
-import { createRepositories } from '#/database.ts'
+import { createRepositories, mediaDependencies } from '#/database.ts'
 
-import { createTestContext } from './context.ts'
+import { createTestContext, TEST_MEDIA_DIR } from './context.ts'
 
 import type { TestContext } from './context.ts'
 
@@ -15,7 +16,11 @@ const ORIGIN = 'http://localhost'
 
 beforeAll(async () => {
   context = await createTestContext('admin_catalogue')
-  await saveAdmin(createRepositories(context.db), 'admin@exemple.fr', 'mot-de-passe-solide')
+  await saveAdmin(
+    createRepositories(context.db, mediaDependencies(TEST_MEDIA_DIR)),
+    'admin@exemple.fr',
+    'mot-de-passe-solide',
+  )
   const login = await post('/admin/login', {
     email: 'admin@exemple.fr',
     password: 'mot-de-passe-solide',
@@ -33,6 +38,21 @@ function post(path: string, fields: Record<string, string>, withSession = true) 
       ...(withSession && cookie !== '' ? { Cookie: cookie } : {}),
     },
     body: new URLSearchParams(fields).toString(),
+  })
+}
+
+/** Formulaire multipart avec un fichier, comme l'envoie le navigateur. */
+async function postProductWithPhoto(path: string, fields: Record<string, string>) {
+  const form = new FormData()
+  for (const [name, value] of Object.entries(fields)) {
+    form.set(name, value)
+  }
+  const photo = await readFile(new URL('../../fixtures/images/product-3.webp', import.meta.url))
+  form.set('imageContent', new File([photo], 'photo.webp', { type: 'image/webp' }))
+  return context.app.request(`${ORIGIN}${path}`, {
+    method: 'POST',
+    headers: { Origin: ORIGIN, Cookie: cookie },
+    body: form,
   })
 }
 
@@ -122,7 +142,7 @@ describe('Admin : catalogue', () => {
       'Catégorie créée.',
     )
 
-    const product = await post('/admin/produits/nouveau', {
+    const product = await postProductWithPhoto('/admin/produits/nouveau', {
       name: 'Cactus cierge',
       slug: 'cactus-cierge',
       categorySlug: 'cactus',
@@ -130,7 +150,6 @@ describe('Admin : catalogue', () => {
       exposure: 'soleil',
       size: 'S',
       inStock: 'on',
-      image: '3',
     })
     expect(product.status).toBe(303)
 
@@ -138,6 +157,7 @@ describe('Admin : catalogue', () => {
     const branch = await apiJson('/api/products?category=cactus')
     expect(JSON.stringify(branch)).toContain('"slug":"cactus-cierge"')
     expect(JSON.stringify(branch)).toContain('"price":1250')
+    expect(JSON.stringify(branch)).toContain('"alt":"Cactus cierge"')
     expect(JSON.stringify(branch)).not.toContain('"id":24,')
   })
 

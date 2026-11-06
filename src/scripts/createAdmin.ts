@@ -6,7 +6,7 @@ import { InvalidEmailError, PasswordTooShortError } from '#/admin/domain/AdminUs
 import { saveAdmin } from '#/admin/application/adminAccounts.ts'
 
 import { loadConfig } from '#/config.ts'
-import { createRepositories, ensureSchema } from '#/database.ts'
+import { createRepositories, ensureSchema, mediaDependencies } from '#/database.ts'
 
 /**
  * Crée un compte de l'admin, ou change son mot de passe : `make admin EMAIL=…`, qui lit le mot de
@@ -20,7 +20,11 @@ const client = await connectMongo(config.MONGODB_URI)
 try {
   const db = client.db(config.MONGODB_DB)
   await ensureSchema(db)
-  const user = await saveAdmin(createRepositories(db), email, password)
+  const user = await saveAdmin(
+    createRepositories(db, mediaDependencies(config.MEDIA_DIR)),
+    email,
+    password,
+  )
   console.info(`Compte d'administration prêt : ${user.email}`)
 } catch (error) {
   if (error instanceof InvalidEmailError || error instanceof PasswordTooShortError) {

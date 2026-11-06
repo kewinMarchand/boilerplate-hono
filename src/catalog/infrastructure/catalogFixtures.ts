@@ -155,7 +155,10 @@ export const categoryFixtures: Catalog.Category[] = CATEGORIES.map(
   }),
 )
 
-export const productFixtures: Catalog.Product[] = PRODUCTS.map(
+/** Fixture : la photo de démonstration (fixtures/images), importée par resetDatabase avec le nom pour texte. */
+export type ProductFixture = Omit<Catalog.Product, 'image'> & { readonly demoImage: string }
+
+export const productFixtures: ProductFixture[] = PRODUCTS.map(
   ([slug, name, categorySlug, price, exposure, size, inStock], index) => ({
     id: index + 1,
     slug,
@@ -165,6 +168,6 @@ export const productFixtures: Catalog.Product[] = PRODUCTS.map(
     exposure,
     size,
     inStock,
-    image: (index % 12) + 1,
+    demoImage: `product-${(index % 12) + 1}`,
   }),
 )

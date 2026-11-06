@@ -14,7 +14,9 @@ const repositories = () => {
     search: (query) => {
       queries.push(query)
       return Promise.resolve({
-        items: productFixtures.slice(0, 2),
+        items: productFixtures
+          .slice(0, 2)
+          .map(({ demoImage: _, ...product }) => ({ ...product, image: null })),
         totalItems: 3,
         exposureCounts: { 'mi-ombre': 3 },
         sizeCounts: {},

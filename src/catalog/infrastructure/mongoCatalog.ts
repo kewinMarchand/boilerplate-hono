@@ -27,7 +27,12 @@ const productDocumentSchema = z.object({
   exposure: z.enum(EXPOSURES),
   size: z.enum(SIZES),
   inStock: z.boolean(),
-  image: z.int().min(1).max(12),
+  /** Empreinte de l'image envoyée par l'admin (ADR 0002), null pour un produit d'avant l'envoi des images. */
+  imageKey: z
+    .string()
+    .regex(/^[0-9a-f]{32}$/)
+    .nullable(),
+  imageAlt: z.string(),
 })
 
 export type CategoryDocument = z.infer<typeof categoryDocumentSchema>
@@ -110,10 +115,24 @@ const countBy = (field: string): Document[] => [
   { $group: { _id: `$${field}`, count: { $sum: 1 } } },
 ]
 
-const toProduct = ({ _id, categoryPath, price, ...product }: ProductDocument): Catalog.Product => ({
+const toProduct = ({
+  _id,
+  categoryPath,
+  price,
+  imageKey,
+  imageAlt,
+  ...product
+}: ProductDocument): Catalog.Product => ({
   id: _id,
   ...product,
   price: Price.fromCents(price),
+  image: imageKey === null ? null : { key: imageKey, alt: imageAlt },
+})
+
+const toDocumentFields = ({ image, ...product }: Catalog.ProductSaved) => ({
+  ...product,
+  imageKey: image.key,
+  imageAlt: image.alt,
 })
 
 /**
@@ -151,12 +170,16 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
   }
 
   async create(
-    input: Catalog.ProductInput,
+    product: Catalog.ProductSaved,
     categoryPath: readonly string[],
   ): Promise<Catalog.Product> {
     const [last] = await this.collection.find({}, { sort: { _id: -1 }, limit: 1 }).toArray()
     const id = await nextSequence(this.counters, productCollection.name, last?._id ?? 0)
-    const document: ProductDocument = { _id: id, ...input, categoryPath: [...categoryPath] }
+    const document: ProductDocument = {
+      _id: id,
+      ...toDocumentFields(product),
+      categoryPath: [...categoryPath],
+    }
     await this.collection.insertOne(document)
 
     return toProduct(document)
@@ -164,12 +187,12 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
 
   async update(
     id: number,
-    input: Catalog.ProductInput,
+    product: Catalog.ProductSaved,
     categoryPath: readonly string[],
   ): Promise<void> {
     await this.collection.updateOne(
       { _id: id },
-      { $set: { ...input, categoryPath: [...categoryPath] } },
+      { $set: { ...toDocumentFields(product), categoryPath: [...categoryPath] } },
     )
   }
 

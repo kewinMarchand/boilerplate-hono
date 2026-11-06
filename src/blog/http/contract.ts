@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { imageViewContract } from '#/media/http/imageContract.ts'
+
 export const articleContract = z
   .object({
     id: z.int(),
@@ -7,6 +9,7 @@ export const articleContract = z
     title: z.string(),
     excerpt: z.string(),
     publishedAt: z.iso.date(),
+    image: z.union([imageViewContract, z.null()]),
   })
   .meta({
     id: 'Article',

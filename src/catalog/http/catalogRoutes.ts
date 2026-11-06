@@ -9,6 +9,7 @@ import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
 import { parseCriteria } from '#/catalog/domain/productCriteria.ts'
 import { emptyProductList } from '#/catalog/domain/productSearch.ts'
 import { searchProducts } from '#/catalog/application/searchProducts.ts'
+import { toImageView } from '#/media/http/imageContract.ts'
 
 import { categoryNodeContract, productListContract } from './contract.ts'
 import { productQueryDocumentation, rawCriteriaFromQuery } from './productQuery.ts'
@@ -60,6 +61,17 @@ export const catalogRoutes = (repositories: CatalogRepositories, options: RouteO
       async (c) => {
         const criteria = parseCriteria(rawCriteriaFromQuery(new URL(c.req.url).search))
 
-        return c.json(await searchProducts(criteria, repositories), 200)
+        const list = await searchProducts(criteria, repositories)
+
+        return c.json(
+          {
+            ...list,
+            items: list.items.map((product) => ({
+              ...product,
+              image: toImageView(options.mediaBaseUrl, product.image, 'product'),
+            })),
+          },
+          200,
+        )
       },
     )

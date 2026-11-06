@@ -2,7 +2,6 @@ import { CategoryTree } from './categoryTree.ts'
 
 /** Règles d'écriture du catalogue, mêmes messages que l'API Platform (ADR 0001 des deux dépôts). */
 export const MAX_DEPTH = 3
-export const IMAGE_COUNT = 12
 
 /** Règle du catalogue refusée : le message est montré tel quel dans l'admin. */
 export class CatalogRuleViolation extends Error {
@@ -33,11 +32,5 @@ export const checkPlacement = (
     throw new CatalogRuleViolation(
       `Le catalogue a ${MAX_DEPTH} niveaux au plus : cette place en donnerait ${depth}.`,
     )
-  }
-}
-
-export const checkImage = (image: number): void => {
-  if (!Number.isInteger(image) || image < 1 || image > IMAGE_COUNT) {
-    throw new CatalogRuleViolation(`Le visuel est un numéro de 1 à ${IMAGE_COUNT} : ${image}.`)
   }
 }

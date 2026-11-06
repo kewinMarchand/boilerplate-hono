@@ -12,6 +12,8 @@ import {
 } from '#/catalog/application/adminCatalog.ts'
 import { centsToEuros, euroCents } from '#/catalog/http/adminCatalogForms.ts'
 
+import { fakeMedia, PHOTO, testImage } from './fakeMedia.ts'
+
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 
 type Stored = Catalog.Product & { categoryPath: string[] }
@@ -35,7 +37,7 @@ const catalogue = () => {
       exposure: 'mi-ombre',
       size: 'M',
       inStock: true,
-      image: 1,
+      image: testImage('Monstera deliciosa'),
     },
   ]
   const strip = ({ categoryPath, ...product }: Stored): Catalog.Product => product
@@ -66,12 +68,12 @@ const catalogue = () => {
       findAll: () => Promise.resolve(products.map(strip)),
       countInCategory: (slug: string) =>
         Promise.resolve(products.filter((p) => p.categorySlug === slug).length),
-      create: (input: Catalog.ProductInput, path: readonly string[]) => {
+      create: (input: Catalog.ProductSaved, path: readonly string[]) => {
         const product = { id: products.length + 1, ...input, categoryPath: [...path] }
         products = [...products, product]
         return Promise.resolve(strip(product))
       },
-      update: (id: number, input: Catalog.ProductInput, path: readonly string[]) => {
+      update: (id: number, input: Catalog.ProductSaved, path: readonly string[]) => {
         products = products.map((p) =>
           p.id === id ? { id, ...input, categoryPath: [...path] } : p,
         )
@@ -88,6 +90,7 @@ const catalogue = () => {
         return Promise.resolve()
       },
     },
+    media: fakeMedia().media,
   }
 
   return { dependencies, categories: () => categories, products: () => products }
@@ -100,7 +103,11 @@ const category = (slug: string, parent: string | null): Catalog.Category => ({
   position: 0,
 })
 
-const product = (slug: string, categorySlug: string, image = 1): Catalog.ProductInput => ({
+const product = (
+  slug: string,
+  categorySlug: string,
+  imageContent: Uint8Array | null = PHOTO,
+): Catalog.ProductInput => ({
   slug,
   name: slug,
   categorySlug,
@@ -108,7 +115,9 @@ const product = (slug: string, categorySlug: string, image = 1): Catalog.Product
   exposure: 'soleil',
   size: 'S',
   inStock: true,
-  image,
+  imageContent,
+  imageAlt: '',
+  imageDecorative: false,
 })
 
 describe('catégories', () => {
@@ -198,9 +207,22 @@ describe('produits', () => {
       'Le slug « monstera-deliciosa » est déjà pris par un autre produit.',
     ],
     [product('nouveau', 'inconnue'), "La catégorie du produit n'existe pas."],
-    [product('nouveau', 'monstera', 13), 'Le visuel est un numéro de 1 à 12 : 13.'],
+    [product('nouveau', 'monstera', null), "Un produit a besoin d'une image."],
   ])('refuse une création qui enfreint une règle', async (input, message) => {
     await expect(createProduct(catalogue().dependencies, input)).rejects.toThrow(message)
+  })
+
+  it('sans texte de remplacement, un produit prend son nom ; sans fichier, il garde son image', async () => {
+    const { dependencies, products } = catalogue()
+
+    const created = await createProduct(dependencies, product('fougere', 'feuillages'))
+    await updateProduct(dependencies, 1, {
+      ...product('monstera-deliciosa', 'monstera', null),
+      imageAlt: 'Feuille découpée',
+    })
+
+    expect(created.image?.alt).toBe('fougere')
+    expect(products()[0]?.image).toEqual({ key: 'a'.repeat(32), alt: 'Feuille découpée' })
   })
 
   it('garde son propre slug à la modification, refuse un produit disparu', async () => {

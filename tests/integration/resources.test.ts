@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { createTestContext, getJson } from './context.ts'
+import { createTestContext, demoView, getJson } from './context.ts'
 
 import type { TestContext } from './context.ts'
 
@@ -57,6 +57,7 @@ describe('GET /api/articles', () => {
         excerpt:
           'Le contenu éditorial arrive dans le HTML initial : meilleur référencement et LCP.',
         publishedAt: '2026-09-15',
+        image: demoView('blog-1', 'article', ''),
       },
     ])
   })
@@ -73,12 +74,16 @@ describe('GET /api/slides', () => {
         slug: 'heliconia',
         title: 'Heliconia',
         text: 'Des bractées rouges et jaunes en pinces de homard, qui tiennent des semaines au jardin.',
-        image: 1,
+        image: demoView(
+          'slide-1',
+          'slide',
+          'Bractées rouges et jaunes d’un heliconia, en gros plan',
+        ),
       },
-      expect.objectContaining({ slug: 'anthurium', image: 2 }),
-      expect.objectContaining({ slug: 'calliandra', image: 3 }),
-      expect.objectContaining({ slug: 'strelitzia', image: 4 }),
-      expect.objectContaining({ slug: 'nenuphar', image: 5 }),
+      expect.objectContaining({ slug: 'anthurium' }),
+      expect.objectContaining({ slug: 'calliandra' }),
+      expect.objectContaining({ slug: 'strelitzia' }),
+      expect.objectContaining({ slug: 'nenuphar' }),
     ])
   })
 })
@@ -159,5 +164,22 @@ describe('validateur MongoDB', () => {
         .collection<{ _id: number; [field: string]: unknown }>('tasks')
         .insertOne({ _id: 99, title: '', done: 'non' }),
     ).rejects.toThrow('Document failed validation')
+  })
+})
+
+describe('GET /media/{fichier}', () => {
+  it('sert une variante avec un cache d’un an, et 404 pour un fichier absent ou un nom inattendu', async () => {
+    const { body } = await getJson(context, '/api/slides')
+    const src = JSON.stringify(body).match(/"src":"http:\/\/localhost:8091(\/media\/[^"]+)"/)?.[1]
+    expect(src).toBeDefined()
+
+    const media = await context.app.request(src ?? '')
+    expect(media.status).toBe(200)
+    expect(media.headers.get('content-type')).toBe('image/webp')
+    expect(media.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+    expect(media.headers.get('x-content-type-options')).toBe('nosniff')
+
+    expect((await context.app.request(`/media/${'0'.repeat(32)}-640.webp`)).status).toBe(404)
+    expect((await context.app.request('/media/..%2Fpackage.json')).status).toBe(404)
   })
 })

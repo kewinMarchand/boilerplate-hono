@@ -4,6 +4,7 @@ import { nextSequence } from '#/shared/infrastructure/counters.ts'
 
 import type { LegalPage } from '#/content/domain/LegalPage.ts'
 import type { Slide } from '#/content/domain/Slide.ts'
+import type { Media } from '#/media/domain/Media.ts'
 import type { CounterDocument } from '#/shared/infrastructure/counters.ts'
 import type { CollectionDefinition } from '#/shared/infrastructure/mongo.ts'
 import type { Collection } from 'mongodb'
@@ -13,7 +14,12 @@ const slideDocumentSchema = z.object({
   slug: z.string().min(1),
   title: z.string().min(1),
   text: z.string(),
-  image: z.int().min(1).max(5),
+  /** Empreinte de l'image envoyée par l'admin (ADR 0002), null pour une diapositive d'avant l'envoi des images. */
+  imageKey: z
+    .string()
+    .regex(/^[0-9a-f]{32}$/)
+    .nullable(),
+  imageAlt: z.string(),
   position: z.int(),
 })
 
@@ -27,6 +33,12 @@ const legalPageDocumentSchema = z.object({
 })
 
 type SlideDocument = z.infer<typeof slideDocumentSchema>
+
+/** Fixture : la photo de démonstration (fixtures/images) et son texte, importés par resetDatabase. */
+export type SlideFixture = Omit<SlideDocument, 'imageKey' | 'imageAlt'> & {
+  readonly demoImage: string
+  readonly alt: string
+}
 type LegalPageDocument = z.infer<typeof legalPageDocumentSchema>
 
 export const slideCollection: CollectionDefinition<typeof slideDocumentSchema> = {
@@ -42,13 +54,14 @@ export const legalPageCollection: CollectionDefinition<typeof legalPageDocumentS
   indexes: [],
 }
 
-export const slideFixtures: SlideDocument[] = [
+export const slideFixtures: SlideFixture[] = [
   {
     _id: 1,
     slug: 'heliconia',
     title: 'Heliconia',
     text: 'Des bractées rouges et jaunes en pinces de homard, qui tiennent des semaines au jardin.',
-    image: 1,
+    demoImage: 'slide-1',
+    alt: 'Bractées rouges et jaunes d’un heliconia, en gros plan',
     position: 1,
   },
   {
@@ -56,7 +69,8 @@ export const slideFixtures: SlideDocument[] = [
     slug: 'anthurium',
     title: 'Anthurium',
     text: 'Une spathe vernissée qui fleurit presque toute l’année à la lumière vive d’un intérieur.',
-    image: 2,
+    demoImage: 'slide-2',
+    alt: 'Spathe rouge et brillante d’un anthurium',
     position: 2,
   },
   {
@@ -64,7 +78,8 @@ export const slideFixtures: SlideDocument[] = [
     slug: 'calliandra',
     title: 'Calliandra',
     text: 'Des pompons d’étamines rouges qui attirent colibris et papillons en lisière de jardin.',
-    image: 3,
+    demoImage: 'slide-3',
+    alt: 'Pompon d’étamines rouges d’un calliandra',
     position: 3,
   },
   {
@@ -72,7 +87,8 @@ export const slideFixtures: SlideDocument[] = [
     slug: 'strelitzia',
     title: 'Strelitzia',
     text: 'L’oiseau de paradis, sa fleur orange et bleue et ses grandes feuilles en éventail.',
-    image: 4,
+    demoImage: 'slide-4',
+    alt: 'Fleur orange et bleue d’un strelitzia',
     position: 4,
   },
   {
@@ -80,7 +96,8 @@ export const slideFixtures: SlideDocument[] = [
     slug: 'nenuphar',
     title: 'Nénuphar',
     text: 'Des fleurs qui s’ouvrent au matin à la surface du bassin et se referment le soir.',
-    image: 5,
+    demoImage: 'slide-5',
+    alt: 'Fleur de nénuphar ouverte sur l’eau d’un bassin',
     position: 5,
   },
 ]
@@ -182,9 +199,21 @@ export const legalPageFixtures: LegalPageDocument[] = [
   },
 ]
 
-const toEditableSlide = ({ _id, ...slide }: SlideDocument): Slide.Editable => ({
-  id: _id,
-  ...slide,
+const imageOf = ({ imageKey, imageAlt }: SlideDocument): Media.Image | null =>
+  imageKey === null ? null : { key: imageKey, alt: imageAlt }
+
+const toEditableSlide = (document: SlideDocument): Slide.Editable => {
+  const { _id, slug, title, text, position } = document
+  return { id: _id, slug, title, text, position, image: imageOf(document) }
+}
+
+const toDocumentFields = ({ slug, title, text, position, image }: Slide.Saved) => ({
+  slug,
+  title,
+  text,
+  position,
+  imageKey: image.key,
+  imageAlt: image.alt,
 })
 
 export class MongoSlideRepository implements Slide.Repository, Slide.Writer {
@@ -199,7 +228,10 @@ export class MongoSlideRepository implements Slide.Repository, Slide.Writer {
   async findInOrder(): Promise<Slide.Entity[]> {
     const documents = await this.collection.find({}, { sort: { position: 1, _id: 1 } }).toArray()
 
-    return documents.map(({ _id, position, ...slide }) => ({ id: _id, ...slide }))
+    return documents.map((document) => {
+      const { id, slug, title, text, image } = toEditableSlide(document)
+      return { id, slug, title, text, image }
+    })
   }
 
   async findAll(): Promise<Slide.Editable[]> {
@@ -218,18 +250,17 @@ export class MongoSlideRepository implements Slide.Repository, Slide.Writer {
     return document === null ? null : toEditableSlide(document)
   }
 
-  async create(input: Slide.Input): Promise<Slide.Editable> {
+  async create(slide: Slide.Saved): Promise<Slide.Editable> {
     const [last] = await this.collection.find({}, { sort: { _id: -1 }, limit: 1 }).toArray()
     const id = await nextSequence(this.counters, slideCollection.name, last?._id ?? 0)
-    const { slug, title, text, image, position } = input
-    const document: SlideDocument = { _id: id, slug, title, text, image, position }
+    const document: SlideDocument = { _id: id, ...toDocumentFields(slide) }
     await this.collection.insertOne(document)
 
     return toEditableSlide(document)
   }
 
-  async update(id: number, input: Slide.Input): Promise<void> {
-    await this.collection.updateOne({ _id: id }, { $set: input })
+  async update(id: number, slide: Slide.Saved): Promise<void> {
+    await this.collection.updateOne({ _id: id }, { $set: toDocumentFields(slide) })
   }
 
   async remove(id: number): Promise<void> {

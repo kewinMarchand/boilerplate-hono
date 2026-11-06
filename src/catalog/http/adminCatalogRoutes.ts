@@ -5,6 +5,7 @@ import { notFoundPage } from '#/shared/http/adminLayout.ts'
 import { CatalogRuleViolation } from '#/catalog/domain/catalogRules.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
 import { InvalidPriceError } from '#/catalog/domain/price.ts'
+import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
 import {
   createCategory,
   createProduct,
@@ -39,7 +40,11 @@ const DONE: Record<string, string> = {
 
 /** Règle refusée : son message, à montrer dans la page ; toute autre erreur remonte (500). */
 const refusal = (error: unknown): string => {
-  if (error instanceof CatalogRuleViolation || error instanceof InvalidPriceError) {
+  if (
+    error instanceof CatalogRuleViolation ||
+    error instanceof InvalidPriceError ||
+    error instanceof MediaRuleViolation
+  ) {
     return error.message
   }
   throw error
@@ -170,13 +175,12 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
         exposure: 'soleil',
         size: 'M',
         inStock: 'on',
-        image: '1',
       }),
     ),
   )
 
   app.post('/admin/produits/nouveau', async (c) => {
-    const form = readProductForm(await c.req.parseBody())
+    const form = await readProductForm(await c.req.parseBody())
     const action = '/admin/produits/nouveau'
     if (form.data === null) {
       return c.html(
@@ -216,7 +220,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
     if (id === null) {
       return c.html(notFoundPage(), 404)
     }
-    const form = readProductForm(await c.req.parseBody())
+    const form = await readProductForm(await c.req.parseBody())
     const title = 'Modifier le produit'
     if (form.data === null) {
       return c.html(productFormPage(title, c.req.path, await tree(), form.values, form.errors), 422)

@@ -1,10 +1,16 @@
+import { readFileSync } from 'node:fs'
+
 import { connectMongo } from '#/shared/infrastructure/mongo.ts'
+
+import { fingerprint } from '#/media/infrastructure/sharpImageEncoder.ts'
+import { toImageView } from '#/media/http/imageContract.ts'
 
 import { createApp } from '#/app.ts'
 import { loadConfig } from '#/config.ts'
-import { createRepositories, resetDatabase } from '#/database.ts'
+import { createRepositories, mediaDependencies, resetDatabase } from '#/database.ts'
 
 import type { AppConfig } from '#/app.ts'
+import type { Media } from '#/media/domain/Media.ts'
 import type { Db, MongoClient } from 'mongodb'
 
 export interface TestContext {
@@ -14,6 +20,9 @@ export interface TestContext {
   readonly close: () => Promise<void>
 }
 
+/** Variantes des tests, à part de celles de la base de dev. */
+export const TEST_MEDIA_DIR = 'var/test-media'
+
 /** Une base par fichier de test, recréée avec les fixtures : les fichiers tournent en parallèle. */
 export const createTestContext = async (
   name: string,
@@ -22,8 +31,13 @@ export const createTestContext = async (
   const config = loadConfig()
   const client = await connectMongo(config.MONGODB_URI)
   const db = client.db(`${config.MONGODB_DB}_${name}`)
-  await resetDatabase(db)
-  const app = createApp(createRepositories(db), { ...config, ...overrides })
+  const media = mediaDependencies(TEST_MEDIA_DIR)
+  await resetDatabase(db, media)
+  const app = createApp(createRepositories(db, media), {
+    ...config,
+    MEDIA_DIR: TEST_MEDIA_DIR,
+    ...overrides,
+  })
 
   return {
     app,
@@ -34,6 +48,14 @@ export const createTestContext = async (
       await client.close()
     },
   }
+}
+
+/** Image attendue dans le contrat pour une photo de démonstration importée par resetDatabase. */
+export const demoView = (name: string, usage: Media.Usage, alt: string) => {
+  const content = new Uint8Array(
+    readFileSync(new URL(`../../fixtures/images/${name}.webp`, import.meta.url)),
+  )
+  return toImageView('http://localhost:8091', { key: fingerprint(usage, content), alt }, usage)
 }
 
 export const getJson = async (

@@ -11,6 +11,8 @@ const COMPARED_SCHEMAS = [
   'Slide',
   'LegalPage',
   'LegalSection',
+  'ImageView',
+  'ImageSource',
   'ConstraintViolation',
   'Error',
 ]

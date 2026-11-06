@@ -1,4 +1,5 @@
 import type { Price } from './price.ts'
+import type { Media } from '#/media/domain/Media.ts'
 
 export const EXPOSURES = ['soleil', 'mi-ombre', 'ombre'] as const
 export const SIZES = ['S', 'M', 'L'] as const
@@ -42,8 +43,8 @@ export declare namespace Catalog {
     readonly exposure: Exposure
     readonly size: Size
     readonly inStock: boolean
-    /** Index du visuel partagé, de 1 à 12. */
-    readonly image: number
+    /** Image envoyée par l'admin (ADR 0002), null pour un produit d'avant l'envoi des images. */
+    readonly image: Media.Image | null
   }
 
   interface FacetValue {
@@ -140,7 +141,23 @@ export declare namespace Catalog {
     readonly exposure: Exposure
     readonly size: Size
     readonly inStock: boolean
-    readonly image: number
+    /** Contenu du fichier envoyé, null pour garder l'image actuelle. */
+    readonly imageContent: Uint8Array | null
+    /** Vide (et non décorative) : le nom du produit. */
+    readonly imageAlt: string
+    readonly imageDecorative: boolean
+  }
+
+  /** Produit enregistré par l'admin, image résolue. */
+  interface ProductSaved {
+    readonly slug: string
+    readonly name: string
+    readonly categorySlug: string
+    readonly price: Price
+    readonly exposure: Exposure
+    readonly size: Size
+    readonly inStock: boolean
+    readonly image: Media.Image
   }
 
   /** Écritures de l'admin sur les catégories. */
@@ -158,8 +175,8 @@ export declare namespace Catalog {
     /** Tous les produits, par catégorie puis par nom : liste de l'admin. */
     findAll(): Promise<Product[]>
     countInCategory(slug: string): Promise<number>
-    create(input: ProductInput, categoryPath: readonly string[]): Promise<Product>
-    update(id: number, input: ProductInput, categoryPath: readonly string[]): Promise<void>
+    create(product: ProductSaved, categoryPath: readonly string[]): Promise<Product>
+    update(id: number, product: ProductSaved, categoryPath: readonly string[]): Promise<void>
     remove(id: number): Promise<void>
     /** Produits rangés dans `previousSlug` : leur catégorie devient `slug`, avec son chemin. */
     moveCategory(previousSlug: string, slug: string, categoryPath: readonly string[]): Promise<void>

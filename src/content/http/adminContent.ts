@@ -11,13 +11,15 @@ import {
 } from '#/shared/http/adminForms.ts'
 import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLayout.ts'
 
-import { ContentRuleViolation, IMAGE_COUNT } from '#/content/domain/contentRules.ts'
+import { ContentRuleViolation } from '#/content/domain/contentRules.ts'
+import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
 import {
   createSlide,
   deleteSlide,
   updateLegalPage,
   updateSlide,
 } from '#/content/application/adminContent.ts'
+import { imageFieldsHtml, imageValues, readImageFields } from '#/media/http/adminImageFields.ts'
 
 import type { ContentAdminDependencies } from '#/content/application/adminContent.ts'
 import type { LegalPage } from '#/content/domain/LegalPage.ts'
@@ -40,33 +42,38 @@ const LEGAL_PAGE_DONE: Record<string, string> = { modifie: 'Page légale modifi�
 const LEGAL_PAGE_HELP =
   'Chaque titre « ## » ouvre une section. Liens : [texte](https://…). Listes : une ligne par élément, commençant par « - ». Le HTML est affiché tel quel, sans être interprété.'
 
-export const readSlideForm = (body: Record<string, unknown>): FormResult<Slide.Input> => {
-  const values = {
-    title: field(body, 'title'),
-    slug: field(body, 'slug'),
-    text: field(body, 'text'),
-    image: field(body, 'image'),
-    position: field(body, 'position'),
-  }
+const SLIDE_ALT_HELP =
+  'Ce que montre la photo, pour qui ne la voit pas. Le titre de la diapositive est déjà lu à côté.'
+
+export const readSlideForm = async (
+  body: Record<string, unknown>,
+): Promise<FormResult<Slide.Input>> => {
+  const title = field(body, 'title')
+  const slug = field(body, 'slug')
+  const text = field(body, 'text')
+  const values: Values = { title, slug, text, position: field(body, 'position') }
   const errors: Errors = {}
-  requiredText(errors, 'title', values.title)
-  slugField(errors, values.slug)
-  const image = integer(values.image)
-  if (image === null || image < 1 || image > IMAGE_COUNT) {
-    errors.image = `Cette valeur doit être comprise entre 1 et ${IMAGE_COUNT}.`
-  }
-  const position = integer(values.position)
+  requiredText(errors, 'title', title)
+  slugField(errors, slug)
+  const image = await readImageFields(body, values, errors)
+  const position = integer(field(body, 'position'))
   if (position === null) {
     errors.position = 'Cette valeur doit être un nombre entier.'
   }
-  const { title, slug, text } = values
-
   return {
     values,
     errors,
     data:
-      Object.keys(errors).length === 0 && image !== null && position !== null
-        ? { title, slug, text, image, position }
+      Object.keys(errors).length === 0 && position !== null
+        ? {
+            title,
+            slug,
+            text,
+            position,
+            imageContent: image.content,
+            imageAlt: image.alt,
+            imageDecorative: image.decorative,
+          }
         : null,
   }
 }
@@ -94,7 +101,6 @@ const slideListPage = (slides: readonly Slide.Editable[], message?: string, erro
           <tr>
             <th scope="col">Position</th>
             <th scope="col">Titre</th>
-            <th scope="col">Visuel</th>
             <th scope="col">Actions</th>
           </tr>
         </thead>
@@ -104,7 +110,6 @@ const slideListPage = (slides: readonly Slide.Editable[], message?: string, erro
               html`<tr>
                 <td>${slide.position}</td>
                 <td>${slide.title}</td>
-                <td>${slide.image}</td>
                 <td>
                   <a href="/admin/carrousel/${slide.id}/modifier"
                     >Modifier<span class="sr"> ${slide.title}</span></a
@@ -132,11 +137,11 @@ const slideFormPage = (
     '/admin/carrousel',
     html`<h1>${title}</h1>
       ${formError(error)}
-      <form method="post" action="${action}" novalidate>
+      <form method="post" action="${action}" enctype="multipart/form-data" novalidate>
         ${textField('Titre', 'title', values, errors)} ${textField('Slug', 'slug', values, errors)}
         ${textareaField('Texte', 'text', values, errors)}
-        ${textField(`Visuel (numéro de 1 à ${IMAGE_COUNT})`, 'image', values, errors, 'number')}
         ${textField('Position (ordre croissant)', 'position', values, errors, 'number')}
+        ${imageFieldsHtml('slide', SLIDE_ALT_HELP, values, errors)}
         <button type="submit">Enregistrer</button>
       </form>
       <p><a href="/admin/carrousel">Retour au carrousel</a></p>`,
@@ -210,12 +215,12 @@ const slideValues = ({ title, slug, text, image, position }: Slide.Editable): Va
   title,
   slug,
   text,
-  image: String(image),
   position: String(position),
+  ...imageValues(image),
 })
 
 const refusal = (error: unknown): string => {
-  if (error instanceof ContentRuleViolation) {
+  if (error instanceof ContentRuleViolation || error instanceof MediaRuleViolation) {
     return error.message
   }
   throw error
@@ -237,11 +242,11 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
   })
 
   app.get('/admin/carrousel/nouveau', (c) =>
-    c.html(slideFormPage('Nouvelle diapositive', c.req.path, { image: '1', position: '1' })),
+    c.html(slideFormPage('Nouvelle diapositive', c.req.path, { position: '1' })),
   )
 
   app.post('/admin/carrousel/nouveau', async (c) => {
-    const form = readSlideForm(await c.req.parseBody())
+    const form = await readSlideForm(await c.req.parseBody())
     if (form.data === null) {
       return c.html(
         slideFormPage('Nouvelle diapositive', c.req.path, form.values, form.errors),
@@ -271,7 +276,7 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
     if (id === null) {
       return c.html(notFoundPage(), 404)
     }
-    const form = readSlideForm(await c.req.parseBody())
+    const form = await readSlideForm(await c.req.parseBody())
     if (form.data === null) {
       return c.html(
         slideFormPage('Modifier la diapositive', c.req.path, form.values, form.errors),

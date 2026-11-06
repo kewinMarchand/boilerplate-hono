@@ -1,7 +1,9 @@
-import { CatalogRuleViolation, checkImage, checkPlacement } from '#/catalog/domain/catalogRules.ts'
+import { CatalogRuleViolation, checkPlacement } from '#/catalog/domain/catalogRules.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
+import { changeImage } from '#/media/application/storeImage.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
+import type { MediaDependencies } from '#/media/application/storeImage.ts'
 
 /**
  * Écritures de l'admin sur le catalogue (ADR 0001) : chaque cas d'usage vérifie les règles qui
@@ -12,6 +14,7 @@ export interface CatalogAdminDependencies {
   readonly categories: Catalog.CategoryRepository
   readonly categoryWriter: Catalog.CategoryWriter
   readonly productWriter: Catalog.ProductWriter
+  readonly media: MediaDependencies
 }
 
 const loadTree = async ({ categories }: CatalogAdminDependencies): Promise<CategoryTree> =>
@@ -109,29 +112,57 @@ const productPlacement = async (
   if (findIn(tree, input.categorySlug) === undefined) {
     throw new CatalogRuleViolation("La catégorie du produit n'existe pas.")
   }
-  checkImage(input.image)
 
   return CategoryTree.pathTo(tree, input.categorySlug)
+}
+
+/** Produit à enregistrer : sans texte de remplacement, il prend son nom (MediaRuleViolation si l'image est refusée). */
+const savedProduct = async (
+  { media }: CatalogAdminDependencies,
+  input: Catalog.ProductInput,
+  current: Catalog.Product | null,
+): Promise<Catalog.ProductSaved> => {
+  const { imageContent, imageAlt, imageDecorative, ...product } = input
+  const alt = imageAlt.trim() === '' ? input.name : imageAlt
+  const image = await changeImage(
+    media,
+    current?.image ?? null,
+    imageContent,
+    alt,
+    imageDecorative,
+    'product',
+  )
+  if (image === null) {
+    throw new CatalogRuleViolation("Un produit a besoin d'une image.")
+  }
+  return { ...product, image }
 }
 
 export const createProduct = async (
   dependencies: CatalogAdminDependencies,
   input: Catalog.ProductInput,
-): Promise<Catalog.Product> =>
-  dependencies.productWriter.create(input, await productPlacement(dependencies, input))
+): Promise<Catalog.Product> => {
+  const categoryPath = await productPlacement(dependencies, input)
+  return dependencies.productWriter.create(
+    await savedProduct(dependencies, input, null),
+    categoryPath,
+  )
+}
 
 export const updateProduct = async (
   dependencies: CatalogAdminDependencies,
   id: number,
   input: Catalog.ProductInput,
 ): Promise<void> => {
-  if ((await dependencies.productWriter.findById(id)) === null) {
+  const current = await dependencies.productWriter.findById(id)
+  if (current === null) {
     throw new CatalogRuleViolation("Ce produit n'existe plus.")
   }
+  const categoryPath = await productPlacement(dependencies, input, id)
   await dependencies.productWriter.update(
     id,
-    input,
-    await productPlacement(dependencies, input, id),
+    await savedProduct(dependencies, input, current),
+    categoryPath,
   )
 }
 

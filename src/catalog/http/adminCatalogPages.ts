@@ -4,8 +4,9 @@ import { selectField, textField } from '#/shared/http/adminForms.ts'
 import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
 
 import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
-import { IMAGE_COUNT, MAX_DEPTH } from '#/catalog/domain/catalogRules.ts'
+import { MAX_DEPTH } from '#/catalog/domain/catalogRules.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
+import { imageFieldsHtml, imageValues } from '#/media/http/adminImageFields.ts'
 
 import { centsToEuros } from './adminCatalogForms.ts'
 
@@ -171,7 +172,7 @@ export const productFormPage = (
     '/admin/produits',
     html`<h1>${title}</h1>
       ${formError(error)}
-      <form method="post" action="${action}" novalidate>
+      <form method="post" action="${action}" enctype="multipart/form-data" novalidate>
         ${textField('Nom', 'name', values, errors)} ${textField('Slug', 'slug', values, errors)}
         ${selectField(
           'Catégorie',
@@ -208,7 +209,7 @@ export const productFormPage = (
             ${values.inStock === 'on' ? 'checked' : ''}
           />En stock
         </label>
-        ${textField(`Visuel (1 à ${IMAGE_COUNT})`, 'image', values, errors, 'number')}
+        ${imageFieldsHtml('product', 'Vide : le nom du produit, qui suffit le plus souvent.', values, errors)}
         <button type="submit">Enregistrer</button>
       </form>
       <p><a href="/admin/produits">Retour aux produits</a></p>`,
@@ -230,5 +231,5 @@ export const productValues = (product: Catalog.Product): Values => ({
   exposure: product.exposure,
   size: product.size,
   inStock: product.inStock ? 'on' : '',
-  image: String(product.image),
+  ...imageValues(product.image),
 })

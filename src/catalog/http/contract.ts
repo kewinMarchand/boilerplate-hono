@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
+import { imageViewContract } from '#/media/http/imageContract.ts'
 
 export const categoryNodeContract = z
   .object({
@@ -30,7 +31,7 @@ export const productItemContract = z
     exposure: z.enum(EXPOSURES),
     size: z.enum(SIZES),
     inStock: z.boolean(),
-    image: z.int().meta({ description: 'Index du visuel partagé, de 1 à 12.' }),
+    image: z.union([imageViewContract, z.null()]),
   })
   .meta({ id: 'ProductItem' })
 

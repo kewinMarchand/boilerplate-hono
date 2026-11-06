@@ -1,10 +1,12 @@
+import { readFile } from 'node:fs/promises'
+import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { saveAdmin } from '#/admin/application/adminAccounts.ts'
 
-import { createRepositories } from '#/database.ts'
+import { createRepositories, mediaDependencies } from '#/database.ts'
 
-import { createTestContext } from './context.ts'
+import { createTestContext, TEST_MEDIA_DIR } from './context.ts'
 
 import type { TestContext } from './context.ts'
 
@@ -15,7 +17,11 @@ const ORIGIN = 'http://localhost'
 
 beforeAll(async () => {
   context = await createTestContext('admin_contenus')
-  await saveAdmin(createRepositories(context.db), 'admin@exemple.fr', 'mot-de-passe-solide')
+  await saveAdmin(
+    createRepositories(context.db, mediaDependencies(TEST_MEDIA_DIR)),
+    'admin@exemple.fr',
+    'mot-de-passe-solide',
+  )
   const login = await post('/admin/login', {
     email: 'admin@exemple.fr',
     password: 'mot-de-passe-solide',
@@ -35,6 +41,25 @@ function post(path: string, fields: Record<string, string>, withSession = true) 
     body: new URLSearchParams(fields).toString(),
   })
 }
+
+/** Formulaire multipart avec un fichier, comme l'envoie le navigateur. */
+function postFile(path: string, fields: Record<string, string>, file?: Uint8Array) {
+  const form = new FormData()
+  for (const [name, value] of Object.entries(fields)) {
+    form.set(name, value)
+  }
+  if (file !== undefined) {
+    form.set('imageContent', new File([Buffer.from(file)], 'photo.webp', { type: 'image/webp' }))
+  }
+  return context.app.request(`${ORIGIN}${path}`, {
+    method: 'POST',
+    headers: { Origin: ORIGIN, Cookie: cookie },
+    body: form,
+  })
+}
+
+const demoPhoto = async (name: string) =>
+  new Uint8Array(await readFile(new URL(`../../fixtures/images/${name}.webp`, import.meta.url)))
 
 const page = (path: string) =>
   context.app.request(`${ORIGIN}${path}`, { headers: { Cookie: cookie } })
@@ -75,14 +100,13 @@ describe('Admin : contenus', () => {
       title: '',
       slug: 'Pas Un Slug',
       text: '',
-      image: '6',
       position: 'x',
     })
     const body = await response.text()
 
     expect(response.status).toBe(422)
     expect(body).toContain('Cette valeur ne doit pas être vide.')
-    expect(body).toContain('Cette valeur doit être comprise entre 1 et 5.')
+    expect(body).toContain('Cette valeur doit être un nombre entier.')
     expect(body).toContain('aria-invalid="true"')
   })
 
@@ -91,7 +115,6 @@ describe('Admin : contenus', () => {
       title: 'Doublon',
       slug: 'heliconia',
       text: '',
-      image: '1',
       position: '9',
     })
 
@@ -102,13 +125,17 @@ describe('Admin : contenus', () => {
   })
 
   it('crée, modifie et supprime une diapositive, visible aussitôt dans l’API', async () => {
-    const created = await post('/admin/carrousel/nouveau', {
-      title: 'Hibiscus',
-      slug: 'hibiscus',
-      text: 'Une fleur d’un jour.',
-      image: '2',
-      position: '0',
-    })
+    const created = await postFile(
+      '/admin/carrousel/nouveau',
+      {
+        title: 'Hibiscus',
+        slug: 'hibiscus',
+        text: 'Une fleur d’un jour.',
+        position: '0',
+        imageAlt: 'Fleur rouge d’hibiscus',
+      },
+      await demoPhoto('slide-2'),
+    )
     expect(created.status).toBe(303)
     expect(created.headers.get('location')).toBe('/admin/carrousel?ok=cree')
     expect(await (await page('/admin/carrousel?ok=cree')).text()).toContain('Diapositive créée.')
@@ -117,20 +144,41 @@ describe('Admin : contenus', () => {
     expect(slides.indexOf('"slug":"hibiscus"')).toBeLessThan(slides.indexOf('"slug":"heliconia"'))
     const id = /"id":(\d+),"slug":"hibiscus"/.exec(slides)?.[1] ?? ''
     expect(Number(id)).toBeGreaterThan(5)
+    expect(slides).toContain('"alt":"Fleur rouge d’hibiscus"')
 
-    const updated = await post(`/admin/carrousel/${id}/modifier`, {
+    const updated = await postFile(`/admin/carrousel/${id}/modifier`, {
       title: 'Hibiscus rouge',
       slug: 'hibiscus',
       text: '',
-      image: '2',
       position: '9',
+      imageAlt: 'Hibiscus en fleur',
     })
     expect(updated.status).toBe(303)
-    expect(await apiText('/api/slides')).toContain('Hibiscus rouge')
+    const afterUpdate = await apiText('/api/slides')
+    expect(afterUpdate).toContain('Hibiscus rouge')
+    expect(afterUpdate).toContain('"alt":"Hibiscus en fleur"')
 
     expect((await page(`/admin/carrousel/${id}/supprimer`)).status).toBe(200)
     expect((await post(`/admin/carrousel/${id}/supprimer`, {})).status).toBe(303)
     expect(await apiText('/api/slides')).not.toContain('hibiscus')
+  })
+
+  it('refuse une image trop petite une fois recadrée, avec le message de l’API Platform', async () => {
+    const small = await sharp({
+      create: { width: 640, height: 360, channels: 3, background: '#c81e1e' },
+    })
+      .png()
+      .toBuffer()
+    const response = await postFile(
+      '/admin/carrousel/nouveau',
+      { title: 'Trop petite', slug: 'trop-petite', text: '', position: '9', imageAlt: 'Une photo' },
+      new Uint8Array(small),
+    )
+
+    expect(response.status).toBe(422)
+    expect(await response.text()).toContain(
+      'Recadrée au format 16:9, l&#39;image doit faire au moins 1280 × 720 px : elle fait 640 × 360 px.',
+    )
   })
 
   it('modifie une page légale : le Markdown est rendu et découpé dans l’API', async () => {

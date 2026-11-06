@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { negotiateFormat } from '#/shared/http/contentNegotiation.ts'
 import { scenario } from '#/shared/http/scenario.ts'
 
+import { toImageView } from '#/media/http/imageContract.ts'
+
 import { articleContract } from './contract.ts'
 
 import type { Article } from '#/blog/domain/Article.ts'
@@ -26,5 +28,14 @@ export const articleRoutes = (repository: Article.Repository, options: RouteOpti
         },
       },
     }),
-    async (c) => c.json(await repository.findLatestFirst(), 200),
+    async (c) => {
+      const articles = await repository.findLatestFirst()
+      return c.json(
+        articles.map((article) => ({
+          ...article,
+          image: toImageView(options.mediaBaseUrl, article.image, 'article'),
+        })),
+        200,
+      )
+    },
   )

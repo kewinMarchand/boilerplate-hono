@@ -11,7 +11,9 @@ import {
 import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLayout.ts'
 
 import { BlogRuleViolation } from '#/blog/domain/Article.ts'
+import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
 import { createArticle, deleteArticle, updateArticle } from '#/blog/application/adminBlog.ts'
+import { imageFieldsHtml, imageValues, readImageFields } from '#/media/http/adminImageFields.ts'
 
 import type { BlogAdminDependencies } from '#/blog/application/adminBlog.ts'
 import type { Article } from '#/blog/domain/Article.ts'
@@ -31,21 +33,41 @@ const isDate = (value: string): boolean =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value
 
-export const readArticleForm = (body: Record<string, unknown>): FormResult<Article.Input> => {
-  const values = {
-    title: field(body, 'title'),
-    slug: field(body, 'slug'),
-    excerpt: field(body, 'excerpt'),
-    publishedAt: field(body, 'publishedAt'),
-  }
+const ALT_HELP =
+  "Ce que montre l'image, si elle apporte une information. Une illustration d'ambiance est décorative."
+
+export const readArticleForm = async (
+  body: Record<string, unknown>,
+): Promise<FormResult<Article.Input>> => {
+  const title = field(body, 'title')
+  const slug = field(body, 'slug')
+  const excerpt = field(body, 'excerpt')
+  const publishedAt = field(body, 'publishedAt')
+  const values: Values = { title, slug, excerpt, publishedAt }
   const errors: Errors = {}
-  requiredText(errors, 'title', values.title)
-  slugField(errors, values.slug)
-  if (!isDate(values.publishedAt)) {
+  requiredText(errors, 'title', title)
+  slugField(errors, slug)
+  if (!isDate(publishedAt)) {
     errors.publishedAt = 'Veuillez entrer une date valide.'
   }
+  const image = await readImageFields(body, values, errors)
 
-  return { values, errors, data: Object.keys(errors).length === 0 ? values : null }
+  return {
+    values,
+    errors,
+    data:
+      Object.keys(errors).length === 0
+        ? {
+            title,
+            slug,
+            excerpt,
+            publishedAt,
+            imageContent: image.content,
+            imageAlt: image.alt,
+            imageDecorative: image.decorative,
+          }
+        : null,
+  }
 }
 
 const listPage = (articles: readonly Article.Entity[], message?: string, error?: string) =>
@@ -96,10 +118,11 @@ const formPage = (
     '/admin/articles',
     html`<h1>${title}</h1>
       ${formError(error)}
-      <form method="post" action="${action}" novalidate>
+      <form method="post" action="${action}" enctype="multipart/form-data" novalidate>
         ${textField('Titre', 'title', values, errors)} ${textField('Slug', 'slug', values, errors)}
         ${textareaField('Résumé', 'excerpt', values, errors)}
         ${textField('Date de publication', 'publishedAt', values, errors, 'date')}
+        ${imageFieldsHtml('article', ALT_HELP, values, errors)}
         <button type="submit">Enregistrer</button>
       </form>
       <p><a href="/admin/articles">Retour aux articles</a></p>`,
@@ -117,15 +140,16 @@ const confirmPage = (article: Article.Entity, action: string) =>
       <p><a href="/admin/articles">Annuler</a></p>`,
   )
 
-const valuesOf = ({ title, slug, excerpt, publishedAt }: Article.Entity): Values => ({
+const valuesOf = ({ title, slug, excerpt, publishedAt, image }: Article.Entity): Values => ({
   title,
   slug,
   excerpt,
   publishedAt,
+  ...imageValues(image),
 })
 
 const refusal = (error: unknown): string => {
-  if (error instanceof BlogRuleViolation) {
+  if (error instanceof BlogRuleViolation || error instanceof MediaRuleViolation) {
     return error.message
   }
   throw error
@@ -155,7 +179,7 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
   )
 
   app.post('/admin/articles/nouveau', async (c) => {
-    const form = readArticleForm(await c.req.parseBody())
+    const form = await readArticleForm(await c.req.parseBody())
     if (form.data === null) {
       return c.html(formPage('Nouvel article', c.req.path, form.values, form.errors), 422)
     }
@@ -179,7 +203,7 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
     if (id === null) {
       return c.html(notFoundPage(), 404)
     }
-    const form = readArticleForm(await c.req.parseBody())
+    const form = await readArticleForm(await c.req.parseBody())
     if (form.data === null) {
       return c.html(formPage("Modifier l'article", c.req.path, form.values, form.errors), 422)
     }

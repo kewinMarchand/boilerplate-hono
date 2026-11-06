@@ -3,9 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { saveAdmin } from '#/admin/application/adminAccounts.ts'
 import { ADMIN_CSP } from '#/admin/http/adminRoutes.ts'
 
-import { createRepositories } from '#/database.ts'
+import { createRepositories, mediaDependencies } from '#/database.ts'
 
-import { createTestContext } from './context.ts'
+import { createTestContext, TEST_MEDIA_DIR } from './context.ts'
 
 import type { TestContext } from './context.ts'
 
@@ -17,7 +17,11 @@ const ORIGIN = 'http://localhost'
 
 beforeAll(async () => {
   context = await createTestContext('admin')
-  await saveAdmin(createRepositories(context.db), EMAIL, PASSWORD)
+  await saveAdmin(
+    createRepositories(context.db, mediaDependencies(TEST_MEDIA_DIR)),
+    EMAIL,
+    PASSWORD,
+  )
 })
 afterAll(() => context.close())
 

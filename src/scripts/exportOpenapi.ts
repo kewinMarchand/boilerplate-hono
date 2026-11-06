@@ -47,6 +47,11 @@ const offline: AppDependencies = {
   },
   legalPageWriter: { findAll: unavailable, findEditable: unavailable, update: unavailable },
   legalPageRenderer: { split: () => ({ introduction: '', sections: [] }) },
+  media: {
+    encoder: { inspect: unavailable, variants: unavailable },
+    storage: { has: unavailable, put: unavailable },
+    fingerprint: () => '',
+  },
 }
 
 const output = process.argv[2] ?? 'openapi.json'
@@ -54,6 +59,8 @@ const app = createApp(offline, {
   APP_ENV: 'prod',
   CORS_ALLOW_ORIGIN: '^$',
   ADMIN_SESSION_SECRET: 'export-openapi-sans-session-ni-admin-utilisable',
+  MEDIA_BASE_URL: 'http://localhost:8091',
+  MEDIA_DIR: 'var/media',
 })
 await writeFile(output, `${JSON.stringify(openApiDocument(app), null, 4)}\n`)
 console.info(`Schéma OpenAPI exporté dans ${output}`)

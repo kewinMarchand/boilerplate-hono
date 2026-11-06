@@ -1,12 +1,14 @@
 import { z } from 'zod'
 
+import { imageViewContract } from '#/media/http/imageContract.ts'
+
 export const slideContract = z
   .object({
     id: z.int(),
     slug: z.string(),
     title: z.string(),
     text: z.string(),
-    image: z.int(),
+    image: z.union([imageViewContract, z.null()]),
   })
   .meta({
     id: 'Slide',

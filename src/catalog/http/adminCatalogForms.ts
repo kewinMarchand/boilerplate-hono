@@ -1,11 +1,11 @@
 import { field, integer, requiredText, slugField } from '#/shared/http/adminForms.ts'
 
 import { isExposure, isSize } from '#/catalog/domain/catalog.ts'
-import { IMAGE_COUNT } from '#/catalog/domain/catalogRules.ts'
 import { Price } from '#/catalog/domain/price.ts'
+import { readImageFields } from '#/media/http/adminImageFields.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
-import type { Errors, FormResult } from '#/shared/http/adminForms.ts'
+import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
 
 /**
  * Lecture des formulaires de l'admin du catalogue : la forme est vérifiée ici, à la frontière
@@ -57,9 +57,9 @@ export const readCategoryForm = (body: Record<string, unknown>): FormResult<Cata
   return { values, errors, data }
 }
 
-export const readProductForm = (
+export const readProductForm = async (
   body: Record<string, unknown>,
-): FormResult<Catalog.ProductInput> => {
+): Promise<FormResult<Catalog.ProductInput>> => {
   const values = {
     name: field(body, 'name'),
     slug: field(body, 'slug'),
@@ -68,7 +68,6 @@ export const readProductForm = (
     exposure: field(body, 'exposure'),
     size: field(body, 'size'),
     inStock: field(body, 'inStock') === '' ? '' : 'on',
-    image: field(body, 'image'),
   }
   const errors: Errors = {}
   requiredText(errors, 'name', values.name)
@@ -88,17 +87,11 @@ export const readProductForm = (
   if (!isSize(values.size)) {
     errors.size = "Le choix sélectionné n'est pas valide."
   }
-  const image = integer(values.image)
-  if (image === null || image < 1 || image > IMAGE_COUNT) {
-    errors.image = `Cette valeur doit être comprise entre 1 et ${IMAGE_COUNT}.`
-  }
+  const formValues: Values = { ...values }
+  const image = await readImageFields(body, formValues, errors)
   const { exposure, size } = values
   const data =
-    Object.keys(errors).length === 0 &&
-    cents !== null &&
-    image !== null &&
-    isExposure(exposure) &&
-    isSize(size)
+    Object.keys(errors).length === 0 && cents !== null && isExposure(exposure) && isSize(size)
       ? {
           slug: values.slug,
           name: values.name,
@@ -107,9 +100,11 @@ export const readProductForm = (
           exposure,
           size,
           inStock: values.inStock === 'on',
-          image,
+          imageContent: image.content,
+          imageAlt: image.alt,
+          imageDecorative: image.decorative,
         }
       : null
 
-  return { values, errors, data }
+  return { values: formValues, errors, data }
 }

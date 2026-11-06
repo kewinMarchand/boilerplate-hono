@@ -163,13 +163,17 @@ Non comparés, mais à connaître :
 - **Routes absentes** : l'entrypoint `/api`, le suffixe de format (`/api/tasks.json`) et la redirection 301 des barres obliques finales.
 - **Production** : une 500 y renvoie `Internal Server Error` comme détail. L'API Platform de comparaison tourne en dev, ce cas n'est pas comparé.
 
+## Images
+
+Comme dans l'API Platform ([ADR 0002](doc/adr/0002-images-envoyees-par-l-admin.md) de ce dépôt, qui adopte la sienne), diapositives, produits et articles portent une image envoyée par l'admin. Le champ `image` vaut `{ alt, width, height, sources, src }`, ou `null` pour un objet d'avant l'envoi des images ; les adresses sont absolues, préfixées par `MEDIA_BASE_URL` (`http://localhost:8091` par défaut). Les variantes AVIF et WebP sont générées à l'envoi par `sharp` et écrites dans `MEDIA_DIR` (`var/media`), servi sous `/media/` avec un cache d'un an. Mêmes fixtures que l'API Platform (`fixtures/images`), donc mêmes noms de fichiers : seule l'origine des adresses diffère.
+
 ## Suivi des erreurs (GlitchTip)
 
 Désactivé par défaut. Renseigner `GLITCHTIP_DSN` (DSN au format Sentry) dans `.env` active le SDK `@sentry/node`. `GLITCHTIP_ENVIRONMENT` nomme l'environnement, `APP_ENV` sinon. Seules les erreurs inattendues partent : 5xx réelles, exceptions et rejets de promesse non gérés. Les 4xx (404, 405, 422 de validation…) et les erreurs simulées par `X-Scenario` ne sont jamais envoyées. Aucune donnée personnelle, aucun corps de requête, aucune trace de performance.
 
 ## Production
 
-`make docker-build-prod` construit une image multi-étapes : dépendances sans `devDependencies`, sources `.ts` exécutées directement par Node, utilisateur `node`, port 8080, `APP_ENV=prod` (X-Scenario inactif). Elle attend `MONGODB_URI` et `MONGODB_DB`. Les collections et leurs validateurs sont créés au démarrage, les fixtures se chargent à part (`node src/scripts/dbReset.ts`).
+`make docker-build-prod` construit une image multi-étapes : dépendances sans `devDependencies`, sources `.ts` exécutées directement par Node, utilisateur `node`, port 8080, `APP_ENV=prod` (X-Scenario inactif). Elle attend `MONGODB_URI`, `MONGODB_DB` et `MEDIA_BASE_URL` (origine publique de l'API). Les images envoyées par l'admin sont écrites dans `MEDIA_DIR` (`var/media` par défaut, soit `/app/var/media`), à monter sur un volume persistant, propriétaire `node`, sauvegardé avec la base. Les collections et leurs validateurs sont créés au démarrage, les fixtures se chargent à part (`node src/scripts/dbReset.ts`).
 
 ## Intégration continue
 

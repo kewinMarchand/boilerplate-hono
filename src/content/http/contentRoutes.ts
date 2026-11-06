@@ -6,6 +6,8 @@ import { negotiateFormat } from '#/shared/http/contentNegotiation.ts'
 import { errorSchema, problemContent } from '#/shared/http/problemSchemas.ts'
 import { scenario } from '#/shared/http/scenario.ts'
 
+import { toImageView } from '#/media/http/imageContract.ts'
+
 import { legalPageContract, slideContract } from './contract.ts'
 
 import type { LegalPage } from '#/content/domain/LegalPage.ts'
@@ -35,7 +37,16 @@ export const contentRoutes = (repositories: ContentRepositories, options: RouteO
           },
         },
       }),
-      async (c) => c.json(await repositories.slides.findInOrder(), 200),
+      async (c) => {
+        const slides = await repositories.slides.findInOrder()
+        return c.json(
+          slides.map((slide) => ({
+            ...slide,
+            image: toImageView(options.mediaBaseUrl, slide.image, 'slide'),
+          })),
+          200,
+        )
+      },
     )
     .openapi(
       createRoute({

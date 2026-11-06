@@ -51,6 +51,16 @@
                     "publishedAt": {
                         "type": "string",
                         "format": "date"
+                    },
+                    "image": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ImageView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     }
                 },
                 "required": [
@@ -58,9 +68,68 @@
                     "slug",
                     "title",
                     "excerpt",
-                    "publishedAt"
+                    "publishedAt",
+                    "image"
                 ],
                 "description": "Liste les articles, du plus récent au plus ancien, sans pagination."
+            },
+            "ImageView": {
+                "type": "object",
+                "properties": {
+                    "alt": {
+                        "type": "string",
+                        "description": "Texte de remplacement. Vide : image décorative."
+                    },
+                    "width": {
+                        "type": "integer",
+                        "description": "Largeur de la plus grande variante, en pixels (attribut width)."
+                    },
+                    "height": {
+                        "type": "integer",
+                        "description": "Hauteur de la plus grande variante, en pixels (attribut height)."
+                    },
+                    "sources": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ImageSource"
+                        },
+                        "description": "Sources du <picture>, AVIF puis WebP."
+                    },
+                    "src": {
+                        "type": "string",
+                        "description": "Adresse absolue de la plus petite variante WebP (attribut src de l'<img>)."
+                    }
+                },
+                "required": [
+                    "alt",
+                    "width",
+                    "height",
+                    "sources",
+                    "src"
+                ],
+                "description": "Image exposée dans le contrat public (ADR 0002) : les fronts posent les sources dans un <picture>, sans construire aucun chemin."
+            },
+            "ImageSource": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "image/avif",
+                            "image/webp"
+                        ],
+                        "description": "Type MIME de la source : image/avif, puis image/webp."
+                    },
+                    "srcset": {
+                        "type": "string",
+                        "description": "Valeur de l'attribut srcset : adresses absolues et largeurs, de la plus petite à la plus grande."
+                    }
+                },
+                "required": [
+                    "type",
+                    "srcset"
+                ],
+                "description": "Une source d'un élément <picture> : un format et toutes ses largeurs."
             },
             "ContactMessage": {
                 "type": "object",
@@ -329,8 +398,14 @@
                         "type": "boolean"
                     },
                     "image": {
-                        "type": "integer",
-                        "description": "Index du visuel partagé, de 1 à 12."
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ImageView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     }
                 },
                 "required": [
@@ -428,7 +503,14 @@
                         "type": "string"
                     },
                     "image": {
-                        "type": "integer"
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ImageView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     }
                 },
                 "required": [

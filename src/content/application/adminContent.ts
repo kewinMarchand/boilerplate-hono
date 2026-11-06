@@ -1,7 +1,9 @@
-import { checkImage, ContentRuleViolation } from '#/content/domain/contentRules.ts'
+import { ContentRuleViolation } from '#/content/domain/contentRules.ts'
+import { changeImage } from '#/media/application/storeImage.ts'
 
 import type { LegalPage } from '#/content/domain/LegalPage.ts'
 import type { Slide } from '#/content/domain/Slide.ts'
+import type { MediaDependencies } from '#/media/application/storeImage.ts'
 
 /**
  * Écritures de l'admin sur le carrousel et les pages légales (ADR 0001). Mêmes vérifications,
@@ -11,6 +13,7 @@ export interface ContentAdminDependencies {
   readonly slideWriter: Slide.Writer
   readonly legalPageWriter: LegalPage.Writer
   readonly legalPageRenderer: LegalPage.Renderer
+  readonly media: MediaDependencies
 }
 
 const requireFreeSlug = async (
@@ -25,9 +28,32 @@ const requireFreeSlug = async (
 }
 
 const requireSlide = async ({ slideWriter }: ContentAdminDependencies, id: number) => {
-  if ((await slideWriter.findById(id)) === null) {
+  const slide = await slideWriter.findById(id)
+  if (slide === null) {
     throw new ContentRuleViolation("Cette diapositive n'existe plus.")
   }
+  return slide
+}
+
+/** Diapositive à enregistrer : l'image envoyée, ou l'actuelle avec son nouveau texte (MediaRuleViolation sinon). */
+const saved = async (
+  { media }: ContentAdminDependencies,
+  input: Slide.Input,
+  current: Slide.Editable | null,
+): Promise<Slide.Saved> => {
+  const { slug, title, text, position, imageContent, imageAlt, imageDecorative } = input
+  const image = await changeImage(
+    media,
+    current?.image ?? null,
+    imageContent,
+    imageAlt,
+    imageDecorative,
+    'slide',
+  )
+  if (image === null) {
+    throw new ContentRuleViolation("Une diapositive a besoin d'une image.")
+  }
+  return { slug, title, text, position, image }
 }
 
 export const createSlide = async (
@@ -35,8 +61,7 @@ export const createSlide = async (
   input: Slide.Input,
 ): Promise<Slide.Editable> => {
   await requireFreeSlug(dependencies, input.slug)
-  checkImage(input.image)
-  return dependencies.slideWriter.create(input)
+  return dependencies.slideWriter.create(await saved(dependencies, input, null))
 }
 
 export const updateSlide = async (
@@ -44,10 +69,9 @@ export const updateSlide = async (
   id: number,
   input: Slide.Input,
 ): Promise<void> => {
-  await requireSlide(dependencies, id)
+  const current = await requireSlide(dependencies, id)
   await requireFreeSlug(dependencies, input.slug, id)
-  checkImage(input.image)
-  await dependencies.slideWriter.update(id, input)
+  await dependencies.slideWriter.update(id, await saved(dependencies, input, current))
 }
 
 export const deleteSlide = async (
