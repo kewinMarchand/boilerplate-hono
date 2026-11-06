@@ -12,6 +12,10 @@ const configSchema = z.object({
   MONGODB_URI: z.string().min(1).default('mongodb://app:app@127.0.0.1:27017/?authSource=admin'),
   MONGODB_DB: z.string().min(1).default('app'),
   CORS_ALLOW_ORIGIN: z.string().min(1).default(DEFAULT_CORS_ALLOW_ORIGIN),
+  /** Origine publique de l'API, vue par le navigateur : préfixe des adresses des images (ADR 0002). */
+  MEDIA_BASE_URL: z.url().default('http://localhost:8091'),
+  /** Dossier des variantes des images envoyées par l'admin, servi sous /media/. */
+  MEDIA_DIR: z.string().min(1).default('var/media'),
   GLITCHTIP_DSN: z
     .string()
     .optional()

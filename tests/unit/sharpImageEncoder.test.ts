@@ -1,0 +1,68 @@
+import sharp from 'sharp'
+import { describe, expect, it } from 'vitest'
+
+import { fingerprint, sharpImageEncoder } from '#/media/infrastructure/sharpImageEncoder.ts'
+
+const WITNESS = 'TEMOIN-GPS-48.8566N'
+
+/** JPEG avec des métadonnées EXIF : orientation, et une description qui sert de témoin. */
+const jpegWithExif = async (width: number, height: number, orientation = 1) =>
+  new Uint8Array(
+    await sharp({ create: { width, height, channels: 3, background: '#c81e1e' } })
+      .jpeg()
+      .withExif({ IFD0: { ImageDescription: WITNESS } })
+      .withMetadata({ orientation })
+      .toBuffer(),
+  )
+
+describe('encodeur sharp (réel)', () => {
+  it('lit le type et les dimensions, orientation EXIF appliquée', async () => {
+    const source = await sharpImageEncoder.inspect(await jpegWithExif(1600, 900, 6))
+
+    expect(source).toEqual({ mimeType: 'image/jpeg', width: 900, height: 1600 })
+  })
+
+  it('refuse ce qui ne se lit pas comme une image', async () => {
+    expect(await sharpImageEncoder.inspect(new TextEncoder().encode('%PDF-1.7'))).toBeNull()
+  })
+
+  it('recadre, redimensionne et retire toutes les métadonnées', async () => {
+    const key = 'f'.repeat(32)
+    const variants = await sharpImageEncoder.variants(
+      await jpegWithExif(1600, 900, 6),
+      key,
+      'product',
+    )
+
+    expect([...variants.keys()]).toEqual([
+      `${key}-400.avif`,
+      `${key}-400.webp`,
+      `${key}-800.avif`,
+      `${key}-800.webp`,
+    ])
+    for (const [name, content] of variants) {
+      const metadata = await sharp(content).metadata()
+      const width = name.includes('-400.') ? 400 : 800
+      expect([metadata.width, metadata.height], name).toEqual([width, width])
+      expect(metadata.format, name).toBe(name.endsWith('.avif') ? 'heif' : 'webp')
+      expect(metadata.exif, name).toBeUndefined()
+      expect(Buffer.from(content).includes(WITNESS), name).toBe(false)
+    }
+  })
+
+  it('recadre une diapositive au format 16:9', async () => {
+    const key = 'e'.repeat(32)
+    const variants = await sharpImageEncoder.variants(await jpegWithExif(2000, 2000), key, 'slide')
+    const largest = variants.get(`${key}-1280.webp`)
+
+    expect(largest).toBeDefined()
+    const metadata = await sharp(largest).metadata()
+    expect([metadata.width, metadata.height]).toEqual([1280, 720])
+  })
+
+  it('calcule la même empreinte que l’API Platform : sha256(usage + "\\n" + contenu), tronquée', () => {
+    expect(fingerprint('slide', new TextEncoder().encode('abc'))).toBe(
+      'f01a35fadb6186d5e1224b7e7d551f98',
+    )
+  })
+})

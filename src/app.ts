@@ -29,6 +29,7 @@ import { contactMessageRoutes } from '#/contact/http/contactMessageRoutes.ts'
 import { ContactMessageValidationError } from '#/contact/http/ContactMessageValidationError.ts'
 import { adminContentRoutes } from '#/content/http/adminContent.ts'
 import { contentRoutes } from '#/content/http/contentRoutes.ts'
+import { mediaRoutes } from '#/media/http/mediaRoutes.ts'
 import { taskRoutes } from '#/task/http/taskRoutes.ts'
 
 import type { AdminDependencies } from '#/admin/application/adminAccounts.ts'
@@ -55,7 +56,10 @@ export interface AppDependencies
   readonly contactMessages: ContactMessage.Repository
 }
 
-export type AppConfig = Pick<Config, 'APP_ENV' | 'CORS_ALLOW_ORIGIN' | 'ADMIN_SESSION_SECRET'>
+export type AppConfig = Pick<
+  Config,
+  'APP_ENV' | 'CORS_ALLOW_ORIGIN' | 'ADMIN_SESSION_SECRET' | 'MEDIA_BASE_URL' | 'MEDIA_DIR'
+>
 
 /** Ressources dont API Platform déclare l'item (pour générer les IRI) sans l'exposer. */
 const NOT_EXPOSED_ITEMS = [
@@ -105,11 +109,12 @@ export const createApp = (
   config: AppConfig,
   reporter: ErrorReporter = NO_ERROR_REPORTING,
 ) => {
-  const options = { scenarios: config.APP_ENV !== 'prod' }
+  const options = { scenarios: config.APP_ENV !== 'prod', mediaBaseUrl: config.MEDIA_BASE_URL }
   const app = new OpenAPIHono()
 
   app.use('*', contentSecurityPolicy())
   app.use('/api/*', cors(config.CORS_ALLOW_ORIGIN))
+  app.route('/', mediaRoutes(config.MEDIA_DIR))
 
   const routes = app
     .route('/', taskRoutes(dependencies.tasks, options))

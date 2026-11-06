@@ -4,7 +4,7 @@
  * fiables, et un import relatif qui remonte d'un dossier (`../`) est interdit partout.
  * `make arch-selftest` vérifie qu'une violation volontaire de chaque règle fait échouer le lint.
  */
-const MODULES = ['task', 'blog', 'contact', 'catalog', 'content', 'admin']
+const MODULES = ['task', 'blog', 'contact', 'catalog', 'content', 'admin', 'media']
 
 const NO_PARENT_RELATIVE = {
   regex: '^\\.\\./',
@@ -32,6 +32,17 @@ const onlyInternal = (allowed, message) => ({
   message,
 })
 
+/**
+ * Couches de `media` (images envoyées par l'admin, ADR 0002 de l'API Platform) qu'une couche de
+ * module peut importer : le module des images sert les contenus, le catalogue et le blog.
+ */
+const MEDIA = {
+  domain: ['media/domain'],
+  application: ['media/domain', 'media/application'],
+  http: ['media/domain', 'media/http'],
+  infrastructure: ['media/domain', 'media/infrastructure'],
+}
+
 const layer = (files, patterns) => ({
   files,
   rules: { 'no-restricted-imports': ['error', { patterns: [NO_PARENT_RELATIVE, ...patterns] }] },
@@ -45,7 +56,7 @@ const moduleLayers = (module) => [
       NO_DATABASE,
       NO_ZOD,
       onlyInternal(
-        [`${module}/domain`],
+        [`${module}/domain`, ...MEDIA.domain],
         `Couche domaine de ${module} : n'importe que le domaine de son module.`,
       ),
     ],
@@ -57,7 +68,7 @@ const moduleLayers = (module) => [
       NO_DATABASE,
       NO_ZOD,
       onlyInternal(
-        [`${module}/domain`, `${module}/application`],
+        [`${module}/domain`, `${module}/application`, ...MEDIA.application],
         `Couche application de ${module} : n'importe que le domaine et l'application de son module.`,
       ),
     ],
@@ -67,7 +78,13 @@ const moduleLayers = (module) => [
     [
       NO_DATABASE,
       onlyInternal(
-        [`${module}/domain`, `${module}/application`, `${module}/http`, 'shared/http'],
+        [
+          `${module}/domain`,
+          `${module}/application`,
+          `${module}/http`,
+          'shared/http',
+          ...MEDIA.http,
+        ],
         `Couche http de ${module} : ni infrastructure, ni autre module.`,
       ),
     ],
@@ -77,7 +94,12 @@ const moduleLayers = (module) => [
     [
       NO_WEB_FRAMEWORK,
       onlyInternal(
-        [`${module}/domain`, `${module}/infrastructure`, 'shared/infrastructure'],
+        [
+          `${module}/domain`,
+          `${module}/infrastructure`,
+          'shared/infrastructure',
+          ...MEDIA.infrastructure,
+        ],
         `Couche infrastructure de ${module} : ni http, ni application, ni autre module.`,
       ),
     ],
