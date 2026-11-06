@@ -41,6 +41,11 @@ services:
 
   mongo:
     image: mongo:8.2
+    # Limite recommandée par MongoDB : 1024 (défaut de Docker) ne suffit pas aux bases de test ouvertes en parallèle
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
     environment:
       MONGO_INITDB_ROOT_USERNAME: app
       MONGO_INITDB_ROOT_PASSWORD: app
