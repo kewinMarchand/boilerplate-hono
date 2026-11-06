@@ -135,6 +135,22 @@ const mapInSequence = async <T, R>(items: readonly T[], map: (item: T) => Promis
   return results
 }
 
+/**
+ * Encode d'avance les photos de démonstration de toutes les fixtures (préparation des tests) : les
+ * remises à zéro qui suivent les trouvent stockées et n'encodent plus rien.
+ */
+export const importDemoImages = async (media: MediaDependencies): Promise<void> => {
+  await mapInSequence(slideFixtures, ({ demoImage: name, alt }) =>
+    demoImage(media, name, 'slide', alt),
+  )
+  await mapInSequence(productFixtures, ({ demoImage: name, name: alt }) =>
+    demoImage(media, name, 'product', alt),
+  )
+  await mapInSequence(articleFixtures, ({ demoImage: name }) =>
+    demoImage(media, name, 'article', '', true),
+  )
+}
+
 /** Recrée la base : collections validées, index, puis les mêmes données que les fixtures Doctrine. */
 export const resetDatabase = async (db: Db, media: MediaDependencies): Promise<void> => {
   await db.dropDatabase()
