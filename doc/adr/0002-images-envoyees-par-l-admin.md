@@ -1,6 +1,6 @@
 # 0002 — Images envoyées par l'admin : adoption de l'ADR 0002 de l'API Platform
 
-- **Statut** : Acceptée
+- **Statut** : Acceptée, complétée par l'[ADR 0003](0003-variante-intermediaire-des-produits.md) (produits en 400, 640 et 800 px)
 - **Date** : 2026-11-07
 - **Décideurs** : Kewin Marchand
 - **Adopte** : l'[ADR 0002 de boilerplate-api-platform](https://github.com/kewinMarchand/boilerplate-api-platform/blob/main/doc/adr/0002-images-envoyees-par-l-admin.md) (« Images envoyées par l'admin : volume de l'API, variantes générées à l'envoi »), qui tranche la question laissée ouverte par l'[ADR 0001](0001-administration-ecrite-en-hono.md) de ce dépôt (« stockage des images envoyées par l'admin »). La décision et ses alternatives sont dans ce document, elles ne sont pas recopiées ici.
