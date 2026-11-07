@@ -21,19 +21,38 @@ export const categoryNodeContract = z
       "Renvoie l'arbre des catégories : les catégories racines, chacune avec ses enfants, triées par position.",
   })
 
-export const productItemContract = z
+const productItemShape = {
+  id: z.int(),
+  slug: z.string(),
+  name: z.string(),
+  categorySlug: z.string(),
+  price: z.int().meta({ description: 'Prix en centimes.' }),
+  exposure: z.enum(EXPOSURES),
+  size: z.enum(SIZES),
+  inStock: z.boolean(),
+  image: z.union([imageViewContract, z.null()]),
+}
+
+export const productItemContract = z.object(productItemShape).meta({ id: 'ProductItem' })
+
+/** Même forme que ProductItem, sous le nom que lui donne l'API Platform (sortie de la ressource FeaturedProduct). */
+export const featuredProductContract = z.object(productItemShape).meta({
+  id: 'FeaturedProduct.ProductItem',
+  description: 'Liste les produits à la une par ordre alphabétique, sans pagination.',
+})
+
+export const categoryLinkContract = z
+  .object({ slug: z.string(), name: z.string() })
+  .meta({ id: 'CategoryLink' })
+
+export const productDetailContract = z
   .object({
-    id: z.int(),
-    slug: z.string(),
-    name: z.string(),
-    categorySlug: z.string(),
-    price: z.int().meta({ description: 'Prix en centimes.' }),
-    exposure: z.enum(EXPOSURES),
-    size: z.enum(SIZES),
-    inStock: z.boolean(),
-    image: z.union([imageViewContract, z.null()]),
+    ...productItemShape,
+    categoryPath: z.array(categoryLinkContract).meta({
+      description: "Catégories de la racine à celle du produit, pour le fil d'Ariane.",
+    }),
   })
-  .meta({ id: 'ProductItem' })
+  .meta({ id: 'ProductDetail', description: 'Lit un produit par son slug.' })
 
 export const facetValueContract = z
   .object({

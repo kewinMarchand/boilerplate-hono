@@ -93,6 +93,53 @@ describe('GET /api/articles/{slug}', () => {
   })
 })
 
+describe('GET /api/products/{slug}', () => {
+  it('renvoie la fiche avec le chemin de sa catégorie', async () => {
+    const { response, body } = await getJson(context, '/api/products/monstera-deliciosa')
+
+    expect(response.status).toBe(200)
+    expect(body).toStrictEqual({
+      id: 1,
+      slug: 'monstera-deliciosa',
+      name: 'Monstera deliciosa',
+      categorySlug: 'monstera',
+      price: 3490,
+      exposure: 'mi-ombre',
+      size: 'M',
+      inStock: true,
+      image: demoView('product-1', 'product', 'Monstera deliciosa'),
+      categoryPath: [
+        { slug: 'plantes-interieur', name: 'Plantes d’intérieur' },
+        { slug: 'feuillages', name: 'Feuillages' },
+        { slug: 'monstera', name: 'Monstera' },
+      ],
+    })
+  })
+
+  it('répond 404 sur un produit inconnu', async () => {
+    const { response } = await getJson(context, '/api/products/inconnu')
+
+    expect(response.status).toBe(404)
+  })
+})
+
+describe('GET /api/featured-products', () => {
+  it('liste les produits à la une par nom, sans le champ featured', async () => {
+    const { response, body } = await getJson(context, '/api/featured-products')
+    const products = z.array(z.record(z.string(), z.unknown())).parse(body)
+
+    expect(response.status).toBe(200)
+    expect(products.map((product) => product['slug'])).toStrictEqual([
+      'anthurium-andreanum-rouge',
+      'calliandra-haematocephala',
+      'heliconia-rostrata',
+      'nenuphar-bleu-du-nil',
+      'strelitzia-reginae',
+    ])
+    expect(Object.keys(products[0] ?? {})).not.toContain('featured')
+  })
+})
+
 describe('GET /api/slides', () => {
   it("liste les diapositives dans l'ordre du carrousel", async () => {
     const { response, body } = await getJson(context, '/api/slides')

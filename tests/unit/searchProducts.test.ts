@@ -23,6 +23,8 @@ const repositories = () => {
         categoryCounts: {},
       })
     },
+    findBySlug: () => Promise.resolve(null),
+    findFeatured: () => Promise.resolve([]),
   }
   const categories: Catalog.CategoryRepository = {
     findAll: () => Promise.resolve(categoryFixtures),

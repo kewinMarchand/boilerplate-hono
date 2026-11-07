@@ -14,7 +14,7 @@ const offline: AppDependencies = {
   articles: { findLatestFirst: unavailable, findBySlug: unavailable },
   contactMessages: { save: unavailable },
   categories: { findAll: unavailable },
-  products: { search: unavailable },
+  products: { search: unavailable, findBySlug: unavailable, findFeatured: unavailable },
   slides: { findInOrder: unavailable },
   legalPages: { findBySlug: unavailable },
   adminUsers: { findByEmail: unavailable, save: unavailable },

@@ -45,6 +45,8 @@ export declare namespace Catalog {
     readonly inStock: boolean
     /** Image envoyée par l'admin (ADR 0002), null pour un produit d'avant l'envoi des images. */
     readonly image: Media.Image | null
+    /** À la une : montré dans le carrousel de la page d'accueil. */
+    readonly featured: boolean
   }
 
   interface FacetValue {
@@ -130,6 +132,9 @@ export declare namespace Catalog {
 
   interface ProductRepository {
     search(query: SearchQuery): Promise<SearchResult>
+    findBySlug(slug: string): Promise<Product | null>
+    /** Produits à la une, par nom. */
+    findFeatured(): Promise<Product[]>
   }
 
   /** Saisie d'un produit dans l'admin, prix déjà vérifié. */
@@ -141,6 +146,7 @@ export declare namespace Catalog {
     readonly exposure: Exposure
     readonly size: Size
     readonly inStock: boolean
+    readonly featured: boolean
     /** Contenu du fichier envoyé, null pour garder l'image actuelle. */
     readonly imageContent: Uint8Array | null
     /** Vide (et non décorative) : le nom du produit. */
@@ -157,6 +163,7 @@ export declare namespace Catalog {
     readonly exposure: Exposure
     readonly size: Size
     readonly inStock: boolean
+    readonly featured: boolean
     readonly image: Media.Image
   }
 

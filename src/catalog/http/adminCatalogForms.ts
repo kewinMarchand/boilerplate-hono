@@ -68,6 +68,7 @@ export const readProductForm = async (
     exposure: field(body, 'exposure'),
     size: field(body, 'size'),
     inStock: field(body, 'inStock') === '' ? '' : 'on',
+    featured: field(body, 'featured') === '' ? '' : 'on',
   }
   const errors: Errors = {}
   requiredText(errors, 'name', values.name)
@@ -100,6 +101,7 @@ export const readProductForm = async (
           exposure,
           size,
           inStock: values.inStock === 'on',
+          featured: values.featured === 'on',
           imageContent: image.content,
           imageAlt: image.alt,
           imageDecorative: image.decorative,

@@ -532,6 +532,153 @@
                     "count"
                 ]
             },
+            "ProductDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "categorySlug": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "integer",
+                        "description": "Prix en centimes."
+                    },
+                    "exposure": {
+                        "type": "string",
+                        "enum": [
+                            "soleil",
+                            "mi-ombre",
+                            "ombre"
+                        ]
+                    },
+                    "size": {
+                        "type": "string",
+                        "enum": [
+                            "S",
+                            "M",
+                            "L"
+                        ]
+                    },
+                    "inStock": {
+                        "type": "boolean"
+                    },
+                    "image": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ImageView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "categoryPath": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CategoryLink"
+                        },
+                        "description": "Catégories de la racine à celle du produit, pour le fil d'Ariane."
+                    }
+                },
+                "required": [
+                    "id",
+                    "slug",
+                    "name",
+                    "categorySlug",
+                    "price",
+                    "exposure",
+                    "size",
+                    "inStock",
+                    "image",
+                    "categoryPath"
+                ],
+                "description": "Lit un produit par son slug."
+            },
+            "CategoryLink": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "slug",
+                    "name"
+                ]
+            },
+            "FeaturedProduct.ProductItem": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "categorySlug": {
+                        "type": "string"
+                    },
+                    "price": {
+                        "type": "integer",
+                        "description": "Prix en centimes."
+                    },
+                    "exposure": {
+                        "type": "string",
+                        "enum": [
+                            "soleil",
+                            "mi-ombre",
+                            "ombre"
+                        ]
+                    },
+                    "size": {
+                        "type": "string",
+                        "enum": [
+                            "S",
+                            "M",
+                            "L"
+                        ]
+                    },
+                    "inStock": {
+                        "type": "boolean"
+                    },
+                    "image": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ImageView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "slug",
+                    "name",
+                    "categorySlug",
+                    "price",
+                    "exposure",
+                    "size",
+                    "inStock",
+                    "image"
+                ],
+                "description": "Liste les produits à la une par ordre alphabétique, sans pagination."
+            },
             "Slide": {
                 "type": "object",
                 "properties": {
@@ -991,6 +1138,80 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/products/{slug}": {
+            "get": {
+                "operationId": "api_products_slug_get",
+                "tags": [
+                    "ProductDetail"
+                ],
+                "summary": "Retrieves a ProductDetail resource.",
+                "description": "Retrieves a ProductDetail resource.",
+                "parameters": [
+                    {
+                        "schema": {
+                            "type": "string",
+                            "description": "ProductDetail identifier"
+                        },
+                        "required": true,
+                        "description": "ProductDetail identifier",
+                        "name": "slug",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ProductDetail resource",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductDetail"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/featured-products": {
+            "get": {
+                "operationId": "api_featured-products_get_collection",
+                "tags": [
+                    "FeaturedProduct"
+                ],
+                "summary": "Retrieves the collection of FeaturedProduct resources.",
+                "description": "Retrieves the collection of FeaturedProduct resources.",
+                "responses": {
+                    "200": {
+                        "description": "FeaturedProduct collection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/FeaturedProduct.ProductItem"
+                                    }
                                 }
                             }
                         }

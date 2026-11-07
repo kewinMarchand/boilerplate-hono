@@ -155,6 +155,15 @@ export const categoryFixtures: Catalog.Category[] = CATEGORIES.map(
   }),
 )
 
+/** Produits du carrousel de la page d'accueil, comme dans l'API Platform. */
+const FEATURED: readonly string[] = [
+  'heliconia-rostrata',
+  'anthurium-andreanum-rouge',
+  'calliandra-haematocephala',
+  'strelitzia-reginae',
+  'nenuphar-bleu-du-nil',
+]
+
 /** Fixture : la photo de démonstration (fixtures/images), importée par resetDatabase avec le nom pour texte. */
 export type ProductFixture = Omit<Catalog.Product, 'image'> & { readonly demoImage: string }
 
@@ -168,6 +177,7 @@ export const productFixtures: ProductFixture[] = PRODUCTS.map(
     exposure,
     size,
     inStock,
+    featured: FEATURED.includes(slug),
     demoImage: `product-${(index % 12) + 1}`,
   }),
 )

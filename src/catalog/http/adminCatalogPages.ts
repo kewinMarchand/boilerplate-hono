@@ -134,6 +134,7 @@ export const productsPage = (
             <th scope="col">Catégorie</th>
             <th scope="col">Prix</th>
             <th scope="col">Stock</th>
+            <th scope="col">À la une</th>
             <th scope="col">Actions</th>
           </tr>
         </thead>
@@ -146,6 +147,7 @@ export const productsPage = (
                 <td>${names.get(product.categorySlug) ?? product.categorySlug}</td>
                 <td>${centsToEuros(product.price)} €</td>
                 <td>${product.inStock ? 'En stock' : 'Épuisé'}</td>
+                <td>${product.featured ? 'Oui' : 'Non'}</td>
                 <td>
                   <a href="/admin/produits/${product.id}/modifier"
                     >Modifier<span class="sr"> ${product.name}</span></a
@@ -213,6 +215,18 @@ export const productFormPage = (
             ${values.inStock === 'on' ? 'checked' : ''}
           />En stock
         </label>
+        <label for="featured">
+          <input
+            id="featured"
+            name="featured"
+            type="checkbox"
+            aria-describedby="aide-featured"
+            ${values.featured === 'on' ? 'checked' : ''}
+          />À la une
+        </label>
+        <p id="aide-featured">
+          Montré dans le carrousel de la page d'accueil, par ordre alphabétique.
+        </p>
         ${imageFieldsHtml('product', 'Vide : le nom du produit, qui suffit le plus souvent.', values, errors, image)}
         <button type="submit">Enregistrer</button>
       </form>
@@ -235,5 +249,6 @@ export const productValues = (product: Catalog.Product): Values => ({
   exposure: product.exposure,
   size: product.size,
   inStock: product.inStock ? 'on' : '',
+  featured: product.featured ? 'on' : '',
   ...imageValues(product.image),
 })

@@ -159,8 +159,12 @@ describe('Admin : catalogue', () => {
       exposure: 'soleil',
       size: 'S',
       inStock: 'on',
+      featured: 'on',
     })
     expect(product.status).toBe(303)
+    expect(JSON.stringify(await apiJson('/api/featured-products'))).toContain(
+      '"slug":"cactus-cierge"',
+    )
 
     expect(slugsOf(await apiJson('/api/categories'))).toContain('cactus')
     const branch = await apiJson('/api/products?category=cactus')

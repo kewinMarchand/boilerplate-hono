@@ -27,6 +27,7 @@ const productDocumentSchema = z.object({
   exposure: z.enum(EXPOSURES),
   size: z.enum(SIZES),
   inStock: z.boolean(),
+  featured: z.boolean(),
   /** Empreinte de l'image envoyée par l'admin (ADR 0002), null pour un produit d'avant l'envoi des images. */
   imageKey: z
     .string()
@@ -161,6 +162,13 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
   async findAll(): Promise<Catalog.Product[]> {
     const documents = await this.collection
       .find({}, { sort: { categorySlug: 1, name: 1 }, collation: FRENCH_COLLATION })
+      .toArray()
+    return documents.map(toProduct)
+  }
+
+  async findFeatured(): Promise<Catalog.Product[]> {
+    const documents = await this.collection
+      .find({ featured: true }, { sort: { name: 1 }, collation: FRENCH_COLLATION })
       .toArray()
     return documents.map(toProduct)
   }
