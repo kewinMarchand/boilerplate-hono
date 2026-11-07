@@ -89,6 +89,15 @@ describe('Admin : catalogue', () => {
     expect(await products.text()).toContain('Monstera deliciosa')
   })
 
+  it('montre l’image des produits dans la liste et dans le formulaire', async () => {
+    expect(await (await page('/admin/produits')).text()).toMatch(
+      /<img\s+src="\/media\/[0-9a-f]{32}-400\.webp"\s+alt=""/,
+    )
+    expect(await (await page('/admin/produits/1/modifier')).text()).toMatch(
+      /src="\/media\/[0-9a-f]{32}-400\.webp"\s+alt=""\s+class="apercu"/,
+    )
+  })
+
   it('répond 404 en HTML sur une catégorie ou un produit inconnu', async () => {
     for (const response of [
       await page('/admin/categories/inconnue/modifier'),

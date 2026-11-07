@@ -6,8 +6,8 @@ export type Html = HtmlEscapedString | Promise<HtmlEscapedString>
 
 /**
  * Mise en page des pages de l'admin (ADR 0001), commune aux modules : connexion, catalogue,
- * contenus. Styles en ligne : la CSP des pages de l'admin n'autorise qu'eux (aucun fichier,
- * aucun script).
+ * contenus. Styles en ligne : la CSP des pages de l'admin n'autorise qu'eux, les images du même
+ * hôte et le seul script d'aperçu des images (adminImageFields).
  */
 const STYLE = `
   :root { color-scheme: light; font-family: system-ui, sans-serif; color: #1b1b1b; background: #f6f6f6; }
@@ -32,6 +32,9 @@ const STYLE = `
   th, td { padding: .5rem; text-align: left; border-bottom: 1px solid #e0e0e0; }
   td form { display: inline; }
   td button { margin-top: 0; padding: .3rem .6rem; }
+  img.vignette { height: auto; border-radius: .25rem; }
+  figure { margin: 1rem 0 0; }
+  img.apercu { display: block; max-width: 20rem; height: auto; border-radius: .25rem; }
   .erreur-champ { margin: .25rem 0 0; color: #8a1c1c; }
   /* Texte pour les lecteurs d'écran seulement : « Supprimer Monstera » plutôt qu'une suite de « Supprimer » */
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

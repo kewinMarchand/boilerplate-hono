@@ -1,8 +1,9 @@
-import { html } from 'hono/html'
+import { createHash } from 'node:crypto'
+import { html, raw } from 'hono/html'
 
 import { field, textField } from '#/shared/http/adminForms.ts'
 
-import { largestWidth, ratioOf } from '#/media/domain/imageRules.ts'
+import { fileName, largestWidth, ratioOf, widthsOf } from '#/media/domain/imageRules.ts'
 
 import type { Media } from '#/media/domain/Media.ts'
 import type { Errors, Values } from '#/shared/http/adminForms.ts'
@@ -45,15 +46,64 @@ export const imageValues = (image: Media.Image | null): Values => ({
   imageDecorative: image !== null && image.alt === '' ? 'on' : '',
 })
 
+/**
+ * Aperçu d'une image : sa plus petite variante WebP, servie par mediaRoutes sur le même hôte que
+ * l'admin, d'où une adresse relative (comme ImagePreview de l'API Platform).
+ */
+const previewUrl = (image: Media.Image, usage: Media.Usage): string =>
+  `/media/${fileName(image.key, widthsOf(usage)[0], 'webp')}`
+
+/** Cellule « Image » des listes : la plus petite variante, ou un tiret sans image. */
+export const imageCell = (image: Media.Image | null, usage: Media.Usage) =>
+  html`<td>
+    ${
+      image === null
+        ? '—'
+        : html`<img
+            src="${previewUrl(image, usage)}"
+            alt=""
+            width="64"
+            loading="lazy"
+            class="vignette"
+          />`
+    }
+  </td>`
+
+/** Montre le fichier choisi à la place de l'image actuelle, avant l'envoi du formulaire. */
+const PREVIEW_SCRIPT = `
+  const input = document.getElementById('imageContent');
+  const preview = document.getElementById('apercu-image');
+  input.addEventListener('change', () => {
+    const [file] = input.files;
+    if (!file) return;
+    preview.querySelector('img').src = URL.createObjectURL(file);
+    preview.querySelector('figcaption').textContent = 'Image choisie, enregistrée à l’envoi du formulaire';
+    preview.hidden = false;
+  });
+`
+
+/** Empreinte du script d'aperçu, seul script autorisé par la CSP de l'admin. */
+export const PREVIEW_SCRIPT_HASH = `'sha256-${createHash('sha256').update(PREVIEW_SCRIPT).digest('base64')}'`
+
+/** Champs d'image d'un formulaire. `current` : l'image enregistrée, montrée au-dessus du champ de fichier. */
 export const imageFieldsHtml = (
   usage: Media.Usage,
   altHelp: string,
   values: Values,
   errors: Errors,
+  current: Media.Image | null = null,
 ) => {
   const [ratioWidth, ratioHeight] = ratioOf(usage)
 
-  return html`<label for="imageContent">Image</label>
+  return html`<figure id="apercu-image" ${current === null ? 'hidden' : ''}>
+      <img
+        ${current === null ? '' : html`src="${previewUrl(current, usage)}"`}
+        alt=""
+        class="apercu"
+      />
+      <figcaption>Image actuelle</figcaption>
+    </figure>
+    <label for="imageContent">Image</label>
     <input
       id="imageContent"
       name="imageContent"
@@ -75,5 +125,6 @@ export const imageFieldsHtml = (
         type="checkbox"
         ${values.imageDecorative === 'on' ? 'checked' : ''}
       />Image décorative (aucun texte de remplacement)
-    </label>`
+    </label>
+    ${raw(`<script>${PREVIEW_SCRIPT}</script>`)}`
 }

@@ -6,11 +6,12 @@ import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
 import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
 import { MAX_DEPTH } from '#/catalog/domain/catalogRules.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
-import { imageFieldsHtml, imageValues } from '#/media/http/adminImageFields.ts'
+import { imageCell, imageFieldsHtml, imageValues } from '#/media/http/adminImageFields.ts'
 
 import { centsToEuros } from './adminCatalogForms.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
+import type { Media } from '#/media/domain/Media.ts'
 import type { Errors, Values } from '#/shared/http/adminForms.ts'
 
 /** Nom précédé d'un tiret par niveau : l'arbre se lit dans une liste ou un menu déroulant. */
@@ -128,6 +129,7 @@ export const productsPage = (
       <table>
         <thead>
           <tr>
+            <th scope="col">Image</th>
             <th scope="col">Nom</th>
             <th scope="col">Catégorie</th>
             <th scope="col">Prix</th>
@@ -139,6 +141,7 @@ export const productsPage = (
           ${products.map(
             (product) =>
               html`<tr>
+                ${imageCell(product.image, 'product')}
                 <td>${product.name}</td>
                 <td>${names.get(product.categorySlug) ?? product.categorySlug}</td>
                 <td>${centsToEuros(product.price)} €</td>
@@ -166,6 +169,7 @@ export const productFormPage = (
   values: Values,
   errors: Errors = {},
   error?: string,
+  image: Media.Image | null = null,
 ) =>
   adminPage(
     title,
@@ -209,7 +213,7 @@ export const productFormPage = (
             ${values.inStock === 'on' ? 'checked' : ''}
           />En stock
         </label>
-        ${imageFieldsHtml('product', 'Vide : le nom du produit, qui suffit le plus souvent.', values, errors)}
+        ${imageFieldsHtml('product', 'Vide : le nom du produit, qui suffit le plus souvent.', values, errors, image)}
         <button type="submit">Enregistrer</button>
       </form>
       <p><a href="/admin/produits">Retour aux produits</a></p>`,

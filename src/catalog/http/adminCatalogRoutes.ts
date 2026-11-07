@@ -211,6 +211,9 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
         c.req.path,
         await tree(),
         productValues(product),
+        {},
+        undefined,
+        product.image,
       ),
     )
   })
@@ -222,14 +225,34 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
     }
     const form = await readProductForm(await c.req.parseBody())
     const title = 'Modifier le produit'
+    const image = async () => (await dependencies.productWriter.findById(id))?.image ?? null
     if (form.data === null) {
-      return c.html(productFormPage(title, c.req.path, await tree(), form.values, form.errors), 422)
+      return c.html(
+        productFormPage(
+          title,
+          c.req.path,
+          await tree(),
+          form.values,
+          form.errors,
+          undefined,
+          await image(),
+        ),
+        422,
+      )
     }
     try {
       await updateProduct(dependencies, id, form.data)
     } catch (error) {
       return c.html(
-        productFormPage(title, c.req.path, await tree(), form.values, {}, refusal(error)),
+        productFormPage(
+          title,
+          c.req.path,
+          await tree(),
+          form.values,
+          {},
+          refusal(error),
+          await image(),
+        ),
         422,
       )
     }

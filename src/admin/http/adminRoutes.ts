@@ -4,6 +4,7 @@ import { createMiddleware } from 'hono/factory'
 
 import { normalizeEmail } from '#/admin/domain/AdminUser.ts'
 import { authenticate } from '#/admin/application/adminAccounts.ts'
+import { PREVIEW_SCRIPT_HASH } from '#/media/http/adminImageFields.ts'
 
 import { LoginThrottle } from './loginThrottle.ts'
 import { dashboardPage, loginPage } from './pages.ts'
@@ -11,9 +12,8 @@ import { closeSession, openSession, sessionEmail } from './session.ts'
 
 import type { AdminDependencies } from '#/admin/application/adminAccounts.ts'
 
-/** Pages de l'admin : leurs styles en ligne, rien d'autre ; formulaires envoyés à l'admin seulement. */
-export const ADMIN_CSP =
-  "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'"
+/** Pages de l'admin : leurs styles en ligne, les images du même hôte (et celle choisie avant l'envoi), le script d'aperçu ; formulaires envoyés à l'admin seulement. */
+export const ADMIN_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' blob:; script-src ${PREVIEW_SCRIPT_HASH}; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`
 
 const INVALID_CREDENTIALS = 'Identifiants invalides.'
 

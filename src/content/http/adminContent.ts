@@ -19,11 +19,17 @@ import {
   updateLegalPage,
   updateSlide,
 } from '#/content/application/adminContent.ts'
-import { imageFieldsHtml, imageValues, readImageFields } from '#/media/http/adminImageFields.ts'
+import {
+  imageCell,
+  imageFieldsHtml,
+  imageValues,
+  readImageFields,
+} from '#/media/http/adminImageFields.ts'
 
 import type { ContentAdminDependencies } from '#/content/application/adminContent.ts'
 import type { LegalPage } from '#/content/domain/LegalPage.ts'
 import type { Slide } from '#/content/domain/Slide.ts'
+import type { Media } from '#/media/domain/Media.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
 
 /**
@@ -99,6 +105,7 @@ const slideListPage = (slides: readonly Slide.Editable[], message?: string, erro
       <table>
         <thead>
           <tr>
+            <th scope="col">Image</th>
             <th scope="col">Position</th>
             <th scope="col">Titre</th>
             <th scope="col">Actions</th>
@@ -108,6 +115,7 @@ const slideListPage = (slides: readonly Slide.Editable[], message?: string, erro
           ${slides.map(
             (slide) =>
               html`<tr>
+                ${imageCell(slide.image, 'slide')}
                 <td>${slide.position}</td>
                 <td>${slide.title}</td>
                 <td>
@@ -131,6 +139,7 @@ const slideFormPage = (
   values: Values,
   errors: Errors = {},
   error?: string,
+  image: Media.Image | null = null,
 ) =>
   adminPage(
     title,
@@ -141,7 +150,7 @@ const slideFormPage = (
         ${textField('Titre', 'title', values, errors)} ${textField('Slug', 'slug', values, errors)}
         ${textareaField('Texte', 'text', values, errors)}
         ${textField('Position (ordre croissant)', 'position', values, errors, 'number')}
-        ${imageFieldsHtml('slide', SLIDE_ALT_HELP, values, errors)}
+        ${imageFieldsHtml('slide', SLIDE_ALT_HELP, values, errors, image)}
         <button type="submit">Enregistrer</button>
       </form>
       <p><a href="/admin/carrousel">Retour au carrousel</a></p>`,
@@ -268,7 +277,16 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
     const slide = await findSlide(c.req.param('id'))
     return slide === null
       ? c.html(notFoundPage(), 404)
-      : c.html(slideFormPage(`Modifier « ${slide.title} »`, c.req.path, slideValues(slide)))
+      : c.html(
+          slideFormPage(
+            `Modifier « ${slide.title} »`,
+            c.req.path,
+            slideValues(slide),
+            {},
+            undefined,
+            slide.image,
+          ),
+        )
   })
 
   app.post('/admin/carrousel/:id/modifier', async (c) => {
@@ -277,9 +295,11 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
       return c.html(notFoundPage(), 404)
     }
     const form = await readSlideForm(await c.req.parseBody())
+    const title = 'Modifier la diapositive'
+    const image = async () => (await dependencies.slideWriter.findById(id))?.image ?? null
     if (form.data === null) {
       return c.html(
-        slideFormPage('Modifier la diapositive', c.req.path, form.values, form.errors),
+        slideFormPage(title, c.req.path, form.values, form.errors, undefined, await image()),
         422,
       )
     }
@@ -287,7 +307,7 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
       await updateSlide(dependencies, id, form.data)
     } catch (error) {
       return c.html(
-        slideFormPage('Modifier la diapositive', c.req.path, form.values, {}, refusal(error)),
+        slideFormPage(title, c.req.path, form.values, {}, refusal(error), await image()),
         422,
       )
     }

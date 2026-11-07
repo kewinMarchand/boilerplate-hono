@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -81,6 +82,38 @@ describe('Admin : contenus', () => {
     expect(await (await page('/admin/articles')).text()).toContain('<table>')
     expect(await (await page('/admin/carrousel')).text()).toContain('Heliconia')
     expect(await (await page('/admin/pages-legales')).text()).toContain('Mentions légales')
+  })
+
+  it('montre la plus petite variante de chaque image dans les listes', async () => {
+    expect(await (await page('/admin/articles')).text()).toMatch(
+      /<img\s+src="\/media\/[0-9a-f]{32}-480\.webp"\s+alt=""/,
+    )
+    expect(await (await page('/admin/carrousel')).text()).toMatch(
+      /<img\s+src="\/media\/[0-9a-f]{32}-640\.webp"\s+alt=""/,
+    )
+  })
+
+  it('montre l’image actuelle dans le formulaire, y compris après un refus', async () => {
+    const current = /src="\/media\/[0-9a-f]{32}-640\.webp"\s+alt=""\s+class="apercu"/
+
+    expect(await (await page('/admin/carrousel/1/modifier')).text()).toMatch(current)
+    const refused = await post('/admin/carrousel/1/modifier', { title: '', slug: 'heliconia' })
+    expect(refused.status).toBe(422)
+    expect(await refused.text()).toMatch(current)
+    expect(await (await page('/admin/carrousel/nouveau')).text()).toContain(
+      '<figure id="apercu-image" hidden>',
+    )
+  })
+
+  it('autorise par la CSP le script d’aperçu servi, et lui seul', async () => {
+    const response = await page('/admin/articles/1/modifier')
+    const script = /<script>([\s\S]*?)<\/script>/.exec(await response.text())?.[1] ?? ''
+    const hash = createHash('sha256').update(script).digest('base64')
+
+    expect(script).toContain('URL.createObjectURL')
+    expect(response.headers.get('content-security-policy')).toContain(
+      `script-src 'sha256-${hash}';`,
+    )
   })
 
   it('répond 404 en HTML sur un article, une diapositive ou une page inconnus', async () => {

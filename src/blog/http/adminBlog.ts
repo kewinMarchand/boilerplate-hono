@@ -13,10 +13,16 @@ import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLa
 import { BlogRuleViolation } from '#/blog/domain/Article.ts'
 import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
 import { createArticle, deleteArticle, updateArticle } from '#/blog/application/adminBlog.ts'
-import { imageFieldsHtml, imageValues, readImageFields } from '#/media/http/adminImageFields.ts'
+import {
+  imageCell,
+  imageFieldsHtml,
+  imageValues,
+  readImageFields,
+} from '#/media/http/adminImageFields.ts'
 
 import type { BlogAdminDependencies } from '#/blog/application/adminBlog.ts'
 import type { Article } from '#/blog/domain/Article.ts'
+import type { Media } from '#/media/domain/Media.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
 
 /**
@@ -82,6 +88,7 @@ const listPage = (articles: readonly Article.Entity[], message?: string, error?:
       <table>
         <thead>
           <tr>
+            <th scope="col">Image</th>
             <th scope="col">Titre</th>
             <th scope="col">Publié le</th>
             <th scope="col">Actions</th>
@@ -91,6 +98,7 @@ const listPage = (articles: readonly Article.Entity[], message?: string, error?:
           ${articles.map(
             (article) =>
               html`<tr>
+                ${imageCell(article.image, 'article')}
                 <td>${article.title}</td>
                 <td>${article.publishedAt}</td>
                 <td>
@@ -114,6 +122,7 @@ const formPage = (
   values: Values,
   errors: Errors = {},
   error?: string,
+  image: Media.Image | null = null,
 ) =>
   adminPage(
     title,
@@ -130,7 +139,7 @@ const formPage = (
           interprété.
         </p>
         ${textField('Date de publication', 'publishedAt', values, errors, 'date')}
-        ${imageFieldsHtml('article', ALT_HELP, values, errors)}
+        ${imageFieldsHtml('article', ALT_HELP, values, errors, image)}
         <button type="submit">Enregistrer</button>
       </form>
       <p><a href="/admin/articles">Retour aux articles</a></p>`,
@@ -204,7 +213,16 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
     const article = await find(c.req.param('id'))
     return article === null
       ? c.html(notFoundPage(), 404)
-      : c.html(formPage(`Modifier « ${article.title} »`, c.req.path, valuesOf(article)))
+      : c.html(
+          formPage(
+            `Modifier « ${article.title} »`,
+            c.req.path,
+            valuesOf(article),
+            {},
+            undefined,
+            article.image,
+          ),
+        )
   })
 
   app.post('/admin/articles/:id/modifier', async (c) => {
@@ -213,14 +231,25 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
       return c.html(notFoundPage(), 404)
     }
     const form = await readArticleForm(await c.req.parseBody())
+    const image = async () => (await dependencies.articleWriter.findById(id))?.image ?? null
     if (form.data === null) {
-      return c.html(formPage("Modifier l'article", c.req.path, form.values, form.errors), 422)
+      return c.html(
+        formPage(
+          "Modifier l'article",
+          c.req.path,
+          form.values,
+          form.errors,
+          undefined,
+          await image(),
+        ),
+        422,
+      )
     }
     try {
       await updateArticle(dependencies, id, form.data)
     } catch (error) {
       return c.html(
-        formPage("Modifier l'article", c.req.path, form.values, {}, refusal(error)),
+        formPage("Modifier l'article", c.req.path, form.values, {}, refusal(error), await image()),
         422,
       )
     }
