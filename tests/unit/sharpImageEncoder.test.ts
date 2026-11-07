@@ -37,12 +37,14 @@ describe('encodeur sharp (réel)', () => {
     expect([...variants.keys()]).toEqual([
       `${key}-400.avif`,
       `${key}-400.webp`,
+      `${key}-640.avif`,
+      `${key}-640.webp`,
       `${key}-800.avif`,
       `${key}-800.webp`,
     ])
     for (const [name, content] of variants) {
       const metadata = await sharp(content).metadata()
-      const width = name.includes('-400.') ? 400 : 800
+      const width = Number(/-(\d+)\./.exec(name)?.[1])
       expect([metadata.width, metadata.height], name).toEqual([width, width])
       expect(metadata.format, name).toBe(name.endsWith('.avif') ? 'heif' : 'webp')
       expect(metadata.exif, name).toBeUndefined()

@@ -10,10 +10,10 @@ export const ACCEPTED_TYPES: readonly string[] = [
 ]
 export const FORMATS: readonly Media.Format[] = ['avif', 'webp']
 
-const WIDTHS: Record<Media.Usage, readonly [number, number]> = {
+const WIDTHS: Record<Media.Usage, readonly [number, ...number[]]> = {
   slide: [640, 1280],
   article: [480, 960],
-  product: [400, 800],
+  product: [400, 640, 800],
 }
 
 const RATIOS: Record<Media.Usage, readonly [number, number]> = {
@@ -33,11 +33,11 @@ export class MediaRuleViolation extends Error {
 }
 
 /** Largeurs des variantes, de la plus petite à la plus grande. */
-export const widthsOf = (usage: Media.Usage): readonly [number, number] => WIDTHS[usage]
+export const widthsOf = (usage: Media.Usage): readonly [number, ...number[]] => WIDTHS[usage]
 
 export const ratioOf = (usage: Media.Usage): readonly [number, number] => RATIOS[usage]
 
-export const largestWidth = (usage: Media.Usage): number => WIDTHS[usage][1]
+export const largestWidth = (usage: Media.Usage): number => WIDTHS[usage].at(-1) ?? WIDTHS[usage][0]
 
 export const heightFor = (usage: Media.Usage, width: number): number => {
   const [ratioWidth, ratioHeight] = RATIOS[usage]
