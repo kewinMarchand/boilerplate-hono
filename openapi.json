@@ -679,41 +679,6 @@
                 ],
                 "description": "Liste les produits à la une par ordre alphabétique, sans pagination."
             },
-            "Slide": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "slug": {
-                        "type": "string"
-                    },
-                    "title": {
-                        "type": "string"
-                    },
-                    "text": {
-                        "type": "string"
-                    },
-                    "image": {
-                        "anyOf": [
-                            {
-                                "$ref": "#/components/schemas/ImageView"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ]
-                    }
-                },
-                "required": [
-                    "id",
-                    "slug",
-                    "title",
-                    "text",
-                    "image"
-                ],
-                "description": "Liste les diapositives dans l'ordre du carrousel, sans pagination."
-            },
             "LegalPage": {
                 "type": "object",
                 "properties": {
@@ -1211,31 +1176,6 @@
                                     "type": "array",
                                     "items": {
                                         "$ref": "#/components/schemas/FeaturedProduct.ProductItem"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/api/slides": {
-            "get": {
-                "operationId": "api_slides_get_collection",
-                "tags": [
-                    "Slide"
-                ],
-                "summary": "Retrieves the collection of Slide resources.",
-                "description": "Retrieves the collection of Slide resources.",
-                "responses": {
-                    "200": {
-                        "description": "Slide collection",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Slide"
                                     }
                                 }
                             }

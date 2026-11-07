@@ -67,7 +67,6 @@ const NOT_EXPOSED_ITEMS = [
   '/api/articles/:id',
   '/api/categories/:slug',
   '/api/contact_messages/:id',
-  '/api/slides/:id',
 ]
 
 const statusOf = (error: unknown): ContentfulStatusCode => {

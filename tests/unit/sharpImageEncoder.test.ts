@@ -52,19 +52,23 @@ describe('encodeur sharp (réel)', () => {
     }
   })
 
-  it('recadre une diapositive au format 16:9', async () => {
+  it('recadre une image d’article au format 16:9', async () => {
     const key = 'e'.repeat(32)
-    const variants = await sharpImageEncoder.variants(await jpegWithExif(2000, 2000), key, 'slide')
-    const largest = variants.get(`${key}-1280.webp`)
+    const variants = await sharpImageEncoder.variants(
+      await jpegWithExif(2000, 2000),
+      key,
+      'article',
+    )
+    const largest = variants.get(`${key}-960.webp`)
 
     expect(largest).toBeDefined()
     const metadata = await sharp(largest).metadata()
-    expect([metadata.width, metadata.height]).toEqual([1280, 720])
+    expect([metadata.width, metadata.height]).toEqual([960, 540])
   })
 
   it('calcule la même empreinte que l’API Platform : sha256(usage + "\\n" + contenu), tronquée', () => {
-    expect(fingerprint('slide', new TextEncoder().encode('abc'))).toBe(
-      'f01a35fadb6186d5e1224b7e7d551f98',
+    expect(fingerprint('article', new TextEncoder().encode('abc'))).toBe(
+      'a1d5534dfd7f3e0043c943fa13e72e29',
     )
   })
 })

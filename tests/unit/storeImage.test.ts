@@ -15,14 +15,14 @@ describe('storeImage', () => {
   it('stocke chaque variante de l’usage, texte de remplacement nettoyé', async () => {
     const { media, files } = fakeMedia()
 
-    const image = await storeImage(media, upload('image/jpeg 1600x900', ' Fleur rouge '), 'slide')
+    const image = await storeImage(media, upload('image/jpeg 1600x900', ' Fleur rouge '), 'article')
 
     expect(image.alt).toBe('Fleur rouge')
     expect([...files.keys()]).toEqual([
-      `${image.key}-640.avif`,
-      `${image.key}-640.webp`,
-      `${image.key}-1280.avif`,
-      `${image.key}-1280.webp`,
+      `${image.key}-480.avif`,
+      `${image.key}-480.webp`,
+      `${image.key}-960.avif`,
+      `${image.key}-960.webp`,
     ])
   })
 
@@ -64,17 +64,17 @@ describe('storeImage', () => {
     [upload('%PDF-1.7'), 'Le fichier ne se lit pas comme une image.'],
     [upload('image/gif 1600x900'), 'Formats acceptés : JPEG, PNG, WebP ou AVIF.'],
     [
-      upload('image/jpeg 1279x720'),
-      "Recadrée au format 16:9, l'image doit faire au moins 1280 × 720 px : elle fait 1279 × 720 px.",
+      upload('image/jpeg 959x540'),
+      "Recadrée au format 16:9, l'image doit faire au moins 960 × 540 px : elle fait 959 × 540 px.",
     ],
     [
-      upload('image/jpeg 2000x700'),
-      "Recadrée au format 16:9, l'image doit faire au moins 1280 × 720 px : elle fait 2000 × 700 px.",
+      upload('image/jpeg 2000x530'),
+      "Recadrée au format 16:9, l'image doit faire au moins 960 × 540 px : elle fait 2000 × 530 px.",
     ],
   ])(
     'refuse un envoi qui enfreint une règle, avec le message de l’API Platform',
     async (input, message) => {
-      await expect(storeImage(fakeMedia().media, input, 'slide')).rejects.toThrow(message)
+      await expect(storeImage(fakeMedia().media, input, 'article')).rejects.toThrow(message)
     },
   )
 })

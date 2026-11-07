@@ -1,20 +1,5 @@
 import { z } from 'zod'
 
-import { imageViewContract } from '#/media/http/imageContract.ts'
-
-export const slideContract = z
-  .object({
-    id: z.int(),
-    slug: z.string(),
-    title: z.string(),
-    text: z.string(),
-    image: z.union([imageViewContract, z.null()]),
-  })
-  .meta({
-    id: 'Slide',
-    description: "Liste les diapositives dans l'ordre du carrousel, sans pagination.",
-  })
-
 export const legalSectionContract = z
   .object({
     title: z.string(),

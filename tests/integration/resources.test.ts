@@ -140,31 +140,6 @@ describe('GET /api/featured-products', () => {
   })
 })
 
-describe('GET /api/slides', () => {
-  it("liste les diapositives dans l'ordre du carrousel", async () => {
-    const { response, body } = await getJson(context, '/api/slides')
-
-    expect(response.status).toBe(200)
-    expect(body).toEqual([
-      {
-        id: 1,
-        slug: 'heliconia',
-        title: 'Heliconia',
-        text: 'Des bractées rouges et jaunes en pinces de homard, qui tiennent des semaines au jardin.',
-        image: demoView(
-          'slide-1',
-          'slide',
-          'Bractées rouges et jaunes d’un heliconia, en gros plan',
-        ),
-      },
-      expect.objectContaining({ slug: 'anthurium' }),
-      expect.objectContaining({ slug: 'calliandra' }),
-      expect.objectContaining({ slug: 'strelitzia' }),
-      expect.objectContaining({ slug: 'nenuphar' }),
-    ])
-  })
-})
-
 describe('GET /api/legal_pages/{slug}', () => {
   it('renvoie la page découpée en sections HTML', async () => {
     const { response, body } = await getJson(context, '/api/legal_pages/donnees-personnelles')
@@ -246,7 +221,7 @@ describe('validateur MongoDB', () => {
 
 describe('GET /media/{fichier}', () => {
   it('sert une variante avec un cache d’un an, et 404 pour un fichier absent ou un nom inattendu', async () => {
-    const { body } = await getJson(context, '/api/slides')
+    const { body } = await getJson(context, '/api/articles')
     const src = JSON.stringify(body).match(/"src":"http:\/\/localhost:8091(\/media\/[^"]+)"/)?.[1]
     expect(src).toBeDefined()
 

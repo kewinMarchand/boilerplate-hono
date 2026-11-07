@@ -1,7 +1,7 @@
 /** Images envoyées par l'admin (ADR 0002 de l'API Platform), même vocabulaire que son module Media. */
 export declare namespace Media {
   /** Usage d'une image : il fixe le ratio du recadrage et les largeurs des variantes. */
-  type Usage = 'slide' | 'article' | 'product'
+  type Usage = 'article' | 'product'
 
   /** Format d'une variante, dans l'ordre où un navigateur doit les essayer. */
   type Format = 'avif' | 'webp'

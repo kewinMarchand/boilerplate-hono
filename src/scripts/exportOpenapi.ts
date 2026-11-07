@@ -15,7 +15,6 @@ const offline: AppDependencies = {
   contactMessages: { save: unavailable },
   categories: { findAll: unavailable },
   products: { search: unavailable, findBySlug: unavailable, findFeatured: unavailable },
-  slides: { findInOrder: unavailable },
   legalPages: { findBySlug: unavailable },
   adminUsers: { findByEmail: unavailable, save: unavailable },
   passwordHasher: { hash: unavailable, verify: unavailable },
@@ -31,14 +30,6 @@ const offline: AppDependencies = {
     moveCategory: unavailable,
   },
   articleWriter: {
-    findById: unavailable,
-    findBySlug: unavailable,
-    create: unavailable,
-    update: unavailable,
-    remove: unavailable,
-  },
-  slideWriter: {
-    findAll: unavailable,
     findById: unavailable,
     findBySlug: unavailable,
     create: unavailable,

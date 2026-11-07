@@ -11,13 +11,11 @@ export const ACCEPTED_TYPES: readonly string[] = [
 export const FORMATS: readonly Media.Format[] = ['avif', 'webp']
 
 const WIDTHS: Record<Media.Usage, readonly [number, ...number[]]> = {
-  slide: [640, 1280],
   article: [480, 960],
   product: [400, 640, 800],
 }
 
 const RATIOS: Record<Media.Usage, readonly [number, number]> = {
-  slide: [16, 9],
   article: [16, 9],
   product: [1, 1],
 }

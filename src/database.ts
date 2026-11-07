@@ -32,9 +32,6 @@ import {
   legalPageCollection,
   legalPageFixtures,
   MongoLegalPageRepository,
-  MongoSlideRepository,
-  slideCollection,
-  slideFixtures,
 } from '#/content/infrastructure/mongoContent.ts'
 import { filesystemMediaStorage } from '#/media/infrastructure/filesystemMediaStorage.ts'
 import { fingerprint, sharpImageEncoder } from '#/media/infrastructure/sharpImageEncoder.ts'
@@ -56,7 +53,6 @@ const COLLECTIONS = [
   counterCollection,
   categoryCollection,
   productCollection,
-  slideCollection,
   legalPageCollection,
   adminUserCollection,
 ] as const
@@ -73,10 +69,6 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
   const categories = new MongoCategoryRepository(typedCollection(db, categoryCollection))
   const products = new MongoProductRepository(
     typedCollection(db, productCollection),
-    typedCollection(db, counterCollection),
-  )
-  const slides = new MongoSlideRepository(
-    typedCollection(db, slideCollection),
     typedCollection(db, counterCollection),
   )
   const legalPages = new MongoLegalPageRepository(typedCollection(db, legalPageCollection))
@@ -97,9 +89,7 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
     categoryWriter: categories,
     productWriter: products,
     articleWriter: articles,
-    slides,
     legalPages,
-    slideWriter: slides,
     legalPageWriter: legalPages,
     legalPageRenderer: markdownLegalPage,
     articleRenderer: markdownArticle,
@@ -142,9 +132,6 @@ const mapInSequence = async <T, R>(items: readonly T[], map: (item: T) => Promis
  * remises à zéro qui suivent les trouvent stockées et n'encodent plus rien.
  */
 export const importDemoImages = async (media: MediaDependencies): Promise<void> => {
-  await mapInSequence(slideFixtures, ({ demoImage: name, alt }) =>
-    demoImage(media, name, 'slide', alt),
-  )
   await mapInSequence(productFixtures, ({ demoImage: name, name: alt }) =>
     demoImage(media, name, 'product', alt),
   )
@@ -164,12 +151,6 @@ export const resetDatabase = async (db: Db, media: MediaDependencies): Promise<v
       ...article,
       html: markdownArticle.render(article.body),
       ...(await demoImage(media, name, 'article', '', true)),
-    })),
-  )
-  await typedCollection(db, slideCollection).insertMany(
-    await mapInSequence(slideFixtures, async ({ demoImage: name, alt, ...slide }) => ({
-      ...slide,
-      ...(await demoImage(media, name, 'slide', alt)),
     })),
   )
   await typedCollection(db, legalPageCollection).insertMany(legalPageFixtures)

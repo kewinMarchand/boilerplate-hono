@@ -49,7 +49,6 @@ const MENU = [
   ['/admin/categories', 'Catégories'],
   ['/admin/produits', 'Produits'],
   ['/admin/articles', 'Articles'],
-  ['/admin/carrousel', 'Carrousel'],
   ['/admin/pages-legales', 'Pages légales'],
 ] as const
 

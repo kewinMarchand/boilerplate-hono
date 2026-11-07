@@ -32,7 +32,6 @@ const failingDatabase: AppDependencies = {
   contactMessages: { save: unavailable },
   categories: { findAll: () => Promise.resolve(categoryFixtures) },
   products: { search: unavailable, findBySlug: unavailable, findFeatured: unavailable },
-  slides: { findInOrder: unavailable },
   legalPages: { findBySlug: unavailable },
   adminUsers: { findByEmail: unavailable, save: unavailable },
   passwordHasher: { hash: unavailable, verify: unavailable },
@@ -48,14 +47,6 @@ const failingDatabase: AppDependencies = {
     moveCategory: unavailable,
   },
   articleWriter: {
-    findById: unavailable,
-    findBySlug: unavailable,
-    create: unavailable,
-    update: unavailable,
-    remove: unavailable,
-  },
-  slideWriter: {
-    findAll: unavailable,
     findById: unavailable,
     findBySlug: unavailable,
     create: unavailable,
