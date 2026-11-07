@@ -131,6 +131,96 @@
                 ],
                 "description": "Une source d'un élément <picture> : un format et toutes ses largeurs."
             },
+            "ArticleDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "excerpt": {
+                        "type": "string"
+                    },
+                    "publishedAt": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "image": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ImageView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "html": {
+                        "type": "string",
+                        "description": "Texte de l'article en HTML, converti du Markdown saisi (HTML saisi échappé, liens dangereux retirés). Vide s'il n'y en a pas."
+                    }
+                },
+                "required": [
+                    "id",
+                    "slug",
+                    "title",
+                    "excerpt",
+                    "publishedAt",
+                    "image",
+                    "html"
+                ],
+                "description": "Lit un article par son slug."
+            },
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "readOnly": true,
+                        "description": "A short, human-readable summary of the problem."
+                    },
+                    "detail": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "readOnly": true,
+                        "description": "A human-readable explanation specific to this occurrence of the problem."
+                    },
+                    "status": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "default": 400,
+                        "examples": [
+                            404
+                        ]
+                    },
+                    "instance": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "readOnly": true,
+                        "description": "A URI reference that identifies the specific occurrence of the problem. It may or may not yield further information if dereferenced."
+                    },
+                    "type": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "A URI reference that identifies the problem type"
+                    }
+                },
+                "description": "A representation of common errors."
+            },
             "ContactMessage": {
                 "type": "object",
                 "properties": {
@@ -180,51 +270,6 @@
                     "message"
                 ],
                 "description": "Enregistre un message de contact. Répond 422 avec la liste des violations si un champ est invalide."
-            },
-            "Error": {
-                "type": "object",
-                "properties": {
-                    "title": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "readOnly": true,
-                        "description": "A short, human-readable summary of the problem."
-                    },
-                    "detail": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "readOnly": true,
-                        "description": "A human-readable explanation specific to this occurrence of the problem."
-                    },
-                    "status": {
-                        "type": [
-                            "integer",
-                            "null"
-                        ],
-                        "default": 400,
-                        "examples": [
-                            404
-                        ]
-                    },
-                    "instance": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "readOnly": true,
-                        "description": "A URI reference that identifies the specific occurrence of the problem. It may or may not yield further information if dereferenced."
-                    },
-                    "type": {
-                        "type": "string",
-                        "readOnly": true,
-                        "description": "A URI reference that identifies the problem type"
-                    }
-                },
-                "description": "A representation of common errors."
             },
             "ConstraintViolation": {
                 "type": "object",
@@ -611,6 +656,55 @@
                                     "items": {
                                         "$ref": "#/components/schemas/Article"
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/articles/{slug}": {
+            "get": {
+                "operationId": "api_articles_slug_get",
+                "tags": [
+                    "ArticleDetail"
+                ],
+                "summary": "Retrieves a ArticleDetail resource.",
+                "description": "Retrieves a ArticleDetail resource.",
+                "parameters": [
+                    {
+                        "schema": {
+                            "type": "string",
+                            "description": "ArticleDetail identifier"
+                        },
+                        "required": true,
+                        "description": "ArticleDetail identifier",
+                        "name": "slug",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ArticleDetail resource",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ArticleDetail"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
                                 }
                             }
                         }

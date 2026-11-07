@@ -10,6 +10,7 @@ import {
   MongoAdminUserRepository,
 } from '#/admin/infrastructure/mongoAdminUser.ts'
 import { ScryptPasswordHasher } from '#/admin/infrastructure/scryptPasswordHasher.ts'
+import { markdownArticle } from '#/blog/infrastructure/markdownArticle.ts'
 import {
   articleCollection,
   articleFixtures,
@@ -101,6 +102,7 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
     slideWriter: slides,
     legalPageWriter: legalPages,
     legalPageRenderer: markdownLegalPage,
+    articleRenderer: markdownArticle,
     adminUsers: new MongoAdminUserRepository(typedCollection(db, adminUserCollection)),
     passwordHasher: new ScryptPasswordHasher(),
     media,
@@ -160,6 +162,7 @@ export const resetDatabase = async (db: Db, media: MediaDependencies): Promise<v
   await typedCollection(db, articleCollection).insertMany(
     await mapInSequence(articleFixtures, async ({ demoImage: name, ...article }) => ({
       ...article,
+      html: markdownArticle.render(article.body),
       ...(await demoImage(media, name, 'article', '', true)),
     })),
   )

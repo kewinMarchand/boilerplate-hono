@@ -8,6 +8,7 @@ import type { MediaDependencies } from '#/media/application/storeImage.ts'
 export interface BlogAdminDependencies {
   readonly articles: Article.Repository
   readonly articleWriter: Article.Writer
+  readonly articleRenderer: Article.Renderer
   readonly media: MediaDependencies
 }
 
@@ -32,11 +33,11 @@ const requireArticle = async ({ articleWriter }: BlogAdminDependencies, id: numb
 
 /** Article à enregistrer : l'image envoyée, ou l'actuelle avec son nouveau texte (MediaRuleViolation sinon). */
 const saved = async (
-  { media }: BlogAdminDependencies,
+  { media, articleRenderer }: BlogAdminDependencies,
   input: Article.Input,
   current: Article.Entity | null,
 ): Promise<Article.Saved> => {
-  const { slug, title, excerpt, publishedAt, imageContent, imageAlt, imageDecorative } = input
+  const { slug, title, excerpt, publishedAt, imageContent, imageAlt, imageDecorative, body } = input
   const image = await changeImage(
     media,
     current?.image ?? null,
@@ -48,7 +49,7 @@ const saved = async (
   if (image === null) {
     throw new BlogRuleViolation("Un article a besoin d'une image.")
   }
-  return { slug, title, excerpt, publishedAt, image }
+  return { slug, title, excerpt, publishedAt, image, body, html: articleRenderer.render(body) }
 }
 
 export const createArticle = async (

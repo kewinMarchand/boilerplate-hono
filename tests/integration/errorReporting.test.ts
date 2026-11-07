@@ -28,7 +28,7 @@ const unavailable = (): Promise<never> => Promise.reject(new Error('Base de donn
 
 const failingDatabase: AppDependencies = {
   tasks: { findAll: unavailable },
-  articles: { findLatestFirst: unavailable },
+  articles: { findLatestFirst: unavailable, findBySlug: unavailable },
   contactMessages: { save: unavailable },
   categories: { findAll: () => Promise.resolve(categoryFixtures) },
   products: { search: unavailable },
@@ -64,6 +64,7 @@ const failingDatabase: AppDependencies = {
   },
   legalPageWriter: { findAll: unavailable, findEditable: unavailable, update: unavailable },
   legalPageRenderer: { split: () => ({ introduction: '', sections: [] }) },
+  articleRenderer: { render: () => '' },
   media: {
     encoder: { inspect: unavailable, variants: unavailable },
     storage: { has: unavailable, put: unavailable },

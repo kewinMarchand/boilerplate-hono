@@ -17,6 +17,8 @@ const blog = () => {
       excerpt: '',
       publishedAt: '2026-01-10',
       image: testImage(''),
+      body: '',
+      html: '',
     },
   ]
   const articleWriter: Article.Writer = {
@@ -38,8 +40,12 @@ const blog = () => {
   }
   return {
     dependencies: {
-      articles: { findLatestFirst: () => Promise.resolve(articles) },
+      articles: {
+        findLatestFirst: () => Promise.resolve(articles),
+        findBySlug: (slug: string) => articleWriter.findBySlug(slug),
+      },
       articleWriter,
+      articleRenderer: { render: (markdown: string) => `<p>${markdown}</p>\n` },
       media: fakeMedia().media,
     },
     all: () => articles,
@@ -54,6 +60,7 @@ const input = (slug: string, imageContent: Uint8Array | null = PHOTO): Article.I
   imageContent,
   imageAlt: '',
   imageDecorative: true,
+  body: 'Texte',
 })
 
 describe('Admin : blog', () => {
@@ -75,10 +82,11 @@ describe('Admin : blog', () => {
     await expect(deleteArticle(dependencies, 9)).rejects.toThrow("Cet article n'existe plus.")
   })
 
-  it('crée puis supprime un article', async () => {
+  it('crée un article avec son texte converti, puis le supprime', async () => {
     const { dependencies, all } = blog()
 
     const created = await createArticle(dependencies, input('arroser'))
+    expect([created.body, created.html]).toEqual(['Texte', '<p>Texte</p>\n'])
     await deleteArticle(dependencies, created.id)
 
     expect(all().map((a) => a.slug)).toEqual(['rempoter'])

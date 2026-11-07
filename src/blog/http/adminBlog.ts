@@ -42,8 +42,9 @@ export const readArticleForm = async (
   const title = field(body, 'title')
   const slug = field(body, 'slug')
   const excerpt = field(body, 'excerpt')
+  const text = field(body, 'body')
   const publishedAt = field(body, 'publishedAt')
-  const values: Values = { title, slug, excerpt, publishedAt }
+  const values: Values = { title, slug, excerpt, body: text, publishedAt }
   const errors: Errors = {}
   requiredText(errors, 'title', title)
   slugField(errors, slug)
@@ -65,6 +66,7 @@ export const readArticleForm = async (
             imageContent: image.content,
             imageAlt: image.alt,
             imageDecorative: image.decorative,
+            body: text,
           }
         : null,
   }
@@ -121,6 +123,12 @@ const formPage = (
       <form method="post" action="${action}" enctype="multipart/form-data" novalidate>
         ${textField('Titre', 'title', values, errors)} ${textField('Slug', 'slug', values, errors)}
         ${textareaField('Résumé', 'excerpt', values, errors)}
+        ${textareaField('Texte', 'body', values, errors, 16)}
+        <p>
+          Markdown : paragraphes séparés par une ligne vide, ## pour un intertitre, - pour une
+          liste, [texte](adresse) pour un lien. Le HTML saisi est affiché tel quel, sans être
+          interprété.
+        </p>
         ${textField('Date de publication', 'publishedAt', values, errors, 'date')}
         ${imageFieldsHtml('article', ALT_HELP, values, errors)}
         <button type="submit">Enregistrer</button>
@@ -140,10 +148,11 @@ const confirmPage = (article: Article.Entity, action: string) =>
       <p><a href="/admin/articles">Annuler</a></p>`,
   )
 
-const valuesOf = ({ title, slug, excerpt, publishedAt, image }: Article.Entity): Values => ({
+const valuesOf = ({ title, slug, excerpt, body, publishedAt, image }: Article.Entity): Values => ({
   title,
   slug,
   excerpt,
+  body,
   publishedAt,
   ...imageValues(image),
 })

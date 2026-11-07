@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { createTestContext, demoView, getJson } from './context.ts'
 
@@ -60,6 +61,35 @@ describe('GET /api/articles', () => {
         image: demoView('blog-1', 'article', ''),
       },
     ])
+  })
+})
+
+describe('GET /api/articles/{slug}', () => {
+  it('renvoie la fiche, texte converti en HTML', async () => {
+    const { response, body } = await getJson(
+      context,
+      '/api/articles/un-carrousel-accessible-sans-dependance',
+    )
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({
+      id: 2,
+      slug: 'un-carrousel-accessible-sans-dependance',
+      title: 'Un carrousel accessible sans dépendance',
+      publishedAt: '2026-09-22',
+      image: demoView('blog-2', 'article', ''),
+    })
+    const { html } = z.object({ html: z.string() }).parse(body)
+    expect(html).toMatch(/^<p>Un carrousel est souvent/)
+    expect(html).toContain('<h2>Partir du défilement natif</h2>')
+    expect(html).toContain('<code>overflow-x: auto</code>')
+  })
+
+  it('répond 404 sur un article inconnu', async () => {
+    const { response, body } = await getJson(context, '/api/articles/inconnu')
+
+    expect(response.status).toBe(404)
+    expect(body).toMatchObject({ detail: 'Not Found' })
   })
 })
 

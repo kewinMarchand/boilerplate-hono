@@ -11,7 +11,7 @@ const unavailable = (): Promise<never> =>
 
 const offline: AppDependencies = {
   tasks: { findAll: unavailable },
-  articles: { findLatestFirst: unavailable },
+  articles: { findLatestFirst: unavailable, findBySlug: unavailable },
   contactMessages: { save: unavailable },
   categories: { findAll: unavailable },
   products: { search: unavailable },
@@ -47,6 +47,7 @@ const offline: AppDependencies = {
   },
   legalPageWriter: { findAll: unavailable, findEditable: unavailable, update: unavailable },
   legalPageRenderer: { split: () => ({ introduction: '', sections: [] }) },
+  articleRenderer: { render: () => '' },
   media: {
     encoder: { inspect: unavailable, variants: unavailable },
     storage: { has: unavailable, put: unavailable },
