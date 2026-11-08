@@ -39,6 +39,7 @@ const offline: AppDependencies = {
   legalPageWriter: { findAll: unavailable, findEditable: unavailable, update: unavailable },
   legalPageRenderer: { split: () => ({ introduction: '', sections: [] }) },
   articleRenderer: { render: () => '' },
+  siteIdentities: { find: unavailable, save: unavailable },
   media: {
     encoder: { inspect: unavailable, variants: unavailable },
     storage: { has: unavailable, put: unavailable },

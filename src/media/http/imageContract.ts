@@ -68,7 +68,7 @@ export const toImageView = (
   return {
     alt: image.alt,
     width: largest,
-    height: heightFor(usage, largest),
+    height: image.height ?? heightFor(usage, largest),
     sources: FORMATS.map((format) => ({
       type: MIME[format],
       srcset: widths.map((width) => `${url(width, format)} ${width}w`).join(', '),

@@ -30,6 +30,8 @@ import { ContactMessageValidationError } from '#/contact/http/ContactMessageVali
 import { adminContentRoutes } from '#/content/http/adminContent.ts'
 import { contentRoutes } from '#/content/http/contentRoutes.ts'
 import { mediaRoutes } from '#/media/http/mediaRoutes.ts'
+import { adminSiteRoutes } from '#/site/http/adminSite.ts'
+import { siteIdentityRoutes } from '#/site/http/siteIdentityRoutes.ts'
 import { taskRoutes } from '#/task/http/taskRoutes.ts'
 
 import type { AdminDependencies } from '#/admin/application/adminAccounts.ts'
@@ -41,6 +43,7 @@ import type { ContactMessage } from '#/contact/domain/ContactMessage.ts'
 import type { ContentAdminDependencies } from '#/content/application/adminContent.ts'
 import type { ContentRepositories } from '#/content/http/contentRoutes.ts'
 import type { ErrorReporter } from '#/shared/infrastructure/errorReporting.ts'
+import type { SiteDependencies } from '#/site/application/siteIdentity.ts'
 import type { Task } from '#/task/domain/Task.ts'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
@@ -51,7 +54,8 @@ export interface AppDependencies
     AdminDependencies,
     CatalogAdminDependencies,
     BlogAdminDependencies,
-    ContentAdminDependencies {
+    ContentAdminDependencies,
+    SiteDependencies {
   readonly tasks: Task.Repository
   readonly contactMessages: ContactMessage.Repository
 }
@@ -121,6 +125,7 @@ export const createApp = (
     .route('/', contactMessageRoutes(dependencies.contactMessages, options))
     .route('/', catalogRoutes(dependencies, options))
     .route('/', contentRoutes(dependencies, options))
+    .route('/', siteIdentityRoutes(dependencies, options))
 
   for (const path of NOT_EXPOSED_ITEMS) {
     app.get(path, negotiateFormat(), () => {
@@ -149,6 +154,7 @@ export const createApp = (
         adminCatalogRoutes(dependencies),
         adminBlogRoutes(dependencies),
         adminContentRoutes(dependencies),
+        adminSiteRoutes(dependencies),
       ],
     }),
   )

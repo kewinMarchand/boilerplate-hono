@@ -3,7 +3,10 @@ import {
   checkSource,
   fileName,
   FORMATS,
+  heightFor,
   image,
+  largestWidth,
+  ratioOf,
   widthsOf,
 } from '#/media/domain/imageRules.ts'
 
@@ -41,7 +44,8 @@ export const storeImage = async (
   usage: Media.Usage,
 ): Promise<Media.Image> => {
   const alt = altOf(upload.alt, upload.decorative)
-  checkSource(upload.content.byteLength, await dependencies.encoder.inspect(upload.content), usage)
+  const source = await dependencies.encoder.inspect(upload.content)
+  checkSource(upload.content.byteLength, source, usage)
 
   const key = dependencies.fingerprint(usage, upload.content)
   if (!(await isStored(dependencies, key, usage))) {
@@ -51,7 +55,9 @@ export const storeImage = async (
     }
   }
 
-  return image(key, alt)
+  return ratioOf(usage) === null && source !== null
+    ? image(key, alt, heightFor(usage, largestWidth(usage), [source.width, source.height]))
+    : image(key, alt)
 }
 
 /**
@@ -69,5 +75,5 @@ export const changeImage = async (
   if (content !== null) {
     return storeImage(dependencies, { content, alt, decorative }, usage)
   }
-  return current === null ? null : image(current.key, altOf(alt, decorative))
+  return current === null ? null : image(current.key, altOf(alt, decorative), current.height)
 }

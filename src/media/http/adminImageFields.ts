@@ -85,17 +85,26 @@ const PREVIEW_SCRIPT = `
 /** Empreinte du script d'aperçu, seul script autorisé par la CSP de l'admin. */
 export const PREVIEW_SCRIPT_HASH = `'sha256-${createHash('sha256').update(PREVIEW_SCRIPT).digest('base64')}'`
 
-/** Champs d'image d'un formulaire. `current` : l'image enregistrée, montrée au-dessus du champ de fichier. */
+const helpText = (usage: Media.Usage): string => {
+  const ratio = ratioOf(usage)
+  return ratio === null
+    ? `PNG, WebP ou AVIF (transparence gardée) ou JPEG, 10 Mo au plus, sans recadrage, ${largestWidth(usage)} px de large au moins. Pas de SVG. Sans fichier, l'image actuelle est gardée.`
+    : `JPEG, PNG, WebP ou AVIF, 10 Mo au plus, recadrée au centre au format ${ratio[0]}:${ratio[1]}, ${largestWidth(usage)} px de large au moins. Sans fichier, l'image actuelle est gardée.`
+}
+
+/**
+ * Champs d'image d'un formulaire. `current` : l'image enregistrée, montrée au-dessus du champ de
+ * fichier. `decorative` à false : pas de case « décorative » (logo, dont le texte vaut le nom du site).
+ */
 export const imageFieldsHtml = (
   usage: Media.Usage,
   altHelp: string,
   values: Values,
   errors: Errors,
   current: Media.Image | null = null,
-) => {
-  const [ratioWidth, ratioHeight] = ratioOf(usage)
-
-  return html`<figure id="apercu-image" ${current === null ? 'hidden' : ''}>
+  { label = 'Image', decorative = true }: { label?: string; decorative?: boolean } = {},
+) =>
+  html`<figure id="apercu-image" ${current === null ? 'hidden' : ''}>
       <img
         ${current === null ? '' : html`src="${previewUrl(current, usage)}"`}
         alt=""
@@ -103,7 +112,7 @@ export const imageFieldsHtml = (
       />
       <figcaption>Image actuelle</figcaption>
     </figure>
-    <label for="imageContent">Image</label>
+    <label for="imageContent">${label}</label>
     <input
       id="imageContent"
       name="imageContent"
@@ -111,20 +120,19 @@ export const imageFieldsHtml = (
       accept="image/jpeg,image/png,image/webp,image/avif"
       aria-describedby="aide-imageContent"
     />
-    <p id="aide-imageContent">
-      JPEG, PNG, WebP ou AVIF, 10 Mo au plus, recadrée au centre au format
-      ${ratioWidth}:${ratioHeight}, ${largestWidth(usage)} px de large au moins. Sans fichier,
-      l'image actuelle est gardée.
-    </p>
+    <p id="aide-imageContent">${helpText(usage)}</p>
     ${textField('Texte de remplacement', 'imageAlt', values, errors)}
     <p>${altHelp}</p>
-    <label for="imageDecorative">
-      <input
-        id="imageDecorative"
-        name="imageDecorative"
-        type="checkbox"
-        ${values.imageDecorative === 'on' ? 'checked' : ''}
-      />Image décorative (aucun texte de remplacement)
-    </label>
+    ${
+      decorative
+        ? html`<label for="imageDecorative">
+            <input
+              id="imageDecorative"
+              name="imageDecorative"
+              type="checkbox"
+              ${values.imageDecorative === 'on' ? 'checked' : ''}
+            />Image décorative (aucun texte de remplacement)
+          </label>`
+        : ''
+    }
     ${raw(`<script>${PREVIEW_SCRIPT}</script>`)}`
-}

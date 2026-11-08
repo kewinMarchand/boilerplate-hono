@@ -2,18 +2,19 @@
 
 Seconde API de test des boilerplates front, en NoSQL. Elle sert exactement le même contrat que [boilerplate-api-platform](../boilerplate-api-platform) (API Platform, PostgreSQL, port 8090) : mêmes chemins, mêmes paramètres, mêmes formes JSON, mêmes codes et messages d'erreur, mêmes données. Un front passe de l'une à l'autre en changeant une seule variable d'URL.
 
-| Ressource        | Opération                     | Ce qu'elle renvoie                                                                                                                                                      |
-| ---------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Task`           | `GET /api/tasks`              | Les 3 tâches de démonstration (`id`, `title`, `done`)                                                                                                                   |
-| `Article`        | `GET /api/articles`           | 3 articles (`id`, `slug`, `title`, `excerpt`, `publishedAt`), du plus récent au plus ancien                                                                             |
-| `ArticleDetail`  | `GET /api/articles/{slug}`    | Fiche d'un article : les mêmes champs, plus `html` (texte saisi en Markdown dans l'admin, converti à l'enregistrement) ; 404 sinon                                      |
-| `ContactMessage` | `POST /api/contact_messages`  | 201 et le message enregistré, ou 422 avec les violations en français                                                                                                    |
-| `Category`       | `GET /api/categories`         | L'arbre des 14 catégories du catalogue                                                                                                                                  |
-| `Product`        | `GET /api/products`           | Une page des 24 produits, filtrée et triée : un tableau JSON, vide au-delà de la dernière page                                                                          |
-| `ProductFacets`  | `GET /api/product-facets`     | Le total des produits filtrés et les compteurs de facettes, mêmes filtres que la liste sans tri ni pagination                                                           |
-| `ProductDetail`  | `GET /api/products/{slug}`    | Fiche d'un produit : les champs de la liste, plus `categoryPath` (catégories de la racine à la sienne) et `description` (texte brut, chaîne vide si aucune) ; 404 sinon |
-| `Product`        | `GET /api/featured-products`  | Les produits « À la une » (case de l'admin), par nom, sous la forme des éléments de la liste : le carrousel de l'accueil                                                |
-| `LegalPage`      | `GET /api/legal_pages/{slug}` | Une page légale découpée en sections HTML, ou 404                                                                                                                       |
+| Ressource        | Opération                     | Ce qu'elle renvoie                                                                                                                                                                                                                                                                                                                                           |
+| ---------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Task`           | `GET /api/tasks`              | Les 3 tâches de démonstration (`id`, `title`, `done`)                                                                                                                                                                                                                                                                                                        |
+| `Article`        | `GET /api/articles`           | 3 articles (`id`, `slug`, `title`, `excerpt`, `publishedAt`), du plus récent au plus ancien                                                                                                                                                                                                                                                                  |
+| `ArticleDetail`  | `GET /api/articles/{slug}`    | Fiche d'un article : les mêmes champs, plus `html` (texte saisi en Markdown dans l'admin, converti à l'enregistrement) ; 404 sinon                                                                                                                                                                                                                           |
+| `ContactMessage` | `POST /api/contact_messages`  | 201 et le message enregistré, ou 422 avec les violations en français                                                                                                                                                                                                                                                                                         |
+| `Category`       | `GET /api/categories`         | L'arbre des 14 catégories du catalogue                                                                                                                                                                                                                                                                                                                       |
+| `Product`        | `GET /api/products`           | Une page des 24 produits, filtrée et triée : un tableau JSON, vide au-delà de la dernière page                                                                                                                                                                                                                                                               |
+| `ProductFacets`  | `GET /api/product-facets`     | Le total des produits filtrés et les compteurs de facettes, mêmes filtres que la liste sans tri ni pagination                                                                                                                                                                                                                                                |
+| `ProductDetail`  | `GET /api/products/{slug}`    | Fiche d'un produit : les champs de la liste, plus `categoryPath` (catégories de la racine à la sienne) et `description` (texte brut, chaîne vide si aucune) ; 404 sinon                                                                                                                                                                                      |
+| `Product`        | `GET /api/featured-products`  | Les produits « À la une » (case de l'admin), par nom, sous la forme des éléments de la liste : le carrousel de l'accueil                                                                                                                                                                                                                                     |
+| `LegalPage`      | `GET /api/legal_pages/{slug}` | Une page légale découpée en sections HTML, ou 404                                                                                                                                                                                                                                                                                                            |
+| `SiteIdentity`   | `GET /api/site-identity`      | L'identité du site saisie dans l'admin ([ADR 0005](doc/adr/0005-identite-du-site-administree-dans-l-api.md)) : `name`, `tagline`, `logo` (image ou `null`), `defaultColorScheme` (`auto`, `light`, `dark`) et `theme` (`null` sans couleurs saisies, sinon `light` et `dark` : les douze jetons de couleur de marque de boilerplates-ui, calculés par l'API) |
 
 Les diapositives (`GET /api/slides`) sont retirées, comme dans l'API Platform : le carrousel des fronts montre les produits à la une ([ADR 0004 de l'API Platform](../boilerplate-api-platform/doc/adr/0004-carrousel-de-produits-a-la-une.md)).
 
@@ -117,9 +118,9 @@ src/
   database.ts             composition : dépôts MongoDB, schéma, remise à zéro avec les fixtures
   server.ts               connexion MongoDB, schéma, serveur
   config.ts               variables d'environnement, validées par zod
-  task/ blog/ contact/ catalog/
+  task/ blog/ contact/ catalog/ content/ media/ site/ admin/
     domain/               types, port du dépôt, règles pures (aucune dépendance)
-    application/          catalogue seulement : cas d'utilisation searchProducts
+    application/          cas d'utilisation (searchProducts, écritures de l'admin, identité du site)
     infrastructure/       schéma du document, adaptateur MongoDB, fixtures
     http/                 contract.ts (langage publié), routes createRoute, adaptation HTTP
   shared/
@@ -144,7 +145,7 @@ Le catalogue calcule filtre, tri, pagination et compteurs disjonctifs en **une a
 make contract   # API Platform sur 8090 et cette API sur 8091, lancées et avec leurs fixtures
 ```
 
-`contract/cases.ts` liste 277 requêtes représentatives (tous les scénarios des tests fonctionnels de l'API Platform, paramètres invalides, négociation, erreurs, CORS). Chacune part vers les deux API, puis le script compare statut, `Content-Type`, en-têtes utiles (`Allow`, `Location`, `Access-Control-*`) et corps JSON normalisé : clés triées, clés de débogage Symfony (`trace`, `class`) retirées, origine des URL et dates-heures masquées, `id` d'un message de contact créé masqué. Il compare ensuite les deux documents OpenAPI : opérations, paramètres, codes de réponse et schémas consommés par les fronts (seule la réponse 413 du contact, documentée ici, est écartée). Toute différence est listée et fait échouer la commande.
+`contract/cases.ts` liste 283 requêtes représentatives (tous les scénarios des tests fonctionnels de l'API Platform, paramètres invalides, négociation, erreurs, CORS). Chacune part vers les deux API, puis le script compare statut, `Content-Type`, en-têtes utiles (`Allow`, `Location`, `Access-Control-*`) et corps JSON normalisé : clés triées, clés de débogage Symfony (`trace`, `class`) retirées, origine des URL et dates-heures masquées, `id` d'un message de contact créé masqué. Il compare ensuite les deux documents OpenAPI : opérations, paramètres, codes de réponse et schémas consommés par les fronts (seule la réponse 413 du contact, documentée ici, est écartée). Toute différence est listée et fait échouer la commande.
 
 Les variables `CONTRACT_REFERENCE_URL` et `CONTRACT_CANDIDATE_URL` changent les deux origines. Les requêtes `POST` créent des messages de contact dans les deux bases.
 
@@ -170,7 +171,11 @@ Non comparés, mais à connaître :
 
 ## Images
 
-Comme dans l'API Platform ([ADR 0002](doc/adr/0002-images-envoyees-par-l-admin.md) de ce dépôt, qui adopte la sienne), produits et articles portent une image envoyée par l'admin. Le champ `image` vaut `{ alt, width, height, sources, src }`, ou `null` pour un objet d'avant l'envoi des images ; les adresses sont absolues, préfixées par `MEDIA_BASE_URL` (`http://localhost:8091` par défaut). Les variantes AVIF et WebP sont générées à l'envoi par `sharp` et écrites dans `MEDIA_DIR` (`var/media`), servi sous `/media/` avec un cache d'un an. Mêmes fixtures que l'API Platform (`fixtures/images`), donc mêmes noms de fichiers : seule l'origine des adresses diffère.
+Comme dans l'API Platform ([ADR 0002](doc/adr/0002-images-envoyees-par-l-admin.md) de ce dépôt, qui adopte la sienne), produits et articles portent une image envoyée par l'admin. Le champ `image` vaut `{ alt, width, height, sources, src }`, ou `null` pour un objet d'avant l'envoi des images ; les adresses sont absolues, préfixées par `MEDIA_BASE_URL` (`http://localhost:8091` par défaut). Les variantes AVIF et WebP sont générées à l'envoi par `sharp` et écrites dans `MEDIA_DIR` (`var/media`), servi sous `/media/` avec un cache d'un an. Mêmes fixtures que l'API Platform (`fixtures/images`), donc mêmes noms de fichiers : seule l'origine des adresses diffère. Le logo de l'identité du site (usage `logo`, ADR 0005) n'est pas recadré : variantes de 200 et 400 px au ratio du fichier, `height` suivant ce ratio, transparence gardée ; le SVG est refusé.
+
+## Identité du site
+
+`GET /api/site-identity` sert l'identité saisie dans l'admin (`/admin/identite-du-site`, une seule fiche en modification seule), ou les valeurs du modèle tant que rien n'est enregistré (fixtures : nom et accroche du modèle, sans logo ni couleurs, `theme: null`, `auto`). Quand les deux couleurs de marque sont saisies, l'API calcule les douze jetons clair et sombre, avec les mêmes règles, les mêmes arrondis et les mêmes messages de validation que l'API Platform ([ADR 0005](doc/adr/0005-identite-du-site-administree-dans-l-api.md)). `X-Scenario: empty` sert l'identité par défaut, `error` une 500.
 
 ## Suivi des erreurs (GlitchTip)
 
@@ -244,6 +249,7 @@ Les cinq modules (`task`, `blog`, `contact`, `catalog`, `content`) sont des exem
    - `contact` : `tests/unit/contactMessage.test.ts`, `tests/integration/contact.test.ts`.
    - `catalog` : `tests/unit/catalog.test.ts`, `price.test.ts`, `productCriteria.test.ts`, `searchProducts.test.ts`, `tests/integration/products.test.ts`, et le bloc `GET /api/categories` de `tests/integration/resources.test.ts`.
    - `content` : le bloc `GET /api/legal_pages/{slug}` de `tests/integration/resources.test.ts`.
+   - `site` : `tests/unit/hexColor.test.ts`, `brandPalette.test.ts`, `brandColors.test.ts`, `siteIdentity.test.ts`, `tests/integration/siteIdentity.test.ts` ; ses routes d'admin dans `sections` (`src/app.ts`), son entrée du menu (`src/shared/http/adminLayout.ts`) et du tableau de bord (`src/admin/http/pages.ts`).
    - `task` et `blog` n'ont pas de fichier propre, mais `resources.test.ts`, `scenarioAndCors.test.ts` et `typedClient.test.ts` passent par `/api/tasks` et `/api/articles` : leurs cas sont à supprimer ou à pointer vers une route gardée.
 7. **Contrat** : si `make contract` est conservé, retirer les cas du module dans `contract/cases.ts` et ses schémas de `COMPARED_SCHEMAS` dans `contract/openapi.ts`.
 

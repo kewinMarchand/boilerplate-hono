@@ -36,6 +36,11 @@ import {
 import { filesystemMediaStorage } from '#/media/infrastructure/filesystemMediaStorage.ts'
 import { fingerprint, sharpImageEncoder } from '#/media/infrastructure/sharpImageEncoder.ts'
 import {
+  MongoSiteIdentityRepository,
+  siteIdentityCollection,
+  siteIdentityFixture,
+} from '#/site/infrastructure/mongoSiteIdentity.ts'
+import {
   MongoTaskRepository,
   taskCollection,
   taskFixtures,
@@ -55,6 +60,7 @@ const COLLECTIONS = [
   productCollection,
   legalPageCollection,
   adminUserCollection,
+  siteIdentityCollection,
 ] as const
 
 export const ensureSchema = (db: Db): Promise<void> => ensureCollections(db, COLLECTIONS)
@@ -95,6 +101,7 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
     articleRenderer: markdownArticle,
     adminUsers: new MongoAdminUserRepository(typedCollection(db, adminUserCollection)),
     passwordHasher: new ScryptPasswordHasher(),
+    siteIdentities: new MongoSiteIdentityRepository(typedCollection(db, siteIdentityCollection)),
     media,
   }
 }
@@ -154,6 +161,7 @@ export const resetDatabase = async (db: Db, media: MediaDependencies): Promise<v
     })),
   )
   await typedCollection(db, legalPageCollection).insertMany(legalPageFixtures)
+  await typedCollection(db, siteIdentityCollection).insertOne(siteIdentityFixture)
   await typedCollection(db, categoryCollection).insertMany(
     categoryFixtures.map(({ slug, ...category }) => ({ _id: slug, ...category })),
   )

@@ -4,7 +4,7 @@
  * fiables, et un import relatif qui remonte d'un dossier (`../`) est interdit partout.
  * `make arch-selftest` vérifie qu'une violation volontaire de chaque règle fait échouer le lint.
  */
-const MODULES = ['task', 'blog', 'contact', 'catalog', 'content', 'admin', 'media']
+const MODULES = ['task', 'blog', 'contact', 'catalog', 'content', 'admin', 'media', 'site']
 
 const NO_PARENT_RELATIVE = {
   regex: '^\\.\\./',
@@ -34,7 +34,7 @@ const onlyInternal = (allowed, message) => ({
 
 /**
  * Couches de `media` (images envoyées par l'admin, ADR 0002 de l'API Platform) qu'une couche de
- * module peut importer : le module des images sert les contenus, le catalogue et le blog.
+ * module peut importer : le module des images sert les contenus, le catalogue, le blog et l'identité du site (logo).
  */
 const MEDIA = {
   domain: ['media/domain'],

@@ -633,6 +633,139 @@
                     "title",
                     "html"
                 ]
+            },
+            "SiteIdentity": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Nom du site, 1 à 60 caractères."
+                    },
+                    "tagline": {
+                        "type": "string",
+                        "description": "Accroche, 0 à 160 caractères."
+                    },
+                    "logo": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ImageView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Logo, ratio du fichier gardé (largeurs 200 et 400), null sans logo : les fronts affichent alors le pictogramme et le nom."
+                    },
+                    "defaultColorScheme": {
+                        "type": "string",
+                        "enum": [
+                            "auto",
+                            "light",
+                            "dark"
+                        ]
+                    },
+                    "theme": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/SiteTheme"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Jetons de couleur de marque calculés, null sans couleurs saisies : le front garde alors ceux de boilerplates-ui."
+                    }
+                },
+                "required": [
+                    "name",
+                    "tagline",
+                    "logo",
+                    "defaultColorScheme",
+                    "theme"
+                ],
+                "description": "Lit l'identité du site."
+            },
+            "SiteTheme": {
+                "type": "object",
+                "properties": {
+                    "light": {
+                        "$ref": "#/components/schemas/ThemeTokens"
+                    },
+                    "dark": {
+                        "$ref": "#/components/schemas/ThemeTokens"
+                    }
+                },
+                "required": [
+                    "light",
+                    "dark"
+                ]
+            },
+            "ThemeTokens": {
+                "type": "object",
+                "properties": {
+                    "primary": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "primary-dark": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "on-primary": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "primary-surface-subtle": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "primary-surface": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "primary-surface-strong": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "secondary": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "secondary-dark": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "on-secondary": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "secondary-surface-subtle": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "secondary-surface": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    },
+                    "secondary-surface-strong": {
+                        "type": "string",
+                        "pattern": "^#[0-9a-f]{6}$"
+                    }
+                },
+                "required": [
+                    "primary",
+                    "primary-dark",
+                    "on-primary",
+                    "primary-surface-subtle",
+                    "primary-surface",
+                    "primary-surface-strong",
+                    "secondary",
+                    "secondary-dark",
+                    "on-secondary",
+                    "secondary-surface-subtle",
+                    "secondary-surface",
+                    "secondary-surface-strong"
+                ]
             }
         },
         "parameters": {}
@@ -1227,6 +1360,43 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/LegalPage"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "content": {
+                            "application/problem+json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/site-identity": {
+            "get": {
+                "operationId": "api_site-identity_get",
+                "tags": [
+                    "SiteIdentity"
+                ],
+                "summary": "Retrieves a SiteIdentity resource.",
+                "description": "Retrieves a SiteIdentity resource.",
+                "responses": {
+                    "200": {
+                        "description": "SiteIdentity resource",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SiteIdentity"
                                 }
                             }
                         }

@@ -55,6 +55,26 @@ describe('storeImage', () => {
     expect(image.alt).toBe('')
   })
 
+  it('garde le ratio du fichier pour un logo', async () => {
+    const { media, files } = fakeMedia()
+
+    const image = await storeImage(media, upload('image/png 1000x300', 'Oraki'), 'logo')
+
+    expect(image.height).toBe(120)
+    expect([...files.keys()]).toEqual([
+      `${image.key}-200.avif`,
+      `${image.key}-200.webp`,
+      `${image.key}-400.avif`,
+      `${image.key}-400.webp`,
+    ])
+  })
+
+  it('refuse un logo plus étroit que sa plus grande variante', async () => {
+    await expect(
+      storeImage(fakeMedia().media, upload('image/png 399x2000', 'Oraki'), 'logo'),
+    ).rejects.toThrow("L'image doit faire au moins 400 px de large : elle fait 399 × 2000 px.")
+  })
+
   it.each([
     [
       upload('image/jpeg 1600x900', '  '),

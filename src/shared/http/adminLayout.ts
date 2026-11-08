@@ -50,6 +50,7 @@ const MENU = [
   ['/admin/produits', 'Produits'],
   ['/admin/articles', 'Articles'],
   ['/admin/pages-legales', 'Pages légales'],
+  ['/admin/identite-du-site', 'Identité du site'],
 ] as const
 
 const header = (current: string) =>

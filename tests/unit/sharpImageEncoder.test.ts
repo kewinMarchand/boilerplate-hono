@@ -1,7 +1,10 @@
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 
+import { storeImage } from '#/media/application/storeImage.ts'
 import { fingerprint, sharpImageEncoder } from '#/media/infrastructure/sharpImageEncoder.ts'
+
+import { fakeMedia } from './fakeMedia.ts'
 
 const WITNESS = 'TEMOIN-GPS-48.8566N'
 
@@ -64,6 +67,59 @@ describe('encodeur sharp (réel)', () => {
     expect(largest).toBeDefined()
     const metadata = await sharp(largest).metadata()
     expect([metadata.width, metadata.height]).toEqual([960, 540])
+  })
+
+  it('garde le ratio et la transparence d’un logo', async () => {
+    const logo = await sharp({
+      create: { width: 1000, height: 300, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+    })
+      .composite([
+        {
+          input: {
+            create: { width: 200, height: 100, channels: 4, background: '#c2410c' },
+          },
+          left: 400,
+          top: 100,
+        },
+      ])
+      .png()
+      .toBuffer()
+    const key = 'd'.repeat(32)
+
+    const variants = await sharpImageEncoder.variants(new Uint8Array(logo), key, 'logo')
+
+    expect([...variants.keys()]).toEqual([
+      `${key}-200.avif`,
+      `${key}-200.webp`,
+      `${key}-400.avif`,
+      `${key}-400.webp`,
+    ])
+    for (const [suffix, dimensions] of [
+      ['200.webp', [200, 60]],
+      ['400.webp', [400, 120]],
+      ['400.avif', [400, 120]],
+    ] as const) {
+      const metadata = await sharp(variants.get(`${key}-${suffix}`)).metadata()
+      expect([metadata.width, metadata.height], suffix).toEqual(dimensions)
+      expect(metadata.hasAlpha, suffix).toBe(true)
+    }
+    const { data, info } = await sharp(variants.get(`${key}-400.webp`))
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+    const alphaAt = (x: number, y: number) => data[(y * info.width + x) * info.channels + 3]
+    expect(alphaAt(0, 0), 'coin transparent').toBe(0)
+    expect(alphaAt(200, 60), 'centre opaque').toBe(255)
+  })
+
+  it('refuse un logo SVG (contenu actif)', async () => {
+    const svg = new TextEncoder().encode(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="120"><rect width="400" height="120"/></svg>',
+    )
+    const media = { ...fakeMedia().media, encoder: sharpImageEncoder }
+
+    await expect(
+      storeImage(media, { content: svg, alt: 'Oraki', decorative: false }, 'logo'),
+    ).rejects.toThrow('Formats acceptés : JPEG, PNG, WebP ou AVIF.')
   })
 
   it('calcule la même empreinte que l’API Platform : sha256(usage + "\\n" + contenu), tronquée', () => {
