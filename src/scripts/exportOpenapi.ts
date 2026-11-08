@@ -12,7 +12,7 @@ const unavailable = (): Promise<never> =>
 const offline: AppDependencies = {
   tasks: { findAll: unavailable },
   articles: { findLatestFirst: unavailable, findBySlug: unavailable },
-  contactMessages: { save: unavailable },
+  contactMessages: { save: unavailable, findLatestFirst: unavailable, find: unavailable },
   contactProducts: { find: unavailable },
   contactRecipient: { address: unavailable },
   mailer: { send: unavailable },

@@ -25,6 +25,11 @@ export const contactMessageCollection: CollectionDefinition<typeof contactMessag
   indexes: [{ key: { receivedAt: -1 } }],
 }
 
+const toContactMessage = ({ _id, ...draft }: ContactMessageDocument): ContactMessage.Entity => ({
+  id: _id,
+  ...draft,
+})
+
 /** Identifiant entier auto-incrémenté (comme la séquence PostgreSQL), via un compteur atomique. */
 export class MongoContactMessageRepository implements ContactMessage.Repository {
   private readonly messages: Collection<ContactMessageDocument>
@@ -40,5 +45,16 @@ export class MongoContactMessageRepository implements ContactMessage.Repository 
     await this.messages.insertOne({ _id: id, ...draft })
 
     return { id, ...draft }
+  }
+
+  async findLatestFirst(): Promise<ContactMessage.Entity[]> {
+    return (await this.messages.find().sort({ receivedAt: -1, _id: -1 }).toArray()).map(
+      toContactMessage,
+    )
+  }
+
+  async find(id: number): Promise<ContactMessage.Entity | null> {
+    const document = await this.messages.findOne({ _id: id })
+    return document === null ? null : toContactMessage(document)
   }
 }

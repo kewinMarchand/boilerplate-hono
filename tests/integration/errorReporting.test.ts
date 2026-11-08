@@ -29,7 +29,7 @@ const unavailable = (): Promise<never> => Promise.reject(new Error('Base de donn
 const failingDatabase: AppDependencies = {
   tasks: { findAll: unavailable },
   articles: { findLatestFirst: unavailable, findBySlug: unavailable },
-  contactMessages: { save: unavailable },
+  contactMessages: { save: unavailable, findLatestFirst: unavailable, find: unavailable },
   contactProducts: { find: unavailable },
   contactRecipient: { address: unavailable },
   mailer: { send: unavailable },

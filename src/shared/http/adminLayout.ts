@@ -58,6 +58,7 @@ const MENU = [
   ['/admin/pages-legales', 'Pages légales'],
   ['/admin/identite-du-site', 'Identité du site'],
   ['/admin/referencement', 'Référencement'],
+  ['/admin/messages', 'Messages'],
 ] as const
 
 const header = (current: string) =>

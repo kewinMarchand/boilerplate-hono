@@ -49,6 +49,9 @@ export declare namespace ContactMessage {
 
   interface Repository {
     save(draft: Draft): Promise<Entity>
+    /** Messages reçus, du plus récent au plus ancien (admin). */
+    findLatestFirst(): Promise<Entity[]>
+    find(id: number): Promise<Entity | null>
   }
 
   /** Produits du catalogue, vus du contact : un produit par son slug, null s'il n'existe pas. */

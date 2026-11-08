@@ -25,6 +25,7 @@ import { adminBlogRoutes } from '#/blog/http/adminBlog.ts'
 import { articleRoutes } from '#/blog/http/articleRoutes.ts'
 import { adminCatalogRoutes } from '#/catalog/http/adminCatalogRoutes.ts'
 import { catalogRoutes } from '#/catalog/http/catalogRoutes.ts'
+import { adminContactMessageRoutes } from '#/contact/http/adminContactMessages.ts'
 import { contactMessageRoutes } from '#/contact/http/contactMessageRoutes.ts'
 import { ContactMessageValidationError } from '#/contact/http/ContactMessageValidationError.ts'
 import { adminContentRoutes } from '#/content/http/adminContent.ts'
@@ -159,6 +160,7 @@ export const createApp = (
         adminBlogRoutes(dependencies),
         adminContentRoutes(dependencies),
         adminSiteRoutes(dependencies),
+        adminContactMessageRoutes(dependencies),
       ],
     }),
   )

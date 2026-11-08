@@ -46,5 +46,6 @@ export const dashboardPage = (email: string) =>
         <li><a href="/admin/pages-legales">Pages légales</a></li>
         <li><a href="/admin/identite-du-site">Identité du site</a></li>
         <li><a href="/admin/referencement">Référencement des pages fixes</a></li>
+        <li><a href="/admin/messages">Messages reçus</a></li>
       </ul>`,
   )
