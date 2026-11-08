@@ -1,14 +1,20 @@
 import { html } from 'hono/html'
 
-import { selectField, textareaField, textField } from '#/shared/http/adminForms.ts'
+import { metaFieldsHtml, selectField, textareaField, textField } from '#/shared/http/adminForms.ts'
 import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
 
 import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
 import { MAX_DEPTH } from '#/catalog/domain/catalogRules.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
-import { imageCell, imageFieldsHtml, imageValues } from '#/media/http/adminImageFields.ts'
+import {
+  imageCell,
+  imageFieldsHtml,
+  imagePreviewScript,
+  imageValues,
+} from '#/media/http/adminImageFields.ts'
 
 import { centsToEuros } from './adminCatalogForms.ts'
+import { galleryFieldsHtml, galleryValues, withEmptyGalleryRows } from './adminGalleryFields.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { Media } from '#/media/domain/Media.ts'
@@ -215,6 +221,7 @@ export const productFormPage = (
   errors: Errors = {},
   error?: string,
   image: Media.Image | null = null,
+  gallery: readonly Media.Image[] = [],
 ) =>
   adminPage(
     title,
@@ -272,9 +279,11 @@ export const productFormPage = (
           Montré dans le carrousel de la page d'accueil, par ordre alphabétique.
         </p>
         ${imageFieldsHtml('product', 'Vide : le nom du produit, qui suffit le plus souvent.', values, errors, image)}
+        ${galleryFieldsHtml(values, errors, gallery)} ${metaFieldsHtml(values, errors)}
         ${attributeFields(attributes, values, errors)}
         <button type="submit">Enregistrer</button>
       </form>
+      ${imagePreviewScript}
       <p><a href="/admin/produits">Retour aux produits</a></p>`,
   )
 
@@ -297,6 +306,9 @@ export const productValues = (product: Catalog.Product): Values => ({
   featured: product.featured ? 'on' : '',
   description: product.description,
   ...imageValues(product.image),
+  ...withEmptyGalleryRows(galleryValues(product.gallery)),
+  metaTitle: product.metaTitle,
+  metaDescription: product.metaDescription,
   ...Object.fromEntries(
     Object.entries(product.attributeValues).map(([code, value]) => [
       attributeFieldName(code),

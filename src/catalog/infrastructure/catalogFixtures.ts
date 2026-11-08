@@ -255,8 +255,20 @@ const DESCRIPTIONS: Readonly<Record<string, string>> = {
     'Fleurs roses dressées au-dessus de l’eau, puis capsules de graines décoratives. Ses grandes feuilles déperlantes restent sèches sous la pluie.\n\nBassin peu profond, plein soleil et chaleur.',
 }
 
-/** Fixture : la photo de démonstration (fixtures/images), importée par resetDatabase avec le nom pour texte. */
-export type ProductFixture = Omit<Catalog.Product, 'image'> & { readonly demoImage: string }
+/** Galeries de démonstration (ADR 0008), par slug : photos de fixtures/images, dans l'ordre, comme CatalogFixtures. */
+const GALLERIES: Readonly<Record<string, readonly string[]>> = {
+  'monstera-deliciosa': ['product-2', 'product-3'],
+  'strelitzia-reginae': ['product-11', 'product-12', 'product-1'],
+}
+
+/**
+ * Fixture : la photo de démonstration et celles de la galerie (fixtures/images), importées par
+ * resetDatabase avec le nom pour texte.
+ */
+export type ProductFixture = Omit<Catalog.Product, 'image' | 'gallery'> & {
+  readonly demoImage: string
+  readonly galleryImages: readonly string[]
+}
 
 export const productFixtures: ProductFixture[] = PRODUCTS.map(
   ([slug, name, categorySlug, price, exposure, size, inStock], index) => ({
@@ -271,6 +283,9 @@ export const productFixtures: ProductFixture[] = PRODUCTS.map(
     featured: FEATURED.includes(slug),
     description: DESCRIPTIONS[slug] ?? '',
     attributeValues: ATTRIBUTE_VALUES[slug] ?? {},
+    metaTitle: '',
+    metaDescription: '',
     demoImage: `product-${(index % 12) + 1}`,
+    galleryImages: GALLERIES[slug] ?? [],
   }),
 )

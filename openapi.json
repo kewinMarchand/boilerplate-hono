@@ -61,6 +61,43 @@
                                 "type": "null"
                             }
                         ]
+                    },
+                    "section": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ArticleTermLink"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Rubrique de l'article, null s'il n'en a pas."
+                    },
+                    "format": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ArticleTermLink"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Format de l'article, null s'il n'en a pas."
+                    },
+                    "audio": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/AudioView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Fichier audio de l'article, null s'il n'en a pas."
+                    },
+                    "speaker": {
+                        "type": "string",
+                        "description": "Intervenant (« Présenté par … »), 80 caractères au plus ; chaîne vide s'il n'y en a pas."
                     }
                 },
                 "required": [
@@ -69,7 +106,11 @@
                     "title",
                     "excerpt",
                     "publishedAt",
-                    "image"
+                    "image",
+                    "section",
+                    "format",
+                    "audio",
+                    "speaker"
                 ],
                 "description": "Liste les articles, du plus récent au plus ancien, sans pagination."
             },
@@ -131,6 +172,49 @@
                 ],
                 "description": "Une source d'un élément <picture> : un format et toutes ses largeurs."
             },
+            "ArticleTermLink": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "slug",
+                    "name"
+                ]
+            },
+            "AudioView": {
+                "type": "object",
+                "properties": {
+                    "src": {
+                        "type": "string",
+                        "description": "Adresse absolue du fichier, immuable."
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "audio/mpeg",
+                            "audio/mp4",
+                            "audio/ogg"
+                        ],
+                        "description": "Type MIME, lu dans le contenu à l'envoi."
+                    },
+                    "durationSeconds": {
+                        "type": "integer",
+                        "description": "Durée en secondes, arrondie, lue à l'envoi."
+                    }
+                },
+                "required": [
+                    "src",
+                    "type",
+                    "durationSeconds"
+                ],
+                "description": "Fichier audio exposé dans le contrat public (ADR 0009)."
+            },
             "ArticleDetail": {
                 "type": "object",
                 "properties": {
@@ -160,9 +244,54 @@
                             }
                         ]
                     },
+                    "section": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ArticleTermLink"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Rubrique de l'article, null s'il n'en a pas."
+                    },
+                    "format": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ArticleTermLink"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Format de l'article, null s'il n'en a pas."
+                    },
+                    "audio": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/AudioView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Fichier audio de l'article, null s'il n'en a pas."
+                    },
+                    "speaker": {
+                        "type": "string",
+                        "description": "Intervenant (« Présenté par … »), 80 caractères au plus ; chaîne vide s'il n'y en a pas."
+                    },
                     "html": {
                         "type": "string",
                         "description": "Texte de l'article en HTML, converti du Markdown saisi (HTML saisi échappé, liens dangereux retirés). Vide s'il n'y en a pas."
+                    },
+                    "metaTitle": {
+                        "type": "string",
+                        "description": "Titre pour les moteurs de recherche, 60 caractères au plus ; chaîne vide si l'admin n'en a pas saisi."
+                    },
+                    "metaDescription": {
+                        "type": "string",
+                        "description": "Description pour les moteurs de recherche, 160 caractères au plus ; chaîne vide si l'admin n'en a pas saisi."
                     }
                 },
                 "required": [
@@ -172,7 +301,13 @@
                     "excerpt",
                     "publishedAt",
                     "image",
-                    "html"
+                    "section",
+                    "format",
+                    "audio",
+                    "speaker",
+                    "html",
+                    "metaTitle",
+                    "metaDescription"
                 ],
                 "description": "Lit un article par son slug."
             },
@@ -220,6 +355,23 @@
                     }
                 },
                 "description": "A representation of common errors."
+            },
+            "ArticleTerm": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string",
+                        "description": "Slug, unique dans sa liste : valeur des filtres section et format de GET /api/articles."
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "slug",
+                    "name"
+                ],
+                "description": "Liste les rubriques par position, y compris celles qu'aucun article ne porte."
             },
             "ContactMessage": {
                 "type": "object",
@@ -669,6 +821,21 @@
                     "description": {
                         "type": "string",
                         "description": "Texte brut, paragraphes séparés par une ligne vide ; chaîne vide si l'admin n'en a pas écrit."
+                    },
+                    "gallery": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ImageView"
+                        },
+                        "description": "Images de la galerie (carrées, 8 au plus), dans l'ordre, sans l'image principale ; tableau vide si aucune."
+                    },
+                    "metaTitle": {
+                        "type": "string",
+                        "description": "Titre pour les moteurs de recherche, 60 caractères au plus ; chaîne vide si l'admin n'en a pas saisi."
+                    },
+                    "metaDescription": {
+                        "type": "string",
+                        "description": "Description pour les moteurs de recherche, 160 caractères au plus ; chaîne vide si l'admin n'en a pas saisi."
                     }
                 },
                 "required": [
@@ -683,7 +850,10 @@
                     "image",
                     "attributes",
                     "categoryPath",
-                    "description"
+                    "description",
+                    "gallery",
+                    "metaTitle",
+                    "metaDescription"
                 ],
                 "description": "Lit un produit par son slug."
             },
@@ -701,6 +871,38 @@
                     "slug",
                     "name"
                 ]
+            },
+            "PageMeta": {
+                "type": "object",
+                "properties": {
+                    "page": {
+                        "type": "string",
+                        "enum": [
+                            "home",
+                            "catalog",
+                            "blog",
+                            "contact",
+                            "sitemap",
+                            "legal-notice",
+                            "privacy",
+                            "accessibility"
+                        ]
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Titre pour les moteurs de recherche, 60 caractères au plus ; chaîne vide si non saisi."
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Description pour les moteurs de recherche, 160 caractères au plus ; chaîne vide si non saisie."
+                    }
+                },
+                "required": [
+                    "page",
+                    "title",
+                    "description"
+                ],
+                "description": "Liste les pages fixes, toutes les clés, chaînes vides quand rien n'est saisi : le front garde alors ses valeurs."
             },
             "LegalPage": {
                 "type": "object",
@@ -766,6 +968,28 @@
                         ],
                         "description": "Logo, ratio du fichier gardé (largeurs 200 et 400), null sans logo : les fronts affichent alors le pictogramme et le nom."
                     },
+                    "shareImage": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ImageView"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Image de partage (og:image, twitter:image) par défaut, 1200 × 630, null sans image : les fronts gardent la leur."
+                    },
+                    "icon": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/SiteIcon"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "description": "Favicons en PNG (32, 180, 192 et 512 px), null sans icône : les fronts gardent leurs fichiers."
+                    },
                     "defaultColorScheme": {
                         "type": "string",
                         "enum": [
@@ -790,10 +1014,39 @@
                     "name",
                     "tagline",
                     "logo",
+                    "shareImage",
+                    "icon",
                     "defaultColorScheme",
                     "theme"
                 ],
                 "description": "Lit l'identité du site."
+            },
+            "SiteIcon": {
+                "type": "object",
+                "properties": {
+                    "png32": {
+                        "type": "string",
+                        "description": "PNG de 32 px : <link rel=\"icon\" sizes=\"32x32\">."
+                    },
+                    "png180": {
+                        "type": "string",
+                        "description": "PNG de 180 px : <link rel=\"apple-touch-icon\">."
+                    },
+                    "png192": {
+                        "type": "string",
+                        "description": "PNG de 192 px : icône du manifeste."
+                    },
+                    "png512": {
+                        "type": "string",
+                        "description": "PNG de 512 px : icône du manifeste."
+                    }
+                },
+                "required": [
+                    "png32",
+                    "png180",
+                    "png192",
+                    "png512"
+                ]
             },
             "SiteTheme": {
                 "type": "object",
@@ -914,6 +1167,28 @@
                 ],
                 "summary": "Retrieves the collection of Article resources.",
                 "description": "Retrieves the collection of Article resources.",
+                "parameters": [
+                    {
+                        "schema": {
+                            "type": "string",
+                            "description": "Slug de rubrique (GET /api/article-sections). Slug inconnu : liste vide."
+                        },
+                        "required": false,
+                        "description": "Slug de rubrique (GET /api/article-sections). Slug inconnu : liste vide.",
+                        "name": "section",
+                        "in": "query"
+                    },
+                    {
+                        "schema": {
+                            "type": "string",
+                            "description": "Slug de format (GET /api/article-formats). Slug inconnu : liste vide."
+                        },
+                        "required": false,
+                        "description": "Slug de format (GET /api/article-formats). Slug inconnu : liste vide.",
+                        "name": "format",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Article collection",
@@ -973,6 +1248,56 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/article-sections": {
+            "get": {
+                "operationId": "api_article-sections_get_collection",
+                "tags": [
+                    "ArticleTerm"
+                ],
+                "summary": "Retrieves the collection of ArticleTerm resources.",
+                "description": "Retrieves the collection of ArticleTerm resources.",
+                "responses": {
+                    "200": {
+                        "description": "ArticleTerm collection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ArticleTerm"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/article-formats": {
+            "get": {
+                "operationId": "api_article-formats_get_collection",
+                "tags": [
+                    "ArticleTerm"
+                ],
+                "summary": "Retrieves the collection of ArticleTerm resources.",
+                "description": "Retrieves the collection of ArticleTerm resources.",
+                "responses": {
+                    "200": {
+                        "description": "ArticleTerm collection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ArticleTerm"
+                                    }
                                 }
                             }
                         }
@@ -1479,6 +1804,31 @@
                                     "type": "array",
                                     "items": {
                                         "$ref": "#/components/schemas/Product"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/page-metas": {
+            "get": {
+                "operationId": "api_page-metas_get_collection",
+                "tags": [
+                    "PageMeta"
+                ],
+                "summary": "Retrieves the collection of PageMeta resources.",
+                "description": "Retrieves the collection of PageMeta resources.",
+                "responses": {
+                    "200": {
+                        "description": "PageMeta collection",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PageMeta"
                                     }
                                 }
                             }

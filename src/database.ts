@@ -4,6 +4,7 @@ import { counterCollection } from '#/shared/infrastructure/counters.ts'
 import { ensureCollections, typedCollection } from '#/shared/infrastructure/mongo.ts'
 
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
+import { storeAudio } from '#/media/application/storeAudio.ts'
 import { storeImage } from '#/media/application/storeImage.ts'
 import {
   adminUserCollection,
@@ -14,7 +15,10 @@ import { markdownArticle } from '#/blog/infrastructure/markdownArticle.ts'
 import {
   articleCollection,
   articleFixtures,
+  articleTermCollection,
+  articleTermFixtures,
   MongoArticleRepository,
+  MongoArticleTermRepository,
 } from '#/blog/infrastructure/mongoArticle.ts'
 import {
   categoryFixtures,
@@ -40,7 +44,13 @@ import {
   legalPageFixtures,
   MongoLegalPageRepository,
 } from '#/content/infrastructure/mongoContent.ts'
+import {
+  MongoPageMetaRepository,
+  pageMetaCollection,
+  pageMetaFixtures,
+} from '#/content/infrastructure/mongoPageMeta.ts'
 import { filesystemMediaStorage } from '#/media/infrastructure/filesystemMediaStorage.ts'
+import { headerAudioInspector } from '#/media/infrastructure/headerAudioInspector.ts'
 import { fingerprint, sharpImageEncoder } from '#/media/infrastructure/sharpImageEncoder.ts'
 import {
   MongoSiteIdentityRepository,
@@ -61,12 +71,14 @@ import type { Db } from 'mongodb'
 const COLLECTIONS = [
   taskCollection,
   articleCollection,
+  articleTermCollection,
   contactMessageCollection,
   counterCollection,
   categoryCollection,
   productCollection,
   productAttributeCollection,
   legalPageCollection,
+  pageMetaCollection,
   adminUserCollection,
   siteIdentityCollection,
 ] as const
@@ -75,6 +87,7 @@ export const ensureSchema = (db: Db): Promise<void> => ensureCollections(db, COL
 
 export const mediaDependencies = (directory: string): MediaDependencies => ({
   encoder: sharpImageEncoder,
+  audioInspector: headerAudioInspector,
   storage: filesystemMediaStorage(directory),
   fingerprint,
 })
@@ -89,9 +102,15 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
     typedCollection(db, productAttributeCollection),
   )
   const legalPages = new MongoLegalPageRepository(typedCollection(db, legalPageCollection))
+  const pageMetas = new MongoPageMetaRepository(typedCollection(db, pageMetaCollection))
+  const articleTerms = new MongoArticleTermRepository(
+    typedCollection(db, articleTermCollection),
+    typedCollection(db, counterCollection),
+  )
   const articles = new MongoArticleRepository(
     typedCollection(db, articleCollection),
     typedCollection(db, counterCollection),
+    articleTerms,
   )
 
   return {
@@ -108,9 +127,12 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
     attributes,
     attributeWriter: attributes,
     articleWriter: articles,
+    articleTerms,
     legalPages,
     legalPageWriter: legalPages,
     legalPageRenderer: markdownLegalPage,
+    pageMetas,
+    pageMetaWriter: pageMetas,
     articleRenderer: markdownArticle,
     adminUsers: new MongoAdminUserRepository(typedCollection(db, adminUserCollection)),
     passwordHasher: new ScryptPasswordHasher(),
@@ -132,10 +154,27 @@ const demoImage = async (
   usage: Media.Usage,
   alt: string,
   decorative = false,
-): Promise<{ imageKey: string; imageAlt: string }> => {
+): Promise<Media.Image> => {
   const content = new Uint8Array(await readFile(new URL(`${name}.webp`, DEMO_IMAGES)))
-  const image = await storeImage(media, { content, alt, decorative }, usage)
-  return { imageKey: image.key, imageAlt: image.alt }
+  return storeImage(media, { content, alt, decorative }, usage)
+}
+
+/** Champs d'image d'un document : empreinte et texte (les photos de démonstration sont assez larges). */
+const imageFields = ({ key, alt }: Media.Image) => ({ imageKey: key, imageAlt: alt })
+
+/** Fichiers audio de démonstration (générés, sans droits), comme fixtures/audio de l'API Platform. */
+const DEMO_AUDIO = new URL('../fixtures/audio/', import.meta.url)
+
+/** Importe un fichier audio de démonstration par le même chemin que l'admin : même empreinte que dans l'API Platform. */
+const demoAudio = async (media: MediaDependencies, name: string | null) => {
+  if (name === null) {
+    return { audioKey: null, audioFormat: null, audioDuration: null }
+  }
+  const audio = await storeAudio(
+    media,
+    new Uint8Array(await readFile(new URL(`${name}.mp3`, DEMO_AUDIO))),
+  )
+  return { audioKey: audio.key, audioFormat: audio.format, audioDuration: audio.durationSeconds }
 }
 
 /** Un à un : deux fixtures qui partagent une photo ne l'encodent pas deux fois en même temps. */
@@ -166,14 +205,20 @@ export const resetDatabase = async (db: Db, media: MediaDependencies): Promise<v
   await ensureSchema(db)
 
   await typedCollection(db, taskCollection).insertMany(taskFixtures)
+  await typedCollection(db, articleTermCollection).insertMany(articleTermFixtures)
   await typedCollection(db, articleCollection).insertMany(
-    await mapInSequence(articleFixtures, async ({ demoImage: name, ...article }) => ({
-      ...article,
-      html: markdownArticle.render(article.body),
-      ...(await demoImage(media, name, 'article', '', true)),
-    })),
+    await mapInSequence(
+      articleFixtures,
+      async ({ demoImage: name, demoAudio: audio, ...article }) => ({
+        ...article,
+        html: markdownArticle.render(article.body),
+        ...imageFields(await demoImage(media, name, 'article', '', true)),
+        ...(await demoAudio(media, audio)),
+      }),
+    ),
   )
   await typedCollection(db, legalPageCollection).insertMany(legalPageFixtures)
+  await typedCollection(db, pageMetaCollection).insertMany(pageMetaFixtures)
   await typedCollection(db, siteIdentityCollection).insertOne(siteIdentityFixture)
   await typedCollection(db, categoryCollection).insertMany(
     categoryFixtures.map(({ slug, ...category }) => ({ _id: slug, ...category })),
@@ -183,12 +228,21 @@ export const resetDatabase = async (db: Db, media: MediaDependencies): Promise<v
   )
   const tree = CategoryTree.of(categoryFixtures)
   await typedCollection(db, productCollection).insertMany(
-    await mapInSequence(productFixtures, async ({ id, demoImage: name, ...product }) => ({
-      _id: id,
-      ...product,
-      attributeValues: { ...product.attributeValues },
-      ...(await demoImage(media, name, 'product', product.name)),
-      categoryPath: CategoryTree.pathTo(tree, product.categorySlug),
-    })),
+    await mapInSequence(
+      productFixtures,
+      async ({ id, demoImage: name, galleryImages, ...product }) => ({
+        _id: id,
+        ...product,
+        attributeValues: { ...product.attributeValues },
+        ...imageFields(await demoImage(media, name, 'product', product.name)),
+        imageWidth: null,
+        gallery: (
+          await mapInSequence(galleryImages, (photo) =>
+            demoImage(media, photo, 'product', product.name),
+          )
+        ).map(({ key, alt }) => ({ key, alt, width: null })),
+        categoryPath: CategoryTree.pathTo(tree, product.categorySlug),
+      }),
+    ),
   )
 }

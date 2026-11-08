@@ -4,16 +4,17 @@ import { join } from 'node:path'
 
 import type { Media } from '#/media/domain/Media.ts'
 
-const VARIANT_NAME = /^[0-9a-f]{32}-\d+\.(avif|webp)$/
+/** Variante d'une image, ou fichier audio stocké tel quel (ADR 0009). */
+const MEDIA_NAME = /^[0-9a-f]{32}(-\d+\.(avif|webp|png)|\.(mp3|m4a|ogg))$/
 
 const pathIn = (directory: string, name: string): string => {
-  if (!VARIANT_NAME.test(name)) {
-    throw new Error(`Nom de variante inattendu : ${name}.`)
+  if (!MEDIA_NAME.test(name)) {
+    throw new Error(`Nom de fichier inattendu : ${name}.`)
   }
   return join(directory, name)
 }
 
-/** Variantes dans un dossier du volume de l'API (MEDIA_DIR), servi sous /media/ par mediaRoutes. */
+/** Variantes des images et fichiers audio dans un dossier du volume de l'API (MEDIA_DIR), servi sous /media/ par mediaRoutes. */
 export const filesystemMediaStorage = (directory: string): Media.Storage => ({
   async has(name) {
     try {

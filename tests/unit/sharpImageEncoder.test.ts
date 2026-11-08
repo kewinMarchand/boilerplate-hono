@@ -1,6 +1,7 @@
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 
+import { widthsOf } from '#/media/domain/imageRules.ts'
 import { storeImage } from '#/media/application/storeImage.ts'
 import { fingerprint, sharpImageEncoder } from '#/media/infrastructure/sharpImageEncoder.ts'
 
@@ -35,6 +36,7 @@ describe('encodeur sharp (réel)', () => {
       await jpegWithExif(1600, 900, 6),
       key,
       'product',
+      widthsOf('product'),
     )
 
     expect([...variants.keys()]).toEqual([
@@ -61,6 +63,7 @@ describe('encodeur sharp (réel)', () => {
       await jpegWithExif(2000, 2000),
       key,
       'article',
+      widthsOf('article'),
     )
     const largest = variants.get(`${key}-960.webp`)
 
@@ -86,7 +89,12 @@ describe('encodeur sharp (réel)', () => {
       .toBuffer()
     const key = 'd'.repeat(32)
 
-    const variants = await sharpImageEncoder.variants(new Uint8Array(logo), key, 'logo')
+    const variants = await sharpImageEncoder.variants(
+      new Uint8Array(logo),
+      key,
+      'logo',
+      widthsOf('logo'),
+    )
 
     expect([...variants.keys()]).toEqual([
       `${key}-200.avif`,
@@ -109,6 +117,54 @@ describe('encodeur sharp (réel)', () => {
     const alphaAt = (x: number, y: number) => data[(y * info.width + x) * info.channels + 3]
     expect(alphaAt(0, 0), 'coin transparent').toBe(0)
     expect(alphaAt(200, 60), 'centre opaque').toBe(255)
+  })
+
+  it('arrête une source étroite à sa largeur, sans l’agrandir', async () => {
+    const key = 'c'.repeat(32)
+    const variants = await sharpImageEncoder.variants(
+      await jpegWithExif(600, 900),
+      key,
+      'product',
+      [400, 600],
+    )
+
+    expect([...variants.keys()]).toEqual([
+      `${key}-400.avif`,
+      `${key}-400.webp`,
+      `${key}-600.avif`,
+      `${key}-600.webp`,
+    ])
+    const metadata = await sharp(variants.get(`${key}-600.webp`)).metadata()
+    expect([metadata.width, metadata.height]).toEqual([600, 600])
+  })
+
+  it('écrit une icône en PNG carrés, transparence gardée', async () => {
+    const icon = await sharp({
+      create: { width: 600, height: 512, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+    })
+      .png()
+      .toBuffer()
+    const key = 'b'.repeat(32)
+
+    const variants = await sharpImageEncoder.variants(
+      new Uint8Array(icon),
+      key,
+      'icon',
+      widthsOf('icon'),
+    )
+
+    expect([...variants.keys()]).toEqual([
+      `${key}-32.png`,
+      `${key}-180.png`,
+      `${key}-192.png`,
+      `${key}-512.png`,
+    ])
+    const metadata = await sharp(variants.get(`${key}-180.png`)).metadata()
+    expect([metadata.width, metadata.height, metadata.format]).toEqual([180, 180, 'png'])
+    const { data } = await sharp(variants.get(`${key}-32.png`))
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+    expect(data[3], 'coin transparent').toBe(0)
   })
 
   it('refuse un logo SVG (contenu actif)', async () => {

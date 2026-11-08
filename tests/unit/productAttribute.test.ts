@@ -69,7 +69,9 @@ describe('attribut configurable (règles de ProductAttribute)', () => {
   it('liste les attributs renseignés d’un produit par position, avec le libellé de la valeur', () => {
     const [monstera] = productFixtures
 
-    expect(monstera && attributeValuesOf({ ...monstera, image: null }, [foliage, height])).toEqual([
+    expect(
+      monstera && attributeValuesOf({ ...monstera, image: null, gallery: [] }, [foliage, height]),
+    ).toEqual([
       {
         code: 'feuillage',
         label: 'Feuillage',

@@ -1,15 +1,27 @@
 import { Hono } from 'hono'
 import { html } from 'hono/html'
 
-import { field, selectField, textField } from '#/shared/http/adminForms.ts'
+import {
+  checkbox,
+  checkboxField,
+  field,
+  maxLength,
+  selectField,
+  textField,
+} from '#/shared/http/adminForms.ts'
 import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
 
 import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
 import { COLOR_SCHEMES, SiteRuleViolation } from '#/site/domain/SiteIdentity.ts'
 import { getSiteIdentity, updateSiteIdentity } from '#/site/application/siteIdentity.ts'
-import { imageFieldsHtml, readImageFields } from '#/media/http/adminImageFields.ts'
+import {
+  fileContent,
+  imageFieldsHtml,
+  imageFileHtml,
+  imagePreviewScript,
+  readImageFields,
+} from '#/media/http/adminImageFields.ts'
 
-import type { Media } from '#/media/domain/Media.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
 import type { SiteDependencies } from '#/site/application/siteIdentity.ts'
 import type { SiteIdentity } from '#/site/domain/SiteIdentity.ts'
@@ -17,8 +29,11 @@ import type { SiteIdentity } from '#/site/domain/SiteIdentity.ts'
 /**
  * Admin de l'identité du site (ADR 0005) : une seule fiche, en modification seule, derrière la
  * session de l'admin. La page (GET et POST) est son formulaire, rempli par getSiteIdentity (les
- * valeurs du modèle tant que rien n'est enregistré). La forme est vérifiée ici, les couleurs et le
- * logo par le cas d'usage, avec les messages de SiteIdentityType et SiteIdentityCrudController.
+ * valeurs du modèle tant que rien n'est enregistré). La forme est vérifiée ici, les couleurs et les
+ * images (logo, icône, image de partage) par le cas d'usage, avec les messages de SiteIdentityType
+ * et SiteIdentityCrudController. Couleurs en sélecteur natif (`<input type="color">`) derrière la
+ * case « Utiliser les couleurs de la bibliothèque », qui remplace le champ vide qu'un sélecteur de
+ * couleur ne sait pas exprimer.
  */
 const PATH = '/admin/identite-du-site'
 const TITLE = 'Identité du site'
@@ -32,11 +47,8 @@ const SCHEME_LABELS: Record<SiteIdentity.ColorScheme, string> = {
 const isColorScheme = (value: string): value is SiteIdentity.ColorScheme =>
   COLOR_SCHEMES.some((scheme) => scheme === value)
 
-const maxLength = (errors: Errors, name: string, value: string, max: number): void => {
-  if (Array.from(value).length > max) {
-    errors[name] = `Cette chaîne est trop longue. Elle doit avoir au maximum ${max} caractères.`
-  }
-}
+/** Valeur d'un sélecteur de couleur sans couleur enregistrée : le noir, comme le navigateur. */
+const NO_COLOR = '#000000'
 
 export const readSiteIdentityForm = async (
   body: Record<string, unknown>,
@@ -46,14 +58,16 @@ export const readSiteIdentityForm = async (
   const primaryColor = field(body, 'primaryColor')
   const secondaryColor = field(body, 'secondaryColor')
   const defaultColorScheme = field(body, 'defaultColorScheme')
-  const removeLogo = field(body, 'removeLogo') !== ''
   const values: Values = {
     name,
     tagline,
+    useLibraryColors: checkbox(body, 'useLibraryColors'),
     primaryColor,
     secondaryColor,
     defaultColorScheme,
-    removeLogo: removeLogo ? 'on' : '',
+    removeLogo: checkbox(body, 'removeLogo'),
+    removeIcon: checkbox(body, 'removeIcon'),
+    removeShareImage: checkbox(body, 'removeShareImage'),
   }
   const errors: Errors = {}
   if (name === '') {
@@ -65,6 +79,8 @@ export const readSiteIdentityForm = async (
     errors.defaultColorScheme = 'Le choix sélectionné est invalide.'
   }
   const image = await readImageFields(body, values, errors)
+  const shareImage = await readImageFields(body, values, errors, 'shareImage')
+  const iconContent = await fileContent(body, 'iconContent')
 
   return {
     values,
@@ -74,12 +90,18 @@ export const readSiteIdentityForm = async (
         ? {
             name,
             tagline,
+            useLibraryColors: values.useLibraryColors === 'on',
             primaryColor,
             secondaryColor,
             defaultColorScheme,
             imageContent: image.content,
             imageAlt: image.alt,
-            removeLogo,
+            removeLogo: values.removeLogo === 'on',
+            shareImageContent: shareImage.content,
+            shareImageAlt: shareImage.alt,
+            removeShareImage: values.removeShareImage === 'on',
+            iconContent,
+            removeIcon: values.removeIcon === 'on',
           }
         : null,
   }
@@ -91,19 +113,24 @@ const valuesOf = ({
   logo,
   colors,
   defaultColorScheme,
+  shareImage,
 }: SiteIdentity.Entity): Values => ({
   name,
   tagline,
-  primaryColor: colors?.primary ?? '',
-  secondaryColor: colors?.secondary ?? '',
+  useLibraryColors: colors === null ? 'on' : '',
+  primaryColor: colors?.primary ?? NO_COLOR,
+  secondaryColor: colors?.secondary ?? NO_COLOR,
   defaultColorScheme,
   imageAlt: logo?.alt ?? '',
   removeLogo: '',
+  shareImageAlt: shareImage?.alt ?? '',
+  removeShareImage: '',
+  removeIcon: '',
 })
 
 const formPage = (
   values: Values,
-  logo: Media.Image | null,
+  identity: SiteIdentity.Entity,
   {
     errors = {},
     error,
@@ -119,29 +146,54 @@ const formPage = (
         ${textField('Nom du site', 'name', values, errors)}
         ${textField('Accroche', 'tagline', values, errors)}
         <p>Texte du hero de l'accueil et description par défaut des pages.</p>
-        ${imageFieldsHtml('logo', 'Vide : le nom du site.', values, errors, logo, {
+        ${imageFieldsHtml('logo', 'Vide : le nom du site.', values, errors, identity.logo, {
           label: 'Logo',
           decorative: false,
+          previewLabel: 'Logo actuel',
         })}
-        <label for="removeLogo">
-          <input
-            id="removeLogo"
-            name="removeLogo"
-            type="checkbox"
-            ${values.removeLogo === 'on' ? 'checked' : ''}
-          />Retirer le logo
-        </label>
+        ${checkboxField(
+          'Retirer le logo',
+          'removeLogo',
+          values,
+          'Le header affiche alors le pictogramme et le nom du site. Un fichier envoyé en même temps est ignoré.',
+        )}
+        ${imageFileHtml(
+          'icon',
+          'iconContent',
+          'Icône du site (favicons)',
+          identity.icon,
+          'Icône actuelle (192 px)',
+        )}
+        ${checkboxField(
+          "Retirer l'icône",
+          'removeIcon',
+          values,
+          'Les fronts servent alors leurs propres favicons. Un fichier envoyé en même temps est ignoré.',
+        )}
+        ${imageFieldsHtml('share', 'Vide : le nom du site.', values, errors, identity.shareImage, {
+          label: 'Image de partage',
+          decorative: false,
+          prefix: 'shareImage',
+          previewLabel: 'Image de partage actuelle',
+        })}
+        ${checkboxField(
+          "Retirer l'image de partage",
+          'removeShareImage',
+          values,
+          'Les fronts servent alors leur propre image de partage. Un fichier envoyé en même temps est ignoré.',
+        )}
+        ${checkboxField(
+          'Utiliser les couleurs de la bibliothèque',
+          'useLibraryColors',
+          values,
+          'Cochée : pas de couleurs de marque, les fronts gardent les jetons de boilerplates-ui et les deux couleurs ci-dessous sont ignorées.',
+        )}
+        ${textField('Couleur principale', 'primaryColor', values, errors, 'color')}
         <p>
-          Le header affiche alors le pictogramme et le nom du site. Un fichier envoyé en même temps
-          est ignoré.
+          Couleur des liens et des boutons : elle doit contraster à 4,5:1 au moins avec le fond
+          blanc. Le thème sombre et les déclinaisons sont calculés.
         </p>
-        ${textField('Couleur principale', 'primaryColor', values, errors)}
-        <p>
-          Couleur des liens et des boutons, au format #rrggbb : elle doit contraster à 4,5:1 au
-          moins avec le fond blanc. Les deux couleurs vides : celles de la bibliothèque. Le thème
-          sombre et les déclinaisons sont calculés.
-        </p>
-        ${textField('Couleur secondaire', 'secondaryColor', values, errors)}
+        ${textField('Couleur secondaire', 'secondaryColor', values, errors, 'color')}
         <p>Elle doit porter un texte lisible (blanc ou quasi-noir à 4,5:1 au moins).</p>
         ${selectField(
           'Thème par défaut',
@@ -152,7 +204,8 @@ const formPage = (
         )}
         <p>Thème servi tant que le visiteur n'a rien choisi.</p>
         <button type="submit">Enregistrer</button>
-      </form>`,
+      </form>
+      ${imagePreviewScript}`,
   )
 
 const refusal = (error: unknown): string => {
@@ -168,19 +221,19 @@ export const adminSiteRoutes = (dependencies: SiteDependencies) => {
   app.get(PATH, async (c) => {
     const identity = await getSiteIdentity(dependencies)
     const message = c.req.query('ok') === 'modifie' ? 'Identité du site enregistrée.' : undefined
-    return c.html(formPage(valuesOf(identity), identity.logo, { message }))
+    return c.html(formPage(valuesOf(identity), identity, { message }))
   })
 
   app.post(PATH, async (c) => {
     const form = await readSiteIdentityForm(await c.req.parseBody())
-    const logo = async () => (await getSiteIdentity(dependencies)).logo
+    const current = () => getSiteIdentity(dependencies)
     if (form.data === null) {
-      return c.html(formPage(form.values, await logo(), { errors: form.errors }), 422)
+      return c.html(formPage(form.values, await current(), { errors: form.errors }), 422)
     }
     try {
       await updateSiteIdentity(dependencies, form.data)
     } catch (error) {
-      return c.html(formPage(form.values, await logo(), { error: refusal(error) }), 422)
+      return c.html(formPage(form.values, await current(), { error: refusal(error) }), 422)
     }
     return c.redirect(`${PATH}?ok=modifie`, 303)
   })

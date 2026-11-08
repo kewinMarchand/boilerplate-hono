@@ -1,8 +1,16 @@
-import { field, integer, requiredText, slugField } from '#/shared/http/adminForms.ts'
+import {
+  field,
+  integer,
+  readMetaFields,
+  requiredText,
+  slugField,
+} from '#/shared/http/adminForms.ts'
 
 import { isExposure, isSize } from '#/catalog/domain/catalog.ts'
 import { Price } from '#/catalog/domain/price.ts'
 import { readImageFields } from '#/media/http/adminImageFields.ts'
+
+import { readGalleryRows } from './adminGalleryFields.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
@@ -109,6 +117,8 @@ export const readProductForm = async (
     ...Object.fromEntries(attributeFields.map(({ key, value }) => [key, value])),
   }
   const image = await readImageFields(body, formValues, errors)
+  const gallery = await readGalleryRows(body, formValues, errors)
+  const meta = readMetaFields(body, formValues, errors)
   const { exposure, size } = values
   const data =
     Object.keys(errors).length === 0 && cents !== null && isExposure(exposure) && isSize(size)
@@ -126,6 +136,9 @@ export const readProductForm = async (
           imageAlt: image.alt,
           imageDecorative: image.decorative,
           attributeValues,
+          gallery,
+          metaTitle: meta.title,
+          metaDescription: meta.description,
         }
       : null
 

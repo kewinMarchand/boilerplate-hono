@@ -1,10 +1,15 @@
-import { CatalogRuleViolation, checkPlacement } from '#/catalog/domain/catalogRules.ts'
+import {
+  CatalogRuleViolation,
+  checkGallerySize,
+  checkPlacement,
+} from '#/catalog/domain/catalogRules.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
 import { checkAttributeValues, productAttribute } from '#/catalog/domain/productAttribute.ts'
 import { changeImage } from '#/media/application/storeImage.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { MediaDependencies } from '#/media/application/storeImage.ts'
+import type { Media } from '#/media/domain/Media.ts'
 
 /**
  * Écritures de l'admin sur le catalogue (ADR 0001) : chaque cas d'usage vérifie les règles qui
@@ -120,8 +125,45 @@ const productPlacement = async (
 }
 
 /**
- * Produit à enregistrer : valeurs d'attributs contrôlées par leur définition, puis l'image ; sans
- * texte de remplacement, il prend son nom (MediaRuleViolation si l'image est refusée).
+ * Galerie après une saisie de l'admin (ADR 0008) : lignes retirées et lignes d'ajout vides écartées,
+ * nombre vérifié avant tout encodage, puis tri par position (stable). Sans texte de remplacement,
+ * une image prend le nom du produit. Une empreinte que la galerie actuelle ne porte pas vaut une
+ * ligne d'ajout.
+ */
+const productGallery = async (
+  media: MediaDependencies,
+  current: readonly Media.Image[],
+  rows: readonly Catalog.GalleryRowInput[],
+  productName: string,
+): Promise<Media.Image[]> => {
+  const kept = rows.flatMap((row) => {
+    const image = current.find(({ key }) => key === row.key) ?? null
+    return row.remove || (image === null && row.content === null) ? [] : [{ ...row, image }]
+  })
+  checkGallerySize(kept.length)
+  kept.sort((a, b) => a.position - b.position)
+
+  const images: Media.Image[] = []
+  for (const { image, content, alt } of kept) {
+    const stored = await changeImage(
+      media,
+      image,
+      content,
+      alt.trim() === '' ? productName : alt,
+      false,
+      'product',
+    )
+    if (stored !== null) {
+      images.push(stored)
+    }
+  }
+  return images
+}
+
+/**
+ * Produit à enregistrer : valeurs d'attributs contrôlées par leur définition, puis la galerie et
+ * l'image ; sans texte de remplacement, une image prend le nom du produit (MediaRuleViolation si
+ * une image est refusée). Référencement enregistré sans blancs de début ni de fin.
  */
 const savedProduct = async (
   { media, attributes }: CatalogAdminDependencies,
@@ -129,7 +171,8 @@ const savedProduct = async (
   current: Catalog.Product | null,
 ): Promise<Catalog.ProductSaved> => {
   const attributeValues = checkAttributeValues(await attributes.findAll(), input.attributeValues)
-  const { imageContent, imageAlt, imageDecorative, ...product } = input
+  const gallery = await productGallery(media, current?.gallery ?? [], input.gallery, input.name)
+  const { imageContent, imageAlt, imageDecorative, metaTitle, metaDescription, ...product } = input
   const alt = imageAlt.trim() === '' ? input.name : imageAlt
   const image = await changeImage(
     media,
@@ -142,7 +185,14 @@ const savedProduct = async (
   if (image === null) {
     throw new CatalogRuleViolation("Un produit a besoin d'une image.")
   }
-  return { ...product, image, attributeValues }
+  return {
+    ...product,
+    image,
+    attributeValues,
+    gallery,
+    metaTitle: metaTitle.trim(),
+    metaDescription: metaDescription.trim(),
+  }
 }
 
 export const createProduct = async (

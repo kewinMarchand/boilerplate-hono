@@ -2,10 +2,11 @@ import { z } from 'zod'
 
 import { nextSequence } from '#/shared/infrastructure/counters.ts'
 
-import { ATTRIBUTE_TYPES, EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
+import { ATTRIBUTE_TYPES, EXPOSURES, MAX_GALLERY_IMAGES, SIZES } from '#/catalog/domain/catalog.ts'
 import { Price } from '#/catalog/domain/price.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
+import type { Media } from '#/media/domain/Media.ts'
 import type { CounterDocument } from '#/shared/infrastructure/counters.ts'
 import type { CollectionDefinition } from '#/shared/infrastructure/mongo.ts'
 import type { Collection, Document, Filter, Sort } from 'mongodb'
@@ -35,8 +36,23 @@ const productDocumentSchema = z.object({
     .regex(/^[0-9a-f]{32}$/)
     .nullable(),
   imageAlt: z.string(),
+  /** Largeur de la plus grande variante d'une source plus étroite que l'usage (ADR 0008), null sinon. */
+  imageWidth: z.int().min(1).nullable(),
   /** Valeurs des attributs renseignés, en chaîne, par code (ADR 0006). */
   attributeValues: z.record(z.string(), z.string()),
+  /** Galerie (ADR 0008), dans l'ordre d'affichage, 8 images au plus. */
+  gallery: z
+    .array(
+      z.object({
+        key: z.string().regex(/^[0-9a-f]{32}$/),
+        alt: z.string(),
+        width: z.int().min(1).nullable(),
+      }),
+    )
+    .max(MAX_GALLERY_IMAGES),
+  /** Référencement de la fiche (SPEC-COMMUNE, section 26). */
+  metaTitle: z.string(),
+  metaDescription: z.string(),
 })
 
 /** Attribut configurable : le code, fixé à la création, sert d'identifiant. */
@@ -189,26 +205,50 @@ const countBy = (field: string): Document[] => [
   { $group: { _id: `$${field}`, count: { $sum: 1 } } },
 ]
 
+type StoredImage = Readonly<{ key: string; alt: string; width: number | null }>
+
+const toImage = ({ key, alt, width }: StoredImage): Media.Image =>
+  width === null ? { key, alt } : { key, alt, width }
+
+const toStoredImage = ({ key, alt, width }: Media.Image): StoredImage => ({
+  key,
+  alt,
+  width: width ?? null,
+})
+
 const toProduct = ({
   _id,
   categoryPath,
   price,
   imageKey,
   imageAlt,
+  imageWidth,
+  gallery,
   ...product
 }: ProductDocument): Catalog.Product => ({
   id: _id,
   ...product,
   price: Price.fromCents(price),
-  image: imageKey === null ? null : { key: imageKey, alt: imageAlt },
+  image: imageKey === null ? null : toImage({ key: imageKey, alt: imageAlt, width: imageWidth }),
+  gallery: gallery.map(toImage),
 })
 
-const toDocumentFields = ({ image, attributeValues, ...product }: Catalog.ProductSaved) => ({
-  ...product,
-  imageKey: image.key,
-  imageAlt: image.alt,
-  attributeValues: { ...attributeValues },
-})
+const toDocumentFields = ({
+  image,
+  attributeValues,
+  gallery,
+  ...product
+}: Catalog.ProductSaved) => {
+  const { key, alt, width } = toStoredImage(image)
+  return {
+    ...product,
+    imageKey: key,
+    imageAlt: alt,
+    imageWidth: width,
+    attributeValues: { ...attributeValues },
+    gallery: gallery.map(toStoredImage),
+  }
+}
 
 const attributeField = (code: string): string => `attributeValues.${code}`
 

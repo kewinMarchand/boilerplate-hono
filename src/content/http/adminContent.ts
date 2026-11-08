@@ -7,6 +7,8 @@ import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLa
 import { ContentRuleViolation } from '#/content/domain/contentRules.ts'
 import { updateLegalPage } from '#/content/application/adminContent.ts'
 
+import { adminPageMetaRoutes } from './adminPageMeta.ts'
+
 import type { ContentAdminDependencies } from '#/content/application/adminContent.ts'
 import type { LegalPage } from '#/content/domain/LegalPage.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
@@ -133,6 +135,8 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
     }
     return c.redirect('/admin/pages-legales?ok=modifie', 303)
   })
+
+  app.route('/', adminPageMetaRoutes(dependencies))
 
   return app
 }

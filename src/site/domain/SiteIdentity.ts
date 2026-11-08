@@ -11,13 +11,19 @@ export declare namespace SiteIdentity {
     readonly secondary: string
   }
 
-  /** Sans couleurs de marque (null), les fronts gardent les jetons de boilerplates-ui. */
+  /**
+   * Sans couleurs de marque (null), les fronts gardent les jetons de boilerplates-ui ; sans icône
+   * (favicons, ADR 0011) ni image de partage (ADR 0010), leurs propres fichiers.
+   */
   interface Entity {
     readonly name: string
     readonly tagline: string
     readonly logo: Media.Image | null
     readonly colors: Colors | null
     readonly defaultColorScheme: ColorScheme
+    readonly shareImage: Media.Image | null
+    /** Décorative : les favicons n'ont pas de texte de remplacement. */
+    readonly icon: Media.Image | null
   }
 
   interface Repository {
@@ -30,9 +36,11 @@ export declare namespace SiteIdentity {
   interface Input {
     readonly name: string
     readonly tagline: string
-    /** #rrggbb, vide avec la secondaire pour garder les couleurs de boilerplates-ui. */
+    /** Pas de couleurs de marque : les fronts gardent les jetons de boilerplates-ui ; les couleurs saisies sont ignorées. */
+    readonly useLibraryColors: boolean
+    /** #rrggbb. */
     readonly primaryColor: string
-    /** #rrggbb, vide avec la principale. */
+    /** #rrggbb. */
     readonly secondaryColor: string
     readonly defaultColorScheme: ColorScheme
     /** Contenu du logo envoyé, null pour garder le logo actuel. */
@@ -41,6 +49,14 @@ export declare namespace SiteIdentity {
     readonly imageAlt: string
     /** Retire le logo actuel ; un fichier envoyé en même temps est ignoré. */
     readonly removeLogo: boolean
+    /** Contenu de l'image de partage envoyée, null pour garder l'actuelle. */
+    readonly shareImageContent: Uint8Array | null
+    /** Vide : le nom du site. */
+    readonly shareImageAlt: string
+    readonly removeShareImage: boolean
+    /** Contenu de l'icône envoyée, null pour garder l'actuelle. */
+    readonly iconContent: Uint8Array | null
+    readonly removeIcon: boolean
   }
 }
 
@@ -53,6 +69,8 @@ export const DEFAULT_SITE_IDENTITY: SiteIdentity.Entity = {
   logo: null,
   colors: null,
   defaultColorScheme: 'auto',
+  shareImage: null,
+  icon: null,
 }
 
 /** Une modification de l'identité du site enfreint une de ses règles. Le message s'affiche tel quel dans l'admin. */

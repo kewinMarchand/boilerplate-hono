@@ -121,7 +121,7 @@ export const createApp = (
 
   const routes = app
     .route('/', taskRoutes(dependencies.tasks, options))
-    .route('/', articleRoutes(dependencies.articles, options))
+    .route('/', articleRoutes(dependencies.articles, dependencies.articleTerms, options))
     .route('/', contactMessageRoutes(dependencies.contactMessages, options))
     .route('/', catalogRoutes(dependencies, options))
     .route('/', contentRoutes(dependencies, options))

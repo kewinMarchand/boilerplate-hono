@@ -1,6 +1,12 @@
 const COMPARED_SCHEMAS = [
   'Task',
   'Article',
+  'ArticleDetail',
+  'ArticleTerm',
+  'ArticleTermLink',
+  'AudioView',
+  'PageMeta',
+  'SiteIcon',
   'ContactMessage',
   'Category',
   'Product',

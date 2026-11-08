@@ -97,4 +97,75 @@ describe('storeImage', () => {
       await expect(storeImage(fakeMedia().media, input, 'article')).rejects.toThrow(message)
     },
   )
+
+  it('n’agrandit jamais une source étroite de produit : variantes arrêtées à sa largeur', async () => {
+    const { media, files } = fakeMedia()
+
+    const image = await storeImage(media, upload('image/jpeg 600x900', 'Fleur'), 'product')
+
+    expect(image.width).toBe(600)
+    expect([...files.keys()]).toEqual([
+      `${image.key}-400.avif`,
+      `${image.key}-400.webp`,
+      `${image.key}-600.avif`,
+      `${image.key}-600.webp`,
+    ])
+  })
+
+  it('garde les largeurs plus petites qu’une source entre deux variantes', async () => {
+    const { media, files } = fakeMedia()
+
+    const image = await storeImage(media, upload('image/png 700x700', 'Fleur'), 'product')
+
+    expect(image.width).toBe(700)
+    expect([...files.keys()].filter((name) => name.endsWith('.webp'))).toEqual([
+      `${image.key}-400.webp`,
+      `${image.key}-640.webp`,
+      `${image.key}-700.webp`,
+    ])
+  })
+
+  it('ne garde pas de largeur pour une source assez large', async () => {
+    const image = await storeImage(
+      fakeMedia().media,
+      upload('image/png 800x800', 'Fleur'),
+      'product',
+    )
+
+    expect(image.width).toBeUndefined()
+  })
+
+  it.each([
+    [
+      upload('image/jpeg 1600x399', 'A'),
+      'product',
+      "Recadrée au format 1:1, l'image doit faire au moins 400 × 400 px : elle fait 1600 × 399 px.",
+    ],
+    [
+      upload('image/png 511x511', '', true),
+      'icon',
+      "Recadrée au format 1:1, l'image doit faire au moins 512 × 512 px : elle fait 511 × 511 px.",
+    ],
+  ] as const)(
+    'refuse une source trop petite pour son usage (%#)',
+    async (input, usage, message) => {
+      await expect(storeImage(fakeMedia().media, input, usage)).rejects.toThrow(message)
+    },
+  )
+
+  it('encode une icône en PNG seulement, et l’image de partage en 1200 px', async () => {
+    const { media, files } = fakeMedia()
+
+    const icon = await storeImage(media, upload('image/png 512x512', '', true), 'icon')
+    const share = await storeImage(media, upload('image/jpeg 1600x900', 'Oraki'), 'share')
+
+    expect([...files.keys()]).toEqual([
+      `${icon.key}-32.png`,
+      `${icon.key}-180.png`,
+      `${icon.key}-192.png`,
+      `${icon.key}-512.png`,
+      `${share.key}-1200.avif`,
+      `${share.key}-1200.webp`,
+    ])
+  })
 })

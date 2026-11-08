@@ -20,7 +20,11 @@ const repositories = () => {
       return Promise.resolve({
         items: productFixtures
           .slice(0, 2)
-          .map(({ demoImage: _, ...product }) => ({ ...product, image: null })),
+          .map(({ demoImage: _, galleryImages: __, ...product }) => ({
+            ...product,
+            image: null,
+            gallery: [],
+          })),
         totalItems: 3,
         exposureCounts: { 'mi-ombre': 3 },
         sizeCounts: {},

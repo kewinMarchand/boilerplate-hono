@@ -1,4 +1,4 @@
-import { fileName, FORMATS, widthsOf } from '#/media/domain/imageRules.ts'
+import { fileName, formatsOf } from '#/media/domain/imageRules.ts'
 import { fingerprint } from '#/media/infrastructure/sharpImageEncoder.ts'
 
 import type { MediaDependencies } from '#/media/application/storeImage.ts'
@@ -11,7 +11,7 @@ export const photo = (description: string): Uint8Array => new TextEncoder().enco
 
 export const testImage = (alt = 'Photo', key = 'a'.repeat(32)): Media.Image => ({ key, alt })
 
-/** Médias sans sharp ni disque : le contenu décrit l'image, les variantes restent en mémoire. */
+/** Médias sans sharp ni disque : le contenu décrit l'image ou le fichier audio, les fichiers restent en mémoire. */
 export const fakeMedia = () => {
   const files = new Map<string, Uint8Array>()
   let encodings = 0
@@ -25,15 +25,25 @@ export const fakeMedia = () => {
             : { mimeType: match[1] ?? '', width: Number(match[2]), height: Number(match[3]) },
         )
       },
-      variants: (_content, key, usage) => {
+      variants: (_content, key, usage, widths) => {
         encodings += 1
         const variants = new Map<string, Uint8Array>()
-        for (const width of widthsOf(usage)) {
-          for (const format of FORMATS) {
+        for (const width of widths) {
+          for (const format of formatsOf(usage)) {
             variants.set(fileName(key, width, format), new TextEncoder().encode(format))
           }
         }
         return Promise.resolve(variants)
+      },
+    },
+    // « audio/<format> <durée> » : le format et la durée lus ; tout autre contenu n'est pas de l'audio
+    audioInspector: {
+      inspect: (content) => {
+        const match = /^audio\/(mp3|m4a|ogg) ([\d.]+)/.exec(new TextDecoder().decode(content))
+        const format = match?.[1]
+        return format === 'mp3' || format === 'm4a' || format === 'ogg'
+          ? { format, durationSeconds: Number(match?.[2]) }
+          : null
       },
     },
     storage: {

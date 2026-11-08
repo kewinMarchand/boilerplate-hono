@@ -1,7 +1,11 @@
 import { readFile } from 'node:fs/promises'
+import sharp from 'sharp'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { saveAdmin } from '#/admin/application/adminAccounts.ts'
+import { productFixtures } from '#/catalog/infrastructure/catalogFixtures.ts'
+import { centsToEuros } from '#/catalog/http/adminCatalogForms.ts'
 
 import { createRepositories, mediaDependencies } from '#/database.ts'
 
@@ -55,6 +59,67 @@ async function postProductWithPhoto(path: string, fields: Record<string, string>
     body: form,
   })
 }
+
+/** Formulaire multipart avec des fichiers nommés par champ. */
+function postFiles(path: string, fields: Record<string, string>, files: Record<string, File>) {
+  const form = new FormData()
+  for (const [name, value] of Object.entries({ ...fields, ...files })) {
+    form.set(name, value)
+  }
+  return context.app.request(`${ORIGIN}${path}`, {
+    method: 'POST',
+    headers: { Origin: ORIGIN, Cookie: cookie },
+    body: form,
+  })
+}
+
+const png = async (width: number, height: number) =>
+  new File(
+    [
+      new Uint8Array(
+        await sharp({ create: { width, height, channels: 3, background: '#2f7d32' } })
+          .png()
+          .toBuffer(),
+      ),
+    ],
+    'photo.png',
+    { type: 'image/png' },
+  )
+
+const fixturePhoto = async (name: string) =>
+  new File(
+    [await readFile(new URL(`../../fixtures/images/${name}.webp`, import.meta.url))],
+    `${name}.webp`,
+    {
+      type: 'image/webp',
+    },
+  )
+
+/** Champs du palmier nain des fixtures, tels que le formulaire les renvoie. */
+const palm = () => {
+  const product = productFixtures.find(({ slug }) => slug === 'palmier-nain')
+  if (product === undefined) {
+    throw new Error('Palmier nain absent des fixtures.')
+  }
+  return {
+    id: product.id,
+    fields: {
+      name: product.name,
+      slug: product.slug,
+      categorySlug: product.categorySlug,
+      price: centsToEuros(product.price),
+      exposure: product.exposure,
+      size: product.size,
+      imageAlt: product.name,
+    },
+  }
+}
+
+/** Empreintes des lignes de la galerie, lues dans les champs cachés du formulaire. */
+const galleryKeys = (body: string): string[] =>
+  [...body.matchAll(/name="gallery\[\d+\]\[key\]"\s+value="([0-9a-f]{32})"/g)].map(
+    (match) => match[1] ?? '',
+  )
 
 const page = (path: string) =>
   context.app.request(`${ORIGIN}${path}`, { headers: { Cookie: cookie } })
@@ -365,5 +430,86 @@ describe('Admin : attributs', () => {
     ])
     expect((await post('/admin/attributs/port/supprimer', {})).status).toBe(422)
     expect((await page('/admin/attributs/port/modifier')).status).toBe(404)
+  })
+
+  it('gère la galerie d’un produit : ajout par position, aperçus, retrait', async () => {
+    const { id, fields } = palm()
+    const path = `/admin/produits/${id}/modifier`
+    expect(
+      (await (await page(path)).text()).match(/name="gallery\[\d+\]\[content\]"/g),
+    ).toHaveLength(2)
+
+    const saved = await postFiles(
+      path,
+      {
+        ...fields,
+        'gallery[0][position]': '2',
+        'gallery[1][alt]': 'Feuilles en éventail',
+        'gallery[1][position]': '1',
+        metaTitle: 'Palmier nain en pot',
+        metaDescription: 'Rustique et compact.',
+      },
+      {
+        'gallery[0][content]': await png(600, 600),
+        'gallery[1][content]': await fixturePhoto('product-5'),
+      },
+    )
+    expect(saved.status).toBe(303)
+
+    const detail = z
+      .object({
+        gallery: z.array(z.object({ alt: z.string(), width: z.int() })),
+        metaTitle: z.string(),
+        metaDescription: z.string(),
+      })
+      .parse(await apiJson('/api/products/palmier-nain'))
+    expect(detail.gallery.map(({ alt, width }) => [alt, width])).toEqual([
+      ['Feuilles en éventail', 800],
+      ['Palmier nain (Chamaerops humilis)', 600],
+    ])
+    expect([detail.metaTitle, detail.metaDescription]).toEqual([
+      'Palmier nain en pot',
+      'Rustique et compact.',
+    ])
+
+    const form = await (await page(path)).text()
+    expect(form.match(/<legend>Image \d<\/legend>/g)).toHaveLength(2)
+    expect(form).toContain('Image actuelle, texte de remplacement : « Feuilles en éventail »')
+    const [first = '', second = ''] = galleryKeys(form)
+    const removed = await post(path, {
+      ...fields,
+      'gallery[0][key]': first,
+      'gallery[0][position]': '1',
+      'gallery[0][remove]': 'on',
+      'gallery[1][key]': second,
+      'gallery[1][alt]': '',
+      'gallery[1][position]': '2',
+    })
+    expect(removed.status).toBe(303)
+    expect(
+      z
+        .object({ gallery: z.array(z.object({ alt: z.string() })) })
+        .parse(await apiJson('/api/products/palmier-nain')).gallery,
+    ).toEqual([expect.objectContaining({ alt: 'Palmier nain (Chamaerops humilis)' })])
+  })
+
+  it('refuse une galerie de plus de 8 images', async () => {
+    const { id, fields } = palm()
+    const rows = Object.fromEntries(
+      Array.from({ length: 9 }, (_, index) => [`gallery[${index}][position]`, String(index + 1)]),
+    )
+    const photo = await fixturePhoto('product-5')
+    const files = Object.fromEntries(
+      Array.from({ length: 9 }, (_, index) => [`gallery[${index}][content]`, photo]),
+    )
+
+    const response = await postFiles(
+      `/admin/produits/${id}/modifier`,
+      { ...fields, ...rows },
+      files,
+    )
+
+    expect(response.status).toBe(422)
+    expect(await response.text()).toContain('La galerie compte 8 images au plus (9 demandées).')
   })
 })

@@ -9,6 +9,8 @@ export const DEFAULT_ITEMS_PER_PAGE = 12
 export const MAX_ITEMS_PER_PAGE = 48
 /** Borne le décalage de pagination dans les entiers sûrs : au-delà, la page est simplement vide. */
 export const MAX_PAGE = 1_000_000
+/** Images de la galerie d'un produit, en plus de l'image principale (ADR 0008). */
+export const MAX_GALLERY_IMAGES = 8
 
 const EXPOSURE_VALUES: readonly string[] = EXPOSURES
 const SIZE_VALUES: readonly string[] = SIZES
@@ -96,6 +98,27 @@ export declare namespace Catalog {
     readonly description: string
     /** Valeurs des attributs renseignés, en chaîne, par code. */
     readonly attributeValues: Readonly<Record<string, string>>
+    /** Galerie : 8 images au plus, dans l'ordre d'affichage, sans l'image principale (ADR 0008). */
+    readonly gallery: readonly Media.Image[]
+    /** Référencement de la fiche (SPEC-COMMUNE, section 26), vide tant que l'admin n'en a pas saisi. */
+    readonly metaTitle: string
+    readonly metaDescription: string
+  }
+
+  /**
+   * Une ligne de la galerie saisie dans l'admin : une image enregistrée (désignée par son empreinte)
+   * ou une ligne d'ajout, ignorée sans fichier.
+   */
+  interface GalleryRowInput {
+    /** Empreinte de l'image enregistrée de la ligne, null pour une ligne d'ajout. */
+    readonly key: string | null
+    /** Contenu du fichier envoyé : remplace l'image de la ligne, ou l'ajoute. */
+    readonly content: Uint8Array | null
+    /** Vide : le nom du produit. */
+    readonly alt: string
+    /** Ordre d'affichage, croissant ; à égalité, l'ordre des lignes. */
+    readonly position: number
+    readonly remove: boolean
   }
 
   interface FacetValue {
@@ -239,6 +262,10 @@ export declare namespace Catalog {
     readonly imageDecorative: boolean
     /** Valeur saisie par code d'attribut, vide quand il n'est pas renseigné. */
     readonly attributeValues: Readonly<Record<string, string>>
+    /** Images de la galerie, puis lignes d'ajout. */
+    readonly gallery: readonly GalleryRowInput[]
+    readonly metaTitle: string
+    readonly metaDescription: string
   }
 
   /** Produit enregistré par l'admin, image résolue. */
@@ -254,6 +281,9 @@ export declare namespace Catalog {
     readonly description: string
     readonly image: Media.Image
     readonly attributeValues: Readonly<Record<string, string>>
+    readonly gallery: readonly Media.Image[]
+    readonly metaTitle: string
+    readonly metaDescription: string
   }
 
   /** Écritures de l'admin sur les catégories. */

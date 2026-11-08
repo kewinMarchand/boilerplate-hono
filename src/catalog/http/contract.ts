@@ -75,6 +75,18 @@ export const productDetailContract = z
       description:
         "Texte brut, paragraphes séparés par une ligne vide ; chaîne vide si l'admin n'en a pas écrit.",
     }),
+    gallery: z.array(imageViewContract).meta({
+      description:
+        "Images de la galerie (carrées, 8 au plus), dans l'ordre, sans l'image principale ; tableau vide si aucune.",
+    }),
+    metaTitle: z.string().meta({
+      description:
+        "Titre pour les moteurs de recherche, 60 caractères au plus ; chaîne vide si l'admin n'en a pas saisi.",
+    }),
+    metaDescription: z.string().meta({
+      description:
+        "Description pour les moteurs de recherche, 160 caractères au plus ; chaîne vide si l'admin n'en a pas saisi.",
+    }),
   })
   .meta({ id: 'ProductDetail', description: 'Lit un produit par son slug.' })
 

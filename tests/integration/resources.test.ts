@@ -59,8 +59,86 @@ describe('GET /api/articles', () => {
           'Le contenu éditorial arrive dans le HTML initial : meilleur référencement et LCP.',
         publishedAt: '2026-09-15',
         image: demoView('blog-1', 'article', ''),
+        section: { slug: 'conseils', name: 'Conseils' },
+        format: { slug: 'guide', name: 'Guide' },
+        audio: null,
+        speaker: '',
       },
     ])
+  })
+
+  it.each([
+    ['section=conseils', [2, 1]],
+    ['section=actualites', [3]],
+    ['format=guide', [1]],
+    ['section=conseils&format=guide', [1]],
+    ['section=actualites&format=guide', []],
+    ['section=inconnue', []],
+    ['format=inconnu', []],
+    ['section=', [3, 2, 1]],
+    ['section[]=conseils', [3, 2, 1]],
+    ['section=x&section=conseils', [2, 1]],
+    ['section=CONSEILS', []],
+  ])('filtre par rubrique et par format : %s', async (query, ids) => {
+    const { body } = await getJson(context, `/api/articles?${query}`)
+
+    expect(
+      z
+        .array(z.object({ id: z.int() }))
+        .parse(body)
+        .map(({ id }) => id),
+    ).toEqual(ids)
+  })
+})
+
+describe('GET /api/article-sections, /api/article-formats', () => {
+  it('liste les rubriques et les formats par position', async () => {
+    expect((await getJson(context, '/api/article-sections')).body).toEqual([
+      { slug: 'conseils', name: 'Conseils' },
+      { slug: 'actualites', name: 'Actualités' },
+    ])
+    expect((await getJson(context, '/api/article-formats')).body).toEqual([
+      { slug: 'guide', name: 'Guide' },
+    ])
+  })
+
+  it('sert une liste vide avec X-Scenario: empty', async () => {
+    expect(
+      (await getJson(context, '/api/article-sections', { 'X-Scenario': 'empty' })).body,
+    ).toEqual([])
+  })
+})
+
+describe('GET /api/page-metas', () => {
+  it('liste toutes les pages fixes, vides sauf la description du blog', async () => {
+    const { response, body } = await getJson(context, '/api/page-metas')
+
+    expect(response.status).toBe(200)
+    expect(body).toEqual(
+      [
+        'home',
+        'catalog',
+        'blog',
+        'contact',
+        'sitemap',
+        'legal-notice',
+        'privacy',
+        'accessibility',
+      ].map((page) => ({
+        page,
+        title: '',
+        description:
+          page === 'blog'
+            ? 'Conseils et actualités du modèle : rendu serveur, accessibilité, composants sans dépendance.'
+            : '',
+      })),
+    )
+  })
+
+  it('est en lecture seule', async () => {
+    const response = await context.app.request('/api/page-metas', { method: 'POST' })
+
+    expect(response.status).toBe(405)
   })
 })
 
@@ -78,6 +156,17 @@ describe('GET /api/articles/{slug}', () => {
       title: 'Un carrousel accessible sans dépendance',
       publishedAt: '2026-09-22',
       image: demoView('blog-2', 'article', ''),
+      section: { slug: 'conseils', name: 'Conseils' },
+      format: null,
+      // Fichier de démonstration (fixtures/audio/article-demo.mp3) : même empreinte que dans l'API Platform
+      audio: {
+        src: 'http://localhost:8091/media/a57856e80eb0ae8c287540d0475c8fe5.mp3',
+        type: 'audio/mpeg',
+        durationSeconds: 4,
+      },
+      speaker: 'Présenté par Hina Teriierooiterai',
+      metaTitle: '',
+      metaDescription: '',
     })
     const { html } = z.object({ html: z.string() }).parse(body)
     expect(html).toMatch(/^<p>Un carrousel est souvent/)
@@ -133,7 +222,24 @@ describe('GET /api/products/{slug}', () => {
           unit: 'cm',
         },
       ],
+      gallery: [
+        demoView('product-2', 'product', 'Monstera deliciosa'),
+        demoView('product-3', 'product', 'Monstera deliciosa'),
+      ],
+      metaTitle: '',
+      metaDescription: '',
     })
+  })
+
+  it('garde l’ordre d’une galerie ; un produit sans galerie en a une vide', async () => {
+    const strelitzia = await getJson(context, '/api/products/strelitzia-reginae')
+    const palm = await getJson(context, '/api/products/palmier-nain')
+    const gallery = z.object({ gallery: z.array(z.object({ src: z.string() })) })
+
+    expect(gallery.parse(strelitzia.body).gallery.map(({ src }) => src)).toEqual(
+      ['product-11', 'product-12', 'product-1'].map((photo) => demoView(photo, 'product', '')?.src),
+    )
+    expect(gallery.parse(palm.body).gallery).toEqual([])
   })
 
   it('répond 404 sur un produit inconnu', async () => {
@@ -254,6 +360,32 @@ describe('GET /media/{fichier}', () => {
     expect(media.headers.get('x-content-type-options')).toBe('nosniff')
 
     expect((await context.app.request(`/media/${'0'.repeat(32)}-640.webp`)).status).toBe(404)
+    expect((await context.app.request(`/media/${'0'.repeat(32)}.mp3`)).status).toBe(404)
     expect((await context.app.request('/media/..%2Fpackage.json')).status).toBe(404)
+  })
+})
+
+describe('GET /media/{fichier} audio', () => {
+  const path = '/media/a57856e80eb0ae8c287540d0475c8fe5.mp3'
+
+  it('sert le fichier audio entier, et une plage pour l’avance rapide', async () => {
+    const whole = await context.app.request(path)
+    expect([
+      whole.status,
+      whole.headers.get('content-type'),
+      whole.headers.get('accept-ranges'),
+    ]).toEqual([200, 'audio/mpeg', 'bytes'])
+    const size = (await whole.arrayBuffer()).byteLength
+
+    const part = await context.app.request(path, { headers: { Range: 'bytes=10-19' } })
+    expect(part.status).toBe(206)
+    expect(part.headers.get('content-range')).toBe(`bytes 10-19/${size}`)
+    expect((await part.arrayBuffer()).byteLength).toBe(10)
+
+    const suffix = await context.app.request(path, { headers: { Range: 'bytes=-5' } })
+    expect(suffix.headers.get('content-range')).toBe(`bytes ${size - 5}-${size - 1}/${size}`)
+
+    const outside = await context.app.request(path, { headers: { Range: `bytes=${size}-` } })
+    expect([outside.status, outside.headers.get('content-range')]).toEqual([416, `bytes */${size}`])
   })
 })

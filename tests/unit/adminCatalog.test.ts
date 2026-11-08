@@ -15,7 +15,7 @@ import {
 } from '#/catalog/application/adminCatalog.ts'
 import { centsToEuros, euroCents } from '#/catalog/http/adminCatalogForms.ts'
 
-import { fakeMedia, PHOTO, testImage } from './fakeMedia.ts'
+import { fakeMedia, PHOTO, photo, testImage } from './fakeMedia.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 
@@ -44,6 +44,9 @@ const catalogue = () => {
       description: '',
       image: testImage('Monstera deliciosa'),
       attributeValues: { feuillage: 'persistant', hauteur: '250' },
+      gallery: [],
+      metaTitle: '',
+      metaDescription: '',
     },
   ]
   let attributes: Catalog.ProductAttribute[] = [
@@ -79,6 +82,7 @@ const catalogue = () => {
     },
   ]
   const strip = ({ categoryPath, ...product }: Stored): Catalog.Product => product
+  const media = fakeMedia()
   const dependencies = {
     categories: { findAll: () => Promise.resolve(categories) },
     categoryWriter: {
@@ -152,11 +156,12 @@ const catalogue = () => {
         return Promise.resolve()
       },
     },
-    media: fakeMedia().media,
+    media: media.media,
   }
 
   return {
     dependencies,
+    files: media.files,
     categories: () => categories,
     products: () => products,
     attributes: () => attributes,
@@ -188,6 +193,22 @@ const product = (
   imageAlt: '',
   imageDecorative: false,
   attributeValues: {},
+  gallery: [],
+  metaTitle: '',
+  metaDescription: '',
+})
+
+const galleryRow = (
+  content: string | null,
+  position: number,
+  fields: Partial<Catalog.GalleryRowInput> = {},
+): Catalog.GalleryRowInput => ({
+  key: null,
+  content: content === null ? null : photo(content),
+  alt: '',
+  position,
+  remove: false,
+  ...fields,
 })
 
 describe('catégories', () => {
@@ -305,6 +326,82 @@ describe('produits', () => {
       "Ce produit n'existe plus.",
     )
     await expect(deleteProduct(dependencies, 99)).rejects.toThrow("Ce produit n'existe plus.")
+  })
+
+  it('enregistre le référencement sans blancs de début ni de fin', async () => {
+    const { dependencies, products } = catalogue()
+
+    await updateProduct(dependencies, 1, {
+      ...product('monstera-deliciosa', 'monstera', null),
+      metaTitle: ' Monstera en pot ',
+      metaDescription: 'Rustique, compact.',
+    })
+
+    expect([products()[0]?.metaTitle, products()[0]?.metaDescription]).toEqual([
+      'Monstera en pot',
+      'Rustique, compact.',
+    ])
+  })
+})
+
+describe('galerie d’un produit', () => {
+  it('ajoute les images par position, au nom du produit sans texte, sans agrandir une source étroite', async () => {
+    const { dependencies, products, files } = catalogue()
+
+    await updateProduct(dependencies, 1, {
+      ...product('monstera-deliciosa', 'monstera', null),
+      name: 'Monstera',
+      gallery: [
+        galleryRow('image/jpeg 600x600', 2),
+        galleryRow('image/jpeg 1600x1600', 1, { alt: 'Vue de près' }),
+        galleryRow(null, 3),
+      ],
+    })
+
+    const gallery = products()[0]?.gallery ?? []
+    expect(gallery.map(({ alt, width }) => [alt, width])).toEqual([
+      ['Vue de près', undefined],
+      ['Monstera', 600],
+    ])
+    expect(files.has(`${gallery[1]?.key}-600.webp`)).toBe(true)
+  })
+
+  it('retire une image et renomme une autre', async () => {
+    const { dependencies, products } = catalogue()
+    const a = testImage('A', 'a'.repeat(32))
+    const b = testImage('B', 'b'.repeat(32))
+    await updateProduct(dependencies, 1, {
+      ...product('monstera-deliciosa', 'monstera', null),
+      gallery: [galleryRow('image/jpeg 800x800', 1)],
+    })
+    const [stored] = products()[0]?.gallery ?? []
+
+    await updateProduct(dependencies, 1, {
+      ...product('monstera-deliciosa', 'monstera', null),
+      gallery: [
+        galleryRow(null, 1, { key: stored?.key ?? null, remove: true }),
+        galleryRow('image/jpeg 800x800', 2, { alt: 'B, revue' }),
+        galleryRow(null, 3, { key: a.key }),
+        galleryRow(null, 4, { key: b.key }),
+      ],
+    })
+
+    // Une empreinte que la galerie actuelle ne porte pas vaut une ligne d'ajout vide
+    expect(products()[0]?.gallery.map(({ alt }) => alt)).toEqual(['B, revue'])
+  })
+
+  it('refuse plus de 8 images avant tout encodage', async () => {
+    const { dependencies, files } = catalogue()
+
+    await expect(
+      createProduct(dependencies, {
+        ...product('palmier', 'jardin'),
+        gallery: Array.from({ length: 9 }, (_, index) =>
+          galleryRow('image/jpeg 1600x1600', index + 1),
+        ),
+      }),
+    ).rejects.toThrow(new CatalogRuleViolation('La galerie compte 8 images au plus (9 demandées).'))
+    expect(files.size).toBe(0)
   })
 })
 

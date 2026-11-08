@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
 import { SiteRuleViolation } from '#/site/domain/SiteIdentity.ts'
 import { getSiteIdentity, updateSiteIdentity } from '#/site/application/siteIdentity.ts'
 
@@ -25,17 +26,25 @@ const withLogo: SiteIdentity.Entity = {
   logo: { key: 'b'.repeat(32), alt: 'Oraki', height: 120 },
   colors: null,
   defaultColorScheme: 'auto',
+  shareImage: null,
+  icon: null,
 }
 
 const input = (overrides: Partial<SiteIdentity.Input> = {}): SiteIdentity.Input => ({
   name: 'Oraki',
   tagline: 'Plantes rares.',
+  useLibraryColors: false,
   primaryColor: '#C2410C',
   secondaryColor: '#ffffff',
   defaultColorScheme: 'dark',
   imageContent: null,
   imageAlt: '',
   removeLogo: false,
+  shareImageContent: null,
+  shareImageAlt: '',
+  removeShareImage: false,
+  iconContent: null,
+  removeIcon: false,
   ...overrides,
 })
 
@@ -112,5 +121,68 @@ describe('identité du site', () => {
     ).rejects.toThrow(new SiteRuleViolation('Saisir les deux couleurs, ou aucune.'))
     expect(files.size).toBe(0)
     expect(saved()).toBeNull()
+  })
+
+  it('ignore les couleurs saisies quand la case « couleurs de la bibliothèque » est cochée', async () => {
+    const { repository, saved } = identities()
+
+    await updateSiteIdentity(
+      { siteIdentities: repository, media: fakeMedia().media },
+      input({ useLibraryColors: true, primaryColor: '#ffff00' }),
+    )
+
+    expect(saved()?.colors).toBeNull()
+  })
+
+  it('enregistre une icône en PNG et une image de partage nommée d’après le site', async () => {
+    const { repository, saved } = identities()
+    const { media, files } = fakeMedia()
+
+    await updateSiteIdentity(
+      { siteIdentities: repository, media },
+      input({
+        iconContent: photo('image/png 512x512'),
+        shareImageContent: photo('image/jpeg 1200x630'),
+      }),
+    )
+
+    expect([saved()?.icon?.alt, saved()?.shareImage?.alt]).toEqual(['', 'Oraki'])
+    expect(files.has(`${saved()?.icon?.key}-512.png`)).toBe(true)
+    expect(files.has(`${saved()?.shareImage?.key}-1200.webp`)).toBe(true)
+  })
+
+  it('retire l’icône et l’image de partage sans encoder les fichiers envoyés en même temps', async () => {
+    const { repository, saved } = identities({
+      ...withLogo,
+      shareImage: { key: 'c'.repeat(32), alt: 'Oraki' },
+      icon: { key: 'd'.repeat(32), alt: '' },
+    })
+    const { media, files } = fakeMedia()
+
+    await updateSiteIdentity(
+      { siteIdentities: repository, media },
+      input({
+        removeIcon: true,
+        iconContent: photo('image/png 512x512'),
+        removeShareImage: true,
+        shareImageContent: photo('image/jpeg 1200x630'),
+      }),
+    )
+
+    expect([saved()?.icon, saved()?.shareImage]).toEqual([null, null])
+    expect(files.size).toBe(0)
+  })
+
+  it('refuse une icône de moins de 512 px', async () => {
+    await expect(
+      updateSiteIdentity(
+        { siteIdentities: identities().repository, media: fakeMedia().media },
+        input({ iconContent: photo('image/png 256x256') }),
+      ),
+    ).rejects.toThrow(
+      new MediaRuleViolation(
+        "Recadrée au format 1:1, l'image doit faire au moins 512 × 512 px : elle fait 256 × 256 px.",
+      ),
+    )
   })
 })

@@ -98,3 +98,66 @@ export const selectField = (
       )}
     </select>
     ${fieldError(errors, name)}`
+
+export const maxLength = (errors: Errors, name: string, value: string, max: number): void => {
+  if (Array.from(value).length > max) {
+    errors[name] = `Cette chaîne est trop longue. Elle doit avoir au maximum ${max} caractères.`
+  }
+}
+
+/** Case à cocher envoyée : « on » cochée, vide sinon. */
+export const checkbox = (body: Record<string, unknown>, name: string): string =>
+  field(body, name) === '' ? '' : 'on'
+
+/** Case à cocher et son aide éventuelle, reliée par aria-describedby. */
+export const checkboxField = (label: string, name: string, values: Values, help?: string) =>
+  html`<label for="${name}">
+      <input
+        id="${name}"
+        name="${name}"
+        type="checkbox"
+        ${help === undefined ? '' : html`aria-describedby="aide-${name}"`}
+        ${values[name] === 'on' ? 'checked' : ''}
+      />${label}
+    </label>
+    ${help === undefined ? '' : html`<p id="aide-${name}">${help}</p>`}`
+
+/** Titre et description du référencement (SPEC-COMMUNE, section 26), comme MetaFields de l'API Platform. */
+export const META_TITLE_MAX_LENGTH = 60
+export const META_DESCRIPTION_MAX_LENGTH = 160
+
+export interface MetaFields {
+  readonly title: string
+  readonly description: string
+}
+
+/** Lit et contrôle les deux champs du référencement, facultatifs : vides, le front garde les siens. */
+export const readMetaFields = (
+  body: Record<string, unknown>,
+  values: Values,
+  errors: Errors,
+  titleName = 'metaTitle',
+  descriptionName = 'metaDescription',
+): MetaFields => {
+  const title = field(body, titleName)
+  const description = field(body, descriptionName)
+  values[titleName] = title
+  values[descriptionName] = description
+  maxLength(errors, titleName, title, META_TITLE_MAX_LENGTH)
+  maxLength(errors, descriptionName, description, META_DESCRIPTION_MAX_LENGTH)
+  return { title, description }
+}
+
+export const metaFieldsHtml = (
+  values: Values,
+  errors: Errors,
+  titleName = 'metaTitle',
+  descriptionName = 'metaDescription',
+) =>
+  html`${textField('Titre pour les moteurs de recherche', titleName, values, errors)}
+    <p>${META_TITLE_MAX_LENGTH} caractères au plus. Vide : le titre calculé par le front.</p>
+    ${textareaField('Description pour les moteurs de recherche', descriptionName, values, errors, 3)}
+    <p>
+      ${META_DESCRIPTION_MAX_LENGTH} caractères au plus. Vide : la description calculée par le
+      front.
+    </p>`

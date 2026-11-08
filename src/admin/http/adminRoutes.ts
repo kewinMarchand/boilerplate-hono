@@ -12,8 +12,8 @@ import { closeSession, openSession, sessionEmail } from './session.ts'
 
 import type { AdminDependencies } from '#/admin/application/adminAccounts.ts'
 
-/** Pages de l'admin : leurs styles en ligne, les images du même hôte (et celle choisie avant l'envoi), le script d'aperçu ; formulaires envoyés à l'admin seulement. */
-export const ADMIN_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' blob:; script-src ${PREVIEW_SCRIPT_HASH}; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`
+/** Pages de l'admin : leurs styles en ligne, les images et fichiers audio du même hôte (et l'image choisie avant l'envoi), le script d'aperçu ; formulaires envoyés à l'admin seulement. */
+export const ADMIN_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' blob:; media-src 'self'; script-src ${PREVIEW_SCRIPT_HASH}; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`
 
 const INVALID_CREDENTIALS = 'Identifiants invalides.'
 

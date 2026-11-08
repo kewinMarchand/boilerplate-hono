@@ -26,6 +26,17 @@ const siteIdentityDocumentSchema = z.object({
   primaryColor: z.string().regex(HEX).nullable(),
   secondaryColor: z.string().regex(HEX).nullable(),
   defaultColorScheme: z.enum(COLOR_SCHEMES),
+  /** Image de partage (ADR 0010) : empreinte et texte de remplacement, ou null. */
+  shareImageKey: z
+    .string()
+    .regex(/^[0-9a-f]{32}$/)
+    .nullable(),
+  shareImageAlt: z.string(),
+  /** Icône du site (favicons, ADR 0011), décorative : empreinte seule, ou null. */
+  iconKey: z
+    .string()
+    .regex(/^[0-9a-f]{32}$/)
+    .nullable(),
 })
 
 type SiteIdentityDocument = z.infer<typeof siteIdentityDocumentSchema>
@@ -42,6 +53,8 @@ const toDocument = ({
   logo,
   colors,
   defaultColorScheme,
+  shareImage,
+  icon,
 }: SiteIdentity.Entity): SiteIdentityDocument => ({
   _id: ID,
   name,
@@ -52,10 +65,14 @@ const toDocument = ({
   primaryColor: colors?.primary ?? null,
   secondaryColor: colors?.secondary ?? null,
   defaultColorScheme,
+  shareImageKey: shareImage?.key ?? null,
+  shareImageAlt: shareImage?.alt ?? '',
+  iconKey: icon?.key ?? null,
 })
 
 const toEntity = (document: SiteIdentityDocument): SiteIdentity.Entity => {
-  const { logoKey, logoAlt, logoHeight, primaryColor, secondaryColor } = document
+  const { logoKey, logoAlt, logoHeight, primaryColor, secondaryColor, shareImageKey, iconKey } =
+    document
   return {
     name: document.name,
     tagline: document.tagline,
@@ -70,10 +87,12 @@ const toEntity = (document: SiteIdentityDocument): SiteIdentity.Entity => {
         ? null
         : { primary: primaryColor, secondary: secondaryColor },
     defaultColorScheme: document.defaultColorScheme,
+    shareImage: shareImageKey === null ? null : { key: shareImageKey, alt: document.shareImageAlt },
+    icon: iconKey === null ? null : { key: iconKey, alt: '' },
   }
 }
 
-/** Fixture : les valeurs du modèle, sans logo ni couleurs, comme SiteIdentityFixtures. */
+/** Fixture : les valeurs du modèle, sans logo, image de partage, icône ni couleurs, comme SiteIdentityFixtures. */
 export const siteIdentityFixture: SiteIdentityDocument = toDocument(DEFAULT_SITE_IDENTITY)
 
 export class MongoSiteIdentityRepository implements SiteIdentity.Repository {

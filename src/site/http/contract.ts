@@ -31,6 +31,16 @@ export const siteThemeContract = z
   })
   .meta({ id: 'SiteTheme' })
 
+/** Favicons générés depuis l'icône du site (ADR 0011) : adresses absolues des PNG carrés. */
+export const siteIconContract = z
+  .object({
+    png32: z.string().meta({ description: 'PNG de 32 px : <link rel="icon" sizes="32x32">.' }),
+    png180: z.string().meta({ description: 'PNG de 180 px : <link rel="apple-touch-icon">.' }),
+    png192: z.string().meta({ description: 'PNG de 192 px : icône du manifeste.' }),
+    png512: z.string().meta({ description: 'PNG de 512 px : icône du manifeste.' }),
+  })
+  .meta({ id: 'SiteIcon' })
+
 export const siteIdentityContract = z
   .object({
     name: z.string().meta({ description: 'Nom du site, 1 à 60 caractères.' }),
@@ -38,6 +48,14 @@ export const siteIdentityContract = z
     logo: z.union([imageViewContract, z.null()]).meta({
       description:
         'Logo, ratio du fichier gardé (largeurs 200 et 400), null sans logo : les fronts affichent alors le pictogramme et le nom.',
+    }),
+    shareImage: z.union([imageViewContract, z.null()]).meta({
+      description:
+        'Image de partage (og:image, twitter:image) par défaut, 1200 × 630, null sans image : les fronts gardent la leur.',
+    }),
+    icon: z.union([siteIconContract, z.null()]).meta({
+      description:
+        'Favicons en PNG (32, 180, 192 et 512 px), null sans icône : les fronts gardent leurs fichiers.',
     }),
     defaultColorScheme: z.enum(COLOR_SCHEMES),
     theme: z.union([siteThemeContract, z.null()]).meta({

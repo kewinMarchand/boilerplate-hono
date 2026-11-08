@@ -1,6 +1,6 @@
 # 0005 — Identité du site administrée dans l'API : adoption de l'ADR 0006 de l'API Platform
 
-- **Statut** : Acceptée
+- **Statut** : Acceptée, modifiée par l'[ADR 0007](0007-couleur-de-marque-sombre-a-4-5.md) (couleur sombre éclaircie jusqu'à 4,5:1 au lieu de 7:1), complétée par l'[ADR 0010](0010-metadonnees-administrables.md) (image de partage) et l'[ADR 0011](0011-favicons-administrables.md) (favicons)
 - **Décideurs** : Kewin Marchand
 - **Adopte** : l'[ADR 0006 de boilerplate-api-platform](https://github.com/kewinMarchand/boilerplate-api-platform/blob/main/doc/adr/0006-identite-du-site-administree-dans-l-api.md) (« Identité du site administrée dans l'API, couleurs de marque calculées par l'API »). La décision et ses alternatives sont dans ce document, elles ne sont pas recopiées ici.
 - **Complète** : l'[ADR 0001](0001-administration-ecrite-en-hono.md) (une section de plus dans l'admin) et l'[ADR 0002](0002-images-envoyees-par-l-admin.md) (un usage d'image sans recadrage). Contrat : section 22 de `boilerplates-commun/SPEC-COMMUNE.md`.

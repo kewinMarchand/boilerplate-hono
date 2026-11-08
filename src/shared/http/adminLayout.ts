@@ -34,7 +34,10 @@ const STYLE = `
   td button { margin-top: 0; padding: .3rem .6rem; }
   img.vignette { height: auto; border-radius: .25rem; }
   figure { margin: 1rem 0 0; }
-  img.apercu { display: block; max-width: 20rem; height: auto; border-radius: .25rem; }
+  /* Damier sous l'aperçu : la transparence d'un logo ou d'une icône se voit */
+  img.apercu { display: block; max-width: 20rem; height: auto; border-radius: .25rem;
+    background: repeating-conic-gradient(#d9d9d9 0 25%, #fff 0 50%) 0 0 / 16px 16px; }
+  fieldset { margin: 1.5rem 0 0; padding: 1rem; border: 1px solid #d0d0d0; border-radius: .25rem; }
   .erreur-champ { margin: .25rem 0 0; color: #8a1c1c; }
   /* Texte pour les lecteurs d'écran seulement : « Supprimer Monstera » plutôt qu'une suite de « Supprimer » */
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -50,8 +53,11 @@ const MENU = [
   ['/admin/produits', 'Produits'],
   ['/admin/attributs', 'Attributs'],
   ['/admin/articles', 'Articles'],
+  ['/admin/rubriques', 'Rubriques'],
+  ['/admin/formats', 'Formats'],
   ['/admin/pages-legales', 'Pages légales'],
   ['/admin/identite-du-site', 'Identité du site'],
+  ['/admin/referencement', 'Référencement'],
 ] as const
 
 const header = (current: string) =>

@@ -1,3 +1,4 @@
+import { MAX_GALLERY_IMAGES } from './catalog.ts'
 import { CategoryTree } from './categoryTree.ts'
 
 /** Règles d'écriture du catalogue, mêmes messages que l'API Platform (ADR 0001 des deux dépôts). */
@@ -31,6 +32,15 @@ export const checkPlacement = (
   if (depth > MAX_DEPTH) {
     throw new CatalogRuleViolation(
       `Le catalogue a ${MAX_DEPTH} niveaux au plus : cette place en donnerait ${depth}.`,
+    )
+  }
+}
+
+/** Galerie d'un produit : 8 images au plus (ADR 0008), comptées avant tout encodage. */
+export const checkGallerySize = (count: number): void => {
+  if (count > MAX_GALLERY_IMAGES) {
+    throw new CatalogRuleViolation(
+      `La galerie compte ${MAX_GALLERY_IMAGES} images au plus (${count} demandées).`,
     )
   }
 }

@@ -41,28 +41,28 @@ describe('palette de marque', () => {
     ])
   })
 
-  it('éclaircit chaque couleur par pas de 5 % jusqu’à 7:1 sur le fond sombre', () => {
+  it('éclaircit chaque couleur par pas de 5 % jusqu’à 4,5:1 sur le fond sombre', () => {
     const palette = darkPalette('#1d4ed8', '#7c3aed')
 
-    // 45 % de blanc pour les deux couleurs, -dark à 25 % de blanc en plus, texte de la couleur du fond
+    // 25 % de blanc pour la principale, 20 % pour la secondaire, -dark à 25 % de blanc en plus, texte de la couleur du fond
     expect(values(palette.primary)).toEqual([
-      '#839eea',
-      '#a2b6ef',
+      '#567ae2',
+      '#809be9',
       '#0f141d',
-      '#181f2d',
-      '#1d2536',
-      '#252e44',
+      '#151c2d',
+      '#182035',
+      '#1c2742',
     ])
     expect(values(palette.secondary)).toEqual([
-      '#b793f5',
-      '#c9aef8',
+      '#9661f1',
+      '#b088f4',
       '#0f141d',
-      '#1c1e2e',
-      '#232337',
-      '#2f2c46',
+      '#1a1a2e',
+      '#1f1d36',
+      '#292345',
     ])
-    expect(contrast(palette.primary.color, DARK_BACKGROUND)).toBeGreaterThanOrEqual(7)
-    expect(contrast(mix('#1d4ed8', '#ffffff', 0.4), DARK_BACKGROUND)).toBeLessThan(7)
+    expect(contrast(palette.primary.color, DARK_BACKGROUND)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(mix('#1d4ed8', '#ffffff', 0.2), DARK_BACKGROUND)).toBeLessThan(4.5)
   })
 
   it.each(['#000000', '#1d4ed8', '#7c3aed', '#9f66ae', '#ff5a1f'])(
@@ -80,7 +80,7 @@ describe('palette de marque', () => {
     expect([palette.secondary.color, palette.secondary.dark]).toEqual(['#ffffff', '#ffffff'])
   })
 
-  it('éclaircit le noir en gris clair', () => {
-    expect(darkPalette('#000000', '#000000').primary.color).toBe('#a6a6a6')
+  it('éclaircit le noir en gris moyen', () => {
+    expect(darkPalette('#000000', '#000000').primary.color).toBe('#808080')
   })
 })

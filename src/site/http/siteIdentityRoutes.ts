@@ -4,13 +4,15 @@ import { negotiateFormat } from '#/shared/http/contentNegotiation.ts'
 import { errorSchema, problemContent } from '#/shared/http/problemSchemas.ts'
 import { scenario } from '#/shared/http/scenario.ts'
 
+import { fileName } from '#/media/domain/imageRules.ts'
 import { darkPalette, lightPalette } from '#/site/domain/brandPalette.ts'
 import { DEFAULT_SITE_IDENTITY } from '#/site/domain/SiteIdentity.ts'
 import { getSiteIdentity } from '#/site/application/siteIdentity.ts'
-import { toImageView } from '#/media/http/imageContract.ts'
+import { mediaUrl, toImageView } from '#/media/http/imageContract.ts'
 
 import { siteIdentityContract } from './contract.ts'
 
+import type { Media } from '#/media/domain/Media.ts'
 import type { RouteOptions } from '#/shared/http/routeOptions.ts'
 import type { SiteDependencies } from '#/site/application/siteIdentity.ts'
 import type { BrandPalette } from '#/site/domain/brandPalette.ts'
@@ -31,14 +33,25 @@ const themeTokens = ({ primary, secondary }: BrandPalette) => ({
   'secondary-surface-strong': secondary.surfaceStrong,
 })
 
+/** Favicons du contrat (ADR 0011), null sans icône. */
+const toSiteIcon = (icon: Media.Image | null, options: RouteOptions) => {
+  if (icon === null) {
+    return null
+  }
+  const url = (width: number) => mediaUrl(options.mediaBaseUrl, fileName(icon.key, width, 'png'))
+  return { png32: url(32), png180: url(180), png192: url(192), png512: url(512) }
+}
+
 /** Ressource du contrat : les jetons clair et sombre sont calculés à la lecture, null sans couleurs saisies. */
 const toView = (
-  { name, tagline, logo, colors, defaultColorScheme }: SiteIdentity.Entity,
+  { name, tagline, logo, colors, defaultColorScheme, shareImage, icon }: SiteIdentity.Entity,
   options: RouteOptions,
 ) => ({
   name,
   tagline,
   logo: toImageView(options.mediaBaseUrl, logo, 'logo'),
+  shareImage: toImageView(options.mediaBaseUrl, shareImage, 'share'),
+  icon: toSiteIcon(icon, options),
   defaultColorScheme,
   theme:
     colors === null

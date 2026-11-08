@@ -30,6 +30,7 @@ import {
   productsPage,
   productValues,
 } from './adminCatalogPages.ts'
+import { withEmptyGalleryRows } from './adminGalleryFields.ts'
 
 import type { CatalogAdminDependencies } from '#/catalog/application/adminCatalog.ts'
 
@@ -185,11 +186,11 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
         '/admin/produits/nouveau',
         await tree(),
         await attributes(),
-        {
+        withEmptyGalleryRows({
           exposure: 'soleil',
           size: 'M',
           inStock: 'on',
-        },
+        }),
       ),
     ),
   )
@@ -245,6 +246,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
         {},
         undefined,
         product.image,
+        product.gallery,
       ),
     )
   })
@@ -256,8 +258,9 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
     }
     const form = await readProductForm(await c.req.parseBody())
     const title = 'Modifier le produit'
-    const image = async () => (await dependencies.productWriter.findById(id))?.image ?? null
+    const current = () => dependencies.productWriter.findById(id)
     if (form.data === null) {
+      const product = await current()
       return c.html(
         productFormPage(
           title,
@@ -267,7 +270,8 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
           form.values,
           form.errors,
           undefined,
-          await image(),
+          product?.image ?? null,
+          product?.gallery ?? [],
         ),
         422,
       )
@@ -275,6 +279,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
     try {
       await updateProduct(dependencies, id, form.data)
     } catch (error) {
+      const product = await current()
       return c.html(
         productFormPage(
           title,
@@ -284,7 +289,8 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
           form.values,
           {},
           refusal(error),
-          await image(),
+          product?.image ?? null,
+          product?.gallery ?? [],
         ),
         422,
       )
