@@ -185,16 +185,25 @@ describe('POST /api/contact_messages', () => {
     }
   })
 
-  it('répond 500 à un produit qui n’est pas une chaîne, comme le serializer de l’API Platform', async () => {
-    const response = await post(
-      '{"name":"Camille","email":"camille@example.fr","message":"Un message.","product":3}',
-    )
+  it.each(['3', 'true', '{"slug":"monstera-deliciosa"}'])(
+    'répond 422 Type sur un produit qui n’est pas une chaîne (%s), comme les autres champs',
+    async (product) => {
+      const response = await post(
+        `{"name":"Camille","email":"camille@example.fr","message":"Un message.","product":${product}}`,
+      )
 
-    expect(response.status).toBe(500)
-    expect(await response.json()).toMatchObject({
-      detail: 'The type of the "product" attribute must be "null|string", "integer" given.',
-    })
-  })
+      expect(response.status).toBe(422)
+      expect(await response.json()).toMatchObject({
+        violations: [
+          {
+            propertyPath: 'product',
+            message: 'This value should be of type null|string.',
+            code: 'ba785a8c-82cb-4283-967c-3cf342181b40',
+          },
+        ],
+      })
+    },
+  )
 
   it('répond 500 « Syntax error » sur un JSON invalide, comme API Platform', async () => {
     const response = await post('{bad')

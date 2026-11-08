@@ -51,7 +51,7 @@ export const deserializationError = (body: unknown): string | null => {
 
 /**
  * Premier champ du corps ni chaîne ni null : l'API Platform le refuse en 422 (contrainte Type),
- * seul, avant les règles du formulaire ; en 500 quand c'est le produit (voir le middleware).
+ * seul, avant les règles du formulaire.
  */
 export const invalidTypeField = (body: unknown): ContactMessage.WritableField | null => {
   if (typeof body !== 'object' || body === null) {
@@ -77,12 +77,6 @@ export const deserializeContactMessage = createMiddleware(async (c, next) => {
     throw new DeserializationError(error)
   }
   const field = invalidTypeField(body)
-  // Seule erreur de type que l'API Platform ne collecte pas en violation : 500 du serializer
-  if (field === 'product' && typeof body === 'object' && body !== null && 'product' in body) {
-    throw new DeserializationError(
-      `The type of the "product" attribute must be "null|string", "${phpType(body.product)}" given.`,
-    )
-  }
   if (field !== null) {
     throw new ContactMessageValidationError([
       {

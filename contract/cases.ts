@@ -336,6 +336,11 @@ export const CASES: readonly ContractCase[] = [
   post('produit null', `{"name":"Camille",${VALID},"product":null}`),
   post('produit inconnu, nom trop court', `{"name":"C",${VALID},"product":"inconnu"}`),
   post('produit numérique', `{"name":"Camille",${VALID},"product":3}`),
+  post('produit décimal', `{"name":"Camille",${VALID},"product":1.5}`),
+  post('produit booléen', `{"name":"Camille",${VALID},"product":true}`),
+  post('produit objet', `{"name":"Camille",${VALID},"product":{"slug":"monstera-deliciosa"}}`),
+  post('produit tableau', `{"name":"Camille",${VALID},"product":[]}`),
+  post('produit puis nom mal typés', `{"product":3,"name":true,${VALID}}`),
   post('produit inconnu', `{"name":"Camille",${VALID},"product":"inconnu"}`, JSON_BODY, {
     knownDifference:
       "Violation sans code : l'API Platform tire `type` d'une empreinte d'objet PHP, non reproductible. Propriété, message et code (null) identiques.",
