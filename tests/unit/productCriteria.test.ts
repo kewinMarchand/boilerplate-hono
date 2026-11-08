@@ -16,6 +16,7 @@ const NONE: Catalog.RawCriteria = {
   orderName: undefined,
   page: undefined,
   itemsPerPage: undefined,
+  attributes: new Map(),
 }
 
 describe('parseCriteria', () => {
@@ -30,6 +31,7 @@ describe('parseCriteria', () => {
       sort: null,
       page: 1,
       itemsPerPage: 12,
+      attributes: new Map(),
     })
   })
 
@@ -84,5 +86,21 @@ describe('rawCriteriaFromQuery', () => {
       orderPrice: 'asc',
       category: undefined,
     })
+  })
+
+  it('lit les attributs demandés par code, une valeur seule ou une liste, chaînes seulement', () => {
+    expect(
+      rawCriteriaFromQuery(
+        'attributes[feuillage][]=persistant&attributes[feuillage][]=caduc&attributes[port]=dresse&attributes[hauteur][][]=1&attributes[]=y',
+      ).attributes,
+    ).toEqual(
+      new Map([
+        ['feuillage', ['persistant', 'caduc']],
+        ['port', ['dresse']],
+        ['hauteur', []],
+        ['0', ['y']],
+      ]),
+    )
+    expect(rawCriteriaFromQuery('attributes=feuillage').attributes).toEqual(new Map())
   })
 })

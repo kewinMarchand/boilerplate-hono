@@ -211,3 +211,159 @@ describe('Admin : catalogue', () => {
     expect(slugsOf(await apiJson('/api/categories'))).not.toContain('cactees')
   })
 })
+
+describe('Admin : attributs', () => {
+  const productId = async (slug: string): Promise<string> =>
+    /"id":(\d+),"slug":"([^"]+)"/g.exec(
+      JSON.stringify(await apiJson(`/api/products/${slug}`)),
+    )?.[1] ?? ''
+
+  it('liste les attributs et propose un champ par attribut dans le formulaire du produit', async () => {
+    const list = await (await page('/admin/attributs')).text()
+    expect(list).toContain('Feuillage')
+    expect(list).toContain('Persistant, Caduc')
+
+    const form = await (
+      await page(`/admin/produits/${await productId('palmier-nain')}/modifier`)
+    ).text()
+    expect(form).toContain('<label for="attributes[hauteur-adulte]">Hauteur adulte (cm)</label>')
+    expect(form).toMatch(
+      /name="attributes\[hauteur-adulte\]"\s+type="number"\s+step="any"\s+value="250"/,
+    )
+    expect(form).toContain('Non renseigné')
+  })
+
+  it('refuse de retirer une valeur portée par des produits', async () => {
+    const response = await post('/admin/attributs/feuillage/modifier', {
+      label: 'Feuillage',
+      type: 'choice',
+      filterable: 'on',
+      position: '1',
+      'choices[0][value]': '',
+      'choices[0][label]': '',
+      'choices[1][value]': 'caduc',
+      'choices[1][label]': 'Caduc',
+    })
+
+    expect(response.status).toBe(422)
+    expect(await response.text()).toContain('La valeur « Persistant » est utilisée par 6 produits.')
+  })
+
+  it('refuse un code déjà pris et un formulaire mal rempli', async () => {
+    const taken = await post('/admin/attributs/nouveau', {
+      code: 'feuillage',
+      label: 'Doublon',
+      type: 'text',
+      position: '9',
+    })
+    expect(taken.status).toBe(422)
+    expect(await taken.text()).toContain(
+      'Le code « feuillage » est déjà pris par un autre attribut.',
+    )
+
+    const invalid = await post('/admin/attributs/nouveau', {
+      code: '1-code',
+      label: '',
+      type: 'date',
+      position: '-1',
+      'choices[0][value]': '-x',
+      'choices[0][label]': 'X',
+    })
+    const body = await invalid.text()
+    expect(invalid.status).toBe(422)
+    expect(body).toContain(
+      'Minuscules, chiffres et tirets, 40 caractères au plus, commence par une lettre.',
+    )
+    expect(body).toContain('Cette valeur ne doit pas être vide.')
+    expect(body).toContain('Le choix sélectionné n&#39;est pas valide.')
+    expect(body).toContain('Cette valeur doit être positive ou nulle.')
+    expect(body).toContain(
+      'Minuscules, chiffres et tirets, 40 caractères au plus, sans tiret au début.',
+    )
+  })
+
+  it('crée puis modifie un attribut ; le code ne change plus', async () => {
+    const created = await post('/admin/attributs/nouveau', {
+      code: 'port',
+      label: 'Port',
+      type: 'choice',
+      filterable: 'on',
+      position: '3',
+      'choices[0][value]': 'buissonnant',
+      'choices[0][label]': 'Buissonnant',
+      'choices[1][value]': '',
+      'choices[1][label]': '',
+    })
+    expect(created.status).toBe(303)
+    expect(created.headers.get('location')).toBe('/admin/attributs?ok=attribut-cree')
+
+    const edit = await (await page('/admin/attributs/port/modifier')).text()
+    expect(edit).toMatch(/name="code"\s+type="text"\s+value="port"[^>]*disabled/)
+    expect(edit).toContain('name="choices[3][value]"')
+
+    const edited = await post('/admin/attributs/port/modifier', {
+      code: 'autre',
+      label: 'Port de la plante',
+      type: 'choice',
+      filterable: 'on',
+      position: '3',
+      'choices[0][value]': 'buissonnant',
+      'choices[0][label]': 'Buissonnant',
+      'choices[1][value]': 'retombant',
+      'choices[1][label]': 'Retombant',
+    })
+    expect(edited.status).toBe(303)
+    expect(await (await page('/admin/produits/nouveau')).text()).toContain(
+      '<label for="attributes[port]">Port de la plante</label>',
+    )
+  })
+
+  it('enregistre les attributs d’un produit, refuse une valeur invalide, retire ceux d’un attribut supprimé', async () => {
+    const id = await productId('palmier-nain')
+    const fields = {
+      name: 'Palmier nain',
+      slug: 'palmier-nain',
+      categorySlug: 'palmiers',
+      price: '44,90',
+      exposure: 'soleil',
+      size: 'M',
+      inStock: 'on',
+      description: '',
+    }
+
+    const refused = await post(`/admin/produits/${id}/modifier`, {
+      ...fields,
+      'attributes[hauteur-adulte]': '-',
+    })
+    expect(refused.status).toBe(422)
+    expect(await refused.text()).toContain('L&#39;attribut « Hauteur adulte » attend un nombre.')
+
+    const saved = await post(`/admin/produits/${id}/modifier`, {
+      ...fields,
+      'attributes[feuillage]': 'persistant',
+      'attributes[hauteur-adulte]': '12.5',
+      'attributes[port]': 'retombant',
+    })
+    expect(saved.status).toBe(303)
+    const codes = () =>
+      apiJson('/api/products/palmier-nain').then((product) =>
+        JSON.stringify(product)
+          .match(/"code":"[^"]+","label":"[^"]+","type":"[a-z]+","value":"[^"]+"/g)
+          ?.map((entry) => entry.replace(/"label":"[^"]+","type":"[a-z]+",/, '')),
+      )
+    expect(await codes()).toEqual([
+      '"code":"feuillage","value":"persistant"',
+      '"code":"hauteur-adulte","value":"12.5"',
+      '"code":"port","value":"retombant"',
+    ])
+
+    expect((await page('/admin/attributs/port/supprimer')).status).toBe(200)
+    expect((await post('/admin/attributs/port/supprimer', {})).status).toBe(303)
+    expect(await codes()).toEqual([
+      '"code":"feuillage","value":"persistant"',
+      '"code":"hauteur-adulte","value":"12.5"',
+    ])
+    expect((await post('/admin/attributs/port/supprimer', {})).status).toBe(422)
+    expect((await page('/admin/attributs/port/modifier')).status).toBe(404)
+  })
+})

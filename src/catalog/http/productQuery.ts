@@ -25,6 +25,16 @@ const list = (value: PhpValue | undefined): string[] => {
   return values.filter((item) => typeof item === 'string')
 }
 
+/**
+ * `attributes[<code>][]=<valeur>` ; une valeur seule (`attributes[<code>]=<valeur>`) est acceptée,
+ * comme `exposure=ombre`. Un code numérique (clé entière en PHP) n'est jamais un code d'attribut :
+ * la recherche l'ignore avec les autres codes inconnus.
+ */
+const attributeFilters = (value: PhpValue | undefined): Map<string, string[]> =>
+  new Map(
+    value instanceof Map ? [...value].map(([code, values]) => [code, list(values)] as const) : [],
+  )
+
 export const rawCriteriaFromQuery = (search: string): Catalog.RawCriteria => {
   const query = parsePhpQuery(search)
   const read = (key: string): string | undefined => scalar(readPhpParameter(query, key))
@@ -40,14 +50,24 @@ export const rawCriteriaFromQuery = (search: string): Catalog.RawCriteria => {
     orderName: read('order[name]'),
     page: read('page'),
     itemsPerPage: read('itemsPerPage'),
+    attributes: attributeFilters(query.get('attributes')),
   }
 }
 
 interface ParameterSchema {
-  readonly type: 'string' | 'integer' | 'boolean' | 'array'
+  readonly type: 'string' | 'integer' | 'boolean' | 'array' | 'object'
   readonly items?: { readonly type: 'string'; readonly enum: readonly string[] }
+  readonly additionalProperties?: {
+    readonly type: 'array'
+    readonly items: { readonly type: 'string' }
+  }
   readonly default?: number
+  /** Forme du paramètre dans l'adresse (OpenAPI `style`, `explode`), hors du schéma. */
+  readonly param?: { readonly style: 'deepObject'; readonly explode: boolean }
 }
+
+/** Style que l'API Platform publie pour ses paramètres tableau ou objet. */
+const DEEP_OBJECT = { style: 'deepObject', explode: true } as const
 
 const parameter = (schema: ParameterSchema, description: string) =>
   z
@@ -67,12 +87,20 @@ export const productQueryDocumentation = z.object({
     'Slug de catégorie : inclut toute la branche. Slug inconnu : 404.',
   ),
   'exposure[]': parameter(
-    { type: 'array', items: { type: 'string', enum: EXPOSURES } },
+    { type: 'array', items: { type: 'string', enum: EXPOSURES }, param: DEEP_OBJECT },
     'Expositions acceptées, clé répétée : exposure[]=soleil&exposure[]=ombre.',
   ),
   'size[]': parameter(
-    { type: 'array', items: { type: 'string', enum: SIZES } },
+    { type: 'array', items: { type: 'string', enum: SIZES }, param: DEEP_OBJECT },
     'Tailles acceptées, clé répétée : size[]=S&size[]=M.',
+  ),
+  attributes: parameter(
+    {
+      type: 'object',
+      additionalProperties: { type: 'array', items: { type: 'string' } },
+      param: DEEP_OBJECT,
+    },
+    "Valeurs acceptées des attributs filtrables, par code, clé répétée : attributes[feuillage][]=persistant&attributes[feuillage][]=caduc. Valeurs d'un même attribut en OU, attributs entre eux en ET. Code ou valeur inconnus : ignorés. Les attributs filtrables et leurs valeurs : attributes de GET /api/product-facets.",
   ),
   priceMin: parameter({ type: 'integer' }, 'Prix minimum inclus, en centimes.'),
   priceMax: parameter({ type: 'integer' }, 'Prix maximum inclus, en centimes.'),

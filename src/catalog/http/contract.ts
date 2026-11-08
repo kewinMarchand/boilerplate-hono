@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
+import { ATTRIBUTE_TYPES, EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
 import { imageViewContract } from '#/media/http/imageContract.ts'
 
 export const categoryNodeContract = z
@@ -21,6 +21,24 @@ export const categoryNodeContract = z
       "Renvoie l'arbre des catégories : les catégories racines, chacune avec ses enfants, triées par position.",
   })
 
+export const attributeValueContract = z
+  .object({
+    code: z.string(),
+    label: z.string(),
+    type: z.enum(ATTRIBUTE_TYPES),
+    value: z.string().meta({
+      description: 'Valeur en chaîne : code de la valeur pour choice, nombre ou texte sinon.',
+    }),
+    valueLabel: z
+      .string()
+      .meta({ description: 'Libellé de la valeur pour choice, la valeur elle-même sinon.' }),
+    unit: z
+      .string()
+      .nullable()
+      .meta({ description: "Unité (« cm », « km »), null si l'attribut n'en a pas." }),
+  })
+  .meta({ id: 'AttributeValue' })
+
 const productItemShape = {
   id: z.int(),
   slug: z.string(),
@@ -31,6 +49,10 @@ const productItemShape = {
   size: z.enum(SIZES),
   inStock: z.boolean(),
   image: z.union([imageViewContract, z.null()]),
+  attributes: z.array(attributeValueContract).meta({
+    description:
+      'Attributs configurables renseignés sur le produit, par position ; tableau vide si aucun.',
+  }),
 }
 
 export const productContract = z.object(productItemShape).meta({
@@ -76,6 +98,29 @@ export const categoryFacetValueContract = z
   })
   .meta({ id: 'CategoryFacetValue' })
 
+export const attributeFacetValueContract = z
+  .object({
+    value: z.string(),
+    label: z.string(),
+    count: z.int().meta({
+      description:
+        'Nombre de produits obtenus en ajoutant cette valeur aux filtres des autres facettes et des autres attributs.',
+    }),
+  })
+  .meta({ id: 'AttributeFacetValue' })
+
+export const attributeFacetContract = z
+  .object({
+    code: z
+      .string()
+      .meta({ description: "Code de l'attribut, clé du filtre attributes[<code>][]." }),
+    label: z.string(),
+    values: z.array(attributeFacetValueContract).meta({
+      description: "Toutes les valeurs de l'attribut, dans leur ordre, y compris à 0.",
+    }),
+  })
+  .meta({ id: 'AttributeFacet' })
+
 export const productFacetsContract = z
   .object({
     totalItems: z
@@ -88,6 +133,10 @@ export const productFacetsContract = z
     category: z.array(categoryFacetValueContract).meta({
       description:
         'Sous-catégories directes de la catégorie filtrée (catégories racines sans filtre). Vide sur une feuille.',
+    }),
+    attributes: z.array(attributeFacetContract).meta({
+      description:
+        'Attributs filtrables portés par au moins un produit de la branche de catégorie, par position.',
     }),
   })
   .meta({

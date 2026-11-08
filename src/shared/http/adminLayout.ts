@@ -48,6 +48,7 @@ const MENU = [
   ['/admin', 'Tableau de bord'],
   ['/admin/categories', 'Catégories'],
   ['/admin/produits', 'Produits'],
+  ['/admin/attributs', 'Attributs'],
   ['/admin/articles', 'Articles'],
   ['/admin/pages-legales', 'Pages légales'],
   ['/admin/identite-du-site', 'Identité du site'],

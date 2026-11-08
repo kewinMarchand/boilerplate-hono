@@ -7,6 +7,7 @@ import { errorSchema, problemContent } from '#/shared/http/problemSchemas.ts'
 import { scenario } from '#/shared/http/scenario.ts'
 
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
+import { attributeValuesOf } from '#/catalog/domain/productAttribute.ts'
 import { parseCriteria } from '#/catalog/domain/productCriteria.ts'
 import { emptyProductList } from '#/catalog/domain/productSearch.ts'
 import { searchProducts } from '#/catalog/application/searchProducts.ts'
@@ -28,11 +29,23 @@ import type { CatalogRepositories } from '#/catalog/application/searchProducts.t
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { RouteOptions } from '#/shared/http/routeOptions.ts'
 
-/** Élément de liste du contrat : sans `featured`, qui ne sert qu'à l'admin et au choix du carrousel, ni `description`, réservée à la fiche. */
+/**
+ * Élément de liste du contrat : sans `featured`, qui ne sert qu'à l'admin et au choix du carrousel,
+ * ni `description`, réservée à la fiche ; attributs renseignés lus avec leurs définitions.
+ */
 const toProductItem = (
-  { featured: _, description: __, image, ...product }: Catalog.Product,
+  product: Catalog.Product,
+  attributes: readonly Catalog.ProductAttribute[],
   options: RouteOptions,
-) => ({ ...product, image: toImageView(options.mediaBaseUrl, image, 'product') })
+) => {
+  const { featured: _, description: __, attributeValues: ___, image, ...item } = product
+
+  return {
+    ...item,
+    image: toImageView(options.mediaBaseUrl, image, 'product'),
+    attributes: attributeValuesOf(product, attributes),
+  }
+}
 
 const toProductFacets = ({ totalItems, facets }: Catalog.ProductList) => ({
   totalItems,
@@ -83,9 +96,10 @@ export const catalogRoutes = (repositories: CatalogRepositories, options: RouteO
       }),
       async (c) => {
         const { items } = await search(c.req.url)
+        const attributes = await repositories.attributes.findAll()
 
         return c.json(
-          items.map((product) => toProductItem(product, options)),
+          items.map((product) => toProductItem(product, attributes, options)),
           200,
         )
       },
@@ -145,8 +159,14 @@ export const catalogRoutes = (repositories: CatalogRepositories, options: RouteO
           return { slug, name }
         })
 
+        const attributes = await repositories.attributes.findAll()
+
         return c.json(
-          { ...toProductItem(product, options), categoryPath, description: product.description },
+          {
+            ...toProductItem(product, attributes, options),
+            categoryPath,
+            description: product.description,
+          },
           200,
         )
       },
@@ -169,8 +189,9 @@ export const catalogRoutes = (repositories: CatalogRepositories, options: RouteO
       }),
       async (c) => {
         const products = await repositories.products.findFeatured()
+        const attributes = await repositories.attributes.findAll()
         return c.json(
-          products.map((product) => toProductItem(product, options)),
+          products.map((product) => toProductItem(product, attributes, options)),
           200,
         )
       },

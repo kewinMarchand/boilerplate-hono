@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest'
 import { CategoryNotFoundError } from '#/catalog/domain/CategoryNotFoundError.ts'
 import { parseCriteria } from '#/catalog/domain/productCriteria.ts'
 import { searchProducts } from '#/catalog/application/searchProducts.ts'
-import { categoryFixtures, productFixtures } from '#/catalog/infrastructure/catalogFixtures.ts'
+import {
+  categoryFixtures,
+  productAttributeFixtures,
+  productFixtures,
+} from '#/catalog/infrastructure/catalogFixtures.ts'
 import { rawCriteriaFromQuery } from '#/catalog/http/productQuery.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
@@ -21,6 +25,7 @@ const repositories = () => {
         exposureCounts: { 'mi-ombre': 3 },
         sizeCounts: {},
         categoryCounts: {},
+        attributeCounts: new Map(),
       })
     },
     findBySlug: () => Promise.resolve(null),
@@ -30,7 +35,11 @@ const repositories = () => {
     findAll: () => Promise.resolve(categoryFixtures),
   }
 
-  return { queries, repositories: { categories, products } }
+  const attributes: Catalog.ProductAttributeRepository = {
+    findAll: () => Promise.resolve(productAttributeFixtures),
+  }
+
+  return { queries, repositories: { categories, products, attributes } }
 }
 
 const criteria = (query: string) => parseCriteria(rawCriteriaFromQuery(query))
@@ -64,6 +73,20 @@ describe('searchProducts (cas d’utilisation)', () => {
     expect(queries[0]).toMatchObject({
       branch: null,
       children: ['plantes-interieur', 'plantes-exterieur', 'plantes-aquatiques'],
+    })
+  })
+
+  it('passe au dépôt les filtres et les facettes des attributs filtrables', async () => {
+    const { queries, repositories: deps } = repositories()
+
+    await searchProducts(
+      criteria('attributes[feuillage][]=caduc&attributes[hauteur-adulte][]=300'),
+      deps,
+    )
+
+    expect(queries[0]).toMatchObject({
+      attributeFilters: new Map([['feuillage', ['caduc']]]),
+      attributeFacets: ['feuillage'],
     })
   })
 

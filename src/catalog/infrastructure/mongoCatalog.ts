@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { nextSequence } from '#/shared/infrastructure/counters.ts'
 
-import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
+import { ATTRIBUTE_TYPES, EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
 import { Price } from '#/catalog/domain/price.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
@@ -35,10 +35,24 @@ const productDocumentSchema = z.object({
     .regex(/^[0-9a-f]{32}$/)
     .nullable(),
   imageAlt: z.string(),
+  /** Valeurs des attributs renseignés, en chaîne, par code (ADR 0006). */
+  attributeValues: z.record(z.string(), z.string()),
+})
+
+/** Attribut configurable : le code, fixé à la création, sert d'identifiant. */
+const productAttributeDocumentSchema = z.object({
+  _id: z.string().min(1),
+  label: z.string().min(1),
+  type: z.enum(ATTRIBUTE_TYPES),
+  unit: z.string().nullable(),
+  filterable: z.boolean(),
+  position: z.int().min(0),
+  choices: z.array(z.object({ value: z.string().min(1), label: z.string().min(1) })),
 })
 
 export type CategoryDocument = z.infer<typeof categoryDocumentSchema>
 export type ProductDocument = z.infer<typeof productDocumentSchema>
+export type ProductAttributeDocument = z.infer<typeof productAttributeDocumentSchema>
 
 export const categoryCollection: CollectionDefinition<typeof categoryDocumentSchema> = {
   name: 'categories',
@@ -55,6 +69,61 @@ export const productCollection: CollectionDefinition<typeof productDocumentSchem
     { key: { categorySlug: 1 } },
     { key: { price: 1 } },
   ],
+}
+
+export const productAttributeCollection: CollectionDefinition<
+  typeof productAttributeDocumentSchema
+> = {
+  name: 'productAttributes',
+  schema: productAttributeDocumentSchema,
+  indexes: [{ key: { position: 1 } }],
+}
+
+export const toProductAttributeDocument = ({
+  code,
+  choices,
+  ...attribute
+}: Catalog.ProductAttribute): ProductAttributeDocument => ({
+  _id: code,
+  ...attribute,
+  choices: choices.map((choice) => ({ ...choice })),
+})
+
+const toProductAttribute = ({ _id, ...attribute }: ProductAttributeDocument) => ({
+  code: _id,
+  ...attribute,
+})
+
+export class MongoProductAttributeRepository
+  implements Catalog.ProductAttributeRepository, Catalog.ProductAttributeWriter
+{
+  private readonly collection: Collection<ProductAttributeDocument>
+
+  constructor(collection: Collection<ProductAttributeDocument>) {
+    this.collection = collection
+  }
+
+  async findAll(): Promise<Catalog.ProductAttribute[]> {
+    const documents = await this.collection.find({}, { sort: { position: 1, _id: 1 } }).toArray()
+    return documents.map(toProductAttribute)
+  }
+
+  async findByCode(code: string): Promise<Catalog.ProductAttribute | null> {
+    const document = await this.collection.findOne({ _id: code })
+    return document === null ? null : toProductAttribute(document)
+  }
+
+  async create(attribute: Catalog.ProductAttribute): Promise<void> {
+    await this.collection.insertOne(toProductAttributeDocument(attribute))
+  }
+
+  async update(attribute: Catalog.ProductAttribute): Promise<void> {
+    await this.collection.replaceOne({ _id: attribute.code }, toProductAttributeDocument(attribute))
+  }
+
+  async remove(code: string): Promise<void> {
+    await this.collection.deleteOne({ _id: code })
+  }
 }
 
 export class MongoCategoryRepository implements Catalog.CategoryRepository, Catalog.CategoryWriter {
@@ -102,9 +171,12 @@ const FRENCH_COLLATION = { locale: 'fr' }
 
 const countResultSchema = z.array(z.object({ _id: z.string(), count: z.int() }))
 
-const facetResultSchema = z.object({
+const totalResultSchema = z.array(z.object({ count: z.int() }))
+
+/** Clés libres : un compteur et un témoin de présence par attribut filtrable (`attribute<n>`, `attributeCarried<n>`). */
+const facetResultSchema = z.looseObject({
   items: z.array(productDocumentSchema),
-  total: z.array(z.object({ count: z.int() })),
+  total: totalResultSchema,
   exposure: countResultSchema,
   size: countResultSchema,
   category: countResultSchema,
@@ -131,11 +203,14 @@ const toProduct = ({
   image: imageKey === null ? null : { key: imageKey, alt: imageAlt },
 })
 
-const toDocumentFields = ({ image, ...product }: Catalog.ProductSaved) => ({
+const toDocumentFields = ({ image, attributeValues, ...product }: Catalog.ProductSaved) => ({
   ...product,
   imageKey: image.key,
   imageAlt: image.alt,
+  attributeValues: { ...attributeValues },
 })
+
+const attributeField = (code: string): string => `attributeValues.${code}`
 
 /**
  * Une seule agrégation : la branche est filtrée d'abord, puis `$facet` calcule la page, le
@@ -220,6 +295,13 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
     )
   }
 
+  async removeAttributeValue(code: string): Promise<void> {
+    await this.collection.updateMany(
+      { [attributeField(code)]: { $exists: true } },
+      { $unset: { [attributeField(code)]: '' } },
+    )
+  }
+
   async search(query: Catalog.SearchQuery): Promise<Catalog.SearchResult> {
     const branch: Filter<ProductDocument> =
       query.branch === null ? {} : { categoryPath: query.branch }
@@ -227,7 +309,14 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
       query.exposures.length === 0 ? {} : { exposure: { $in: [...query.exposures] } }
     const size: Filter<ProductDocument> =
       query.sizes.length === 0 ? {} : { size: { $in: [...query.sizes] } }
-    const others: Filter<ProductDocument> = {
+    /** Filtres d'attributs, sauf celui de `except` (compteur disjonctif de cet attribut). */
+    const attributes = (except?: string): Document =>
+      Object.fromEntries(
+        [...query.attributeFilters]
+          .filter(([code]) => code !== except)
+          .map(([code, values]) => [attributeField(code), { $in: [...values] }]),
+      )
+    const priceAndStock: Filter<ProductDocument> = {
       ...(query.priceMin === null && query.priceMax === null
         ? {}
         : {
@@ -238,7 +327,26 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
           }),
       ...(query.inStockOnly ? { inStock: true } : {}),
     }
+    const others = { ...priceAndStock, ...attributes() }
     const all = { ...exposure, ...size, ...others }
+    // Un attribut n'est compté que si un produit de la branche le porte, quels que soient les filtres
+    const attributeFacets = Object.fromEntries(
+      query.attributeFacets.flatMap((code, index) => {
+        const carried = { [attributeField(code)]: { $exists: true } }
+        return [
+          [`attributeCarried${index}`, [{ $match: carried }, { $limit: 1 }, { $count: 'count' }]],
+          [
+            `attribute${index}`,
+            [
+              {
+                $match: { ...carried, ...exposure, ...size, ...priceAndStock, ...attributes(code) },
+              },
+              ...countBy(attributeField(code)),
+            ],
+          ],
+        ]
+      }),
+    )
 
     const pipeline: Document[] = [
       { $match: branch },
@@ -259,6 +367,7 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
             { $match: { categoryPath: { $in: [...query.children] } } },
             ...countBy('categoryPath'),
           ],
+          ...attributeFacets,
         },
       },
     ]
@@ -275,6 +384,13 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
       exposureCounts: countsByKey(result.exposure),
       sizeCounts: countsByKey(result.size),
       categoryCounts: countsByKey(result.category),
+      attributeCounts: new Map(
+        query.attributeFacets.flatMap((code, index) =>
+          totalResultSchema.parse(result[`attributeCarried${index}`]).length === 0
+            ? []
+            : [[code, countsByKey(countResultSchema.parse(result[`attribute${index}`]))] as const],
+        ),
+      ),
     }
   }
 }

@@ -67,6 +67,7 @@ describe('X-Scenario', () => {
         { value: 'L', count: 0 },
       ],
       category: [],
+      attributes: [],
     })
   })
 

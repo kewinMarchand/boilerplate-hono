@@ -8,6 +8,8 @@ import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
 
 const DESCRIPTION_MAX_LENGTH = 2000
+/** Champ d'un attribut configurable : `attributes[<code>]` ; la valeur est contrôlée par le cas d'usage. */
+const ATTRIBUTE_FIELD = /^attributes\[([^\]]+)\]$/
 
 /**
  * Lecture des formulaires de l'admin du catalogue : la forme est vérifiée ici, à la frontière
@@ -95,7 +97,17 @@ export const readProductForm = async (
   if (Array.from(values.description).length > DESCRIPTION_MAX_LENGTH) {
     errors.description = `Cette chaîne est trop longue. Elle doit avoir au maximum ${DESCRIPTION_MAX_LENGTH} caractères.`
   }
-  const formValues: Values = { ...values }
+  const attributeFields = Object.keys(body).flatMap((key) => {
+    const code = ATTRIBUTE_FIELD.exec(key)?.[1]
+    return code === undefined ? [] : [{ key, code, value: field(body, key) }]
+  })
+  const attributeValues = Object.fromEntries(
+    attributeFields.map(({ code, value }) => [code, value]),
+  )
+  const formValues: Values = {
+    ...values,
+    ...Object.fromEntries(attributeFields.map(({ key, value }) => [key, value])),
+  }
   const image = await readImageFields(body, formValues, errors)
   const { exposure, size } = values
   const data =
@@ -113,6 +125,7 @@ export const readProductForm = async (
           imageContent: image.content,
           imageAlt: image.alt,
           imageDecorative: image.decorative,
+          attributeValues,
         }
       : null
 

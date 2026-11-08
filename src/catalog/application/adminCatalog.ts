@@ -1,5 +1,6 @@
 import { CatalogRuleViolation, checkPlacement } from '#/catalog/domain/catalogRules.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
+import { checkAttributeValues, productAttribute } from '#/catalog/domain/productAttribute.ts'
 import { changeImage } from '#/media/application/storeImage.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
@@ -14,6 +15,8 @@ export interface CatalogAdminDependencies {
   readonly categories: Catalog.CategoryRepository
   readonly categoryWriter: Catalog.CategoryWriter
   readonly productWriter: Catalog.ProductWriter
+  readonly attributes: Catalog.ProductAttributeRepository
+  readonly attributeWriter: Catalog.ProductAttributeWriter
   readonly media: MediaDependencies
 }
 
@@ -116,12 +119,16 @@ const productPlacement = async (
   return CategoryTree.pathTo(tree, input.categorySlug)
 }
 
-/** Produit à enregistrer : sans texte de remplacement, il prend son nom (MediaRuleViolation si l'image est refusée). */
+/**
+ * Produit à enregistrer : valeurs d'attributs contrôlées par leur définition, puis l'image ; sans
+ * texte de remplacement, il prend son nom (MediaRuleViolation si l'image est refusée).
+ */
 const savedProduct = async (
-  { media }: CatalogAdminDependencies,
+  { media, attributes }: CatalogAdminDependencies,
   input: Catalog.ProductInput,
   current: Catalog.Product | null,
 ): Promise<Catalog.ProductSaved> => {
+  const attributeValues = checkAttributeValues(await attributes.findAll(), input.attributeValues)
   const { imageContent, imageAlt, imageDecorative, ...product } = input
   const alt = imageAlt.trim() === '' ? input.name : imageAlt
   const image = await changeImage(
@@ -135,7 +142,7 @@ const savedProduct = async (
   if (image === null) {
     throw new CatalogRuleViolation("Un produit a besoin d'une image.")
   }
-  return { ...product, image }
+  return { ...product, image, attributeValues }
 }
 
 export const createProduct = async (
@@ -174,4 +181,85 @@ export const deleteProduct = async (
     throw new CatalogRuleViolation("Ce produit n'existe plus.")
   }
   await dependencies.productWriter.remove(id)
+}
+
+/** Lignes de valeurs saisies : les lignes vides sont écartées, une ligne à moitié remplie est refusée. */
+const attributeChoices = (rows: readonly Catalog.AttributeChoice[]): Catalog.AttributeChoice[] =>
+  rows.flatMap((row) => {
+    const value = row.value.trim()
+    const label = row.label.trim()
+    if (value === '' && label === '') {
+      return []
+    }
+    if (value === '' || label === '') {
+      throw new CatalogRuleViolation('Chaque valeur a un code et un libellé.')
+    }
+    return [{ value, label }]
+  })
+
+const productCount = (count: number): string => `${count} ${count === 1 ? 'produit' : 'produits'}`
+
+const requireAttribute = async (
+  { attributeWriter }: CatalogAdminDependencies,
+  code: string,
+): Promise<Catalog.ProductAttribute> => {
+  const attribute = await attributeWriter.findByCode(code)
+  if (attribute === null) {
+    throw new CatalogRuleViolation("Cet attribut n'existe plus.")
+  }
+  return attribute
+}
+
+export const createProductAttribute = async (
+  dependencies: CatalogAdminDependencies,
+  input: Catalog.ProductAttributeInput,
+): Promise<void> => {
+  if ((await dependencies.attributeWriter.findByCode(input.code)) !== null) {
+    throw new CatalogRuleViolation(`Le code « ${input.code} » est déjà pris par un autre attribut.`)
+  }
+  const choices = attributeChoices(input.choices)
+  await dependencies.attributeWriter.create(productAttribute(input.code, { ...input, choices }))
+}
+
+/**
+ * Modifie l'attribut `code` ; le code saisi est ignoré (les produits et les filtres le portent).
+ * Refuse de changer le type ou de retirer une valeur que des produits portent.
+ */
+export const updateProductAttribute = async (
+  dependencies: CatalogAdminDependencies,
+  code: string,
+  input: Catalog.ProductAttributeInput,
+): Promise<void> => {
+  const attribute = await requireAttribute(dependencies, code)
+  const carried = (await dependencies.productWriter.findAll()).filter((product) =>
+    Object.hasOwn(product.attributeValues, code),
+  )
+  if (input.type !== attribute.type && carried.length > 0) {
+    throw new CatalogRuleViolation(
+      `Le type de « ${attribute.label} » ne peut plus changer : il est renseigné sur ${productCount(carried.length)}.`,
+    )
+  }
+  const choices = attributeChoices(input.choices)
+  for (const choice of attribute.choices) {
+    if (choices.some(({ value }) => value === choice.value)) {
+      continue
+    }
+    const count = carried.filter((product) => product.attributeValues[code] === choice.value).length
+    if (count > 0) {
+      throw new CatalogRuleViolation(
+        `La valeur « ${choice.label} » est utilisée par ${productCount(count)}.`,
+      )
+    }
+  }
+  await dependencies.attributeWriter.update(productAttribute(code, { ...input, choices }))
+}
+
+/** Supprimer un attribut retire sa valeur des produits qui le renseignent. */
+export const deleteProductAttribute = async (
+  dependencies: CatalogAdminDependencies,
+  code: string,
+): Promise<void> => {
+  await requireAttribute(dependencies, code)
+  await dependencies.productWriter.removeAttributeValue(code)
+  await dependencies.attributeWriter.remove(code)
 }

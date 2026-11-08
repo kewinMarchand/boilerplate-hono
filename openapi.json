@@ -414,6 +414,13 @@
                                 "type": "null"
                             }
                         ]
+                    },
+                    "attributes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttributeValue"
+                        },
+                        "description": "Attributs configurables renseignés sur le produit, par position ; tableau vide si aucun."
                     }
                 },
                 "required": [
@@ -425,9 +432,52 @@
                     "exposure",
                     "size",
                     "inStock",
-                    "image"
+                    "image",
+                    "attributes"
                 ],
                 "description": "Liste une page de produits. Les filtres se combinent en ET, les valeurs d'une même facette en OU. Une valeur invalide (inconnue, non numérique, hors bornes) est ignorée et remplacée par la valeur par défaut. Le total et les compteurs de facettes : GET /api/product-facets avec les mêmes filtres."
+            },
+            "AttributeValue": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "choice",
+                            "number",
+                            "text"
+                        ]
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Valeur en chaîne : code de la valeur pour choice, nombre ou texte sinon."
+                    },
+                    "valueLabel": {
+                        "type": "string",
+                        "description": "Libellé de la valeur pour choice, la valeur elle-même sinon."
+                    },
+                    "unit": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Unité (« cm », « km »), null si l'attribut n'en a pas."
+                    }
+                },
+                "required": [
+                    "code",
+                    "label",
+                    "type",
+                    "value",
+                    "valueLabel",
+                    "unit"
+                ]
             },
             "ProductFacets": {
                 "type": "object",
@@ -456,13 +506,21 @@
                             "$ref": "#/components/schemas/CategoryFacetValue"
                         },
                         "description": "Sous-catégories directes de la catégorie filtrée (catégories racines sans filtre). Vide sur une feuille."
+                    },
+                    "attributes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttributeFacet"
+                        },
+                        "description": "Attributs filtrables portés par au moins un produit de la branche de catégorie, par position."
                     }
                 },
                 "required": [
                     "totalItems",
                     "exposure",
                     "size",
-                    "category"
+                    "category",
+                    "attributes"
                 ],
                 "description": "Compte les produits filtrés, au total et par valeur de facette. Mêmes filtres que GET /api/products, sans tri ni pagination."
             },
@@ -499,6 +557,50 @@
                 "required": [
                     "slug",
                     "name",
+                    "count"
+                ]
+            },
+            "AttributeFacet": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "Code de l'attribut, clé du filtre attributes[<code>][]."
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "values": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttributeFacetValue"
+                        },
+                        "description": "Toutes les valeurs de l'attribut, dans leur ordre, y compris à 0."
+                    }
+                },
+                "required": [
+                    "code",
+                    "label",
+                    "values"
+                ]
+            },
+            "AttributeFacetValue": {
+                "type": "object",
+                "properties": {
+                    "value": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "Nombre de produits obtenus en ajoutant cette valeur aux filtres des autres facettes et des autres attributs."
+                    }
+                },
+                "required": [
+                    "value",
+                    "label",
                     "count"
                 ]
             },
@@ -550,6 +652,13 @@
                             }
                         ]
                     },
+                    "attributes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttributeValue"
+                        },
+                        "description": "Attributs configurables renseignés sur le produit, par position ; tableau vide si aucun."
+                    },
                     "categoryPath": {
                         "type": "array",
                         "items": {
@@ -572,6 +681,7 @@
                     "size",
                     "inStock",
                     "image",
+                    "attributes",
                     "categoryPath",
                     "description"
                 ],
@@ -1033,6 +1143,8 @@
                         },
                         "required": false,
                         "description": "Expositions acceptées, clé répétée : exposure[]=soleil&exposure[]=ombre.",
+                        "style": "deepObject",
+                        "explode": true,
                         "name": "exposure[]",
                         "in": "query"
                     },
@@ -1051,7 +1163,27 @@
                         },
                         "required": false,
                         "description": "Tailles acceptées, clé répétée : size[]=S&size[]=M.",
+                        "style": "deepObject",
+                        "explode": true,
                         "name": "size[]",
+                        "in": "query"
+                    },
+                    {
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "description": "Valeurs acceptées des attributs filtrables, par code, clé répétée : attributes[feuillage][]=persistant&attributes[feuillage][]=caduc. Valeurs d'un même attribut en OU, attributs entre eux en ET. Code ou valeur inconnus : ignorés. Les attributs filtrables et leurs valeurs : attributes de GET /api/product-facets."
+                        },
+                        "required": false,
+                        "description": "Valeurs acceptées des attributs filtrables, par code, clé répétée : attributes[feuillage][]=persistant&attributes[feuillage][]=caduc. Valeurs d'un même attribut en OU, attributs entre eux en ET. Code ou valeur inconnus : ignorés. Les attributs filtrables et leurs valeurs : attributes de GET /api/product-facets.",
+                        "style": "deepObject",
+                        "explode": true,
+                        "name": "attributes",
                         "in": "query"
                     },
                     {
@@ -1178,6 +1310,8 @@
                         },
                         "required": false,
                         "description": "Expositions acceptées, clé répétée : exposure[]=soleil&exposure[]=ombre.",
+                        "style": "deepObject",
+                        "explode": true,
                         "name": "exposure[]",
                         "in": "query"
                     },
@@ -1196,7 +1330,27 @@
                         },
                         "required": false,
                         "description": "Tailles acceptées, clé répétée : size[]=S&size[]=M.",
+                        "style": "deepObject",
+                        "explode": true,
                         "name": "size[]",
+                        "in": "query"
+                    },
+                    {
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "description": "Valeurs acceptées des attributs filtrables, par code, clé répétée : attributes[feuillage][]=persistant&attributes[feuillage][]=caduc. Valeurs d'un même attribut en OU, attributs entre eux en ET. Code ou valeur inconnus : ignorés. Les attributs filtrables et leurs valeurs : attributes de GET /api/product-facets."
+                        },
+                        "required": false,
+                        "description": "Valeurs acceptées des attributs filtrables, par code, clé répétée : attributes[feuillage][]=persistant&attributes[feuillage][]=caduc. Valeurs d'un même attribut en OU, attributs entre eux en ET. Code ou valeur inconnus : ignorés. Les attributs filtrables et leurs valeurs : attributes de GET /api/product-facets.",
+                        "style": "deepObject",
+                        "explode": true,
+                        "name": "attributes",
                         "in": "query"
                     },
                     {

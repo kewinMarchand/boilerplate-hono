@@ -53,12 +53,13 @@ describe('arbre des catégories', () => {
 describe('liste de produits', () => {
   it('complète les facettes à 0 dans un ordre fixe', () => {
     const children = CategoryTree.childrenOf(tree, CategoryTree.find(tree, 'feuillages'))
-    const list = toProductList(children, {
+    const list = toProductList(children, [], {
       items: [],
       totalItems: 6,
       exposureCounts: { ombre: 2, 'mi-ombre': 4 },
       sizeCounts: { L: 1 },
       categoryCounts: { fougeres: 3 },
+      attributeCounts: new Map(),
     })
 
     expect(list.facets.exposure).toEqual([
@@ -75,10 +76,64 @@ describe('liste de produits', () => {
 
   it('traduit la pagination en décalage', () => {
     const criteria = parseCriteria(rawCriteriaFromQuery('page=3&itemsPerPage=5'))
-    expect(toSearchQuery(criteria, [])).toMatchObject({ skip: 10, limit: 5, branch: null })
+    expect(toSearchQuery(criteria, [], [])).toMatchObject({ skip: 10, limit: 5, branch: null })
   })
 
   it('a une forme vide pour X-Scenario: empty', () => {
     expect(emptyProductList()).toMatchObject({ items: [], totalItems: 0 })
+    expect(emptyProductList().facets.attributes).toEqual([])
+  })
+})
+
+describe('attributs dans la recherche', () => {
+  const choice = (code: string, filterable: boolean, values: string[], position: number) => ({
+    code,
+    label: code,
+    type: 'choice' as const,
+    unit: null,
+    filterable,
+    position,
+    choices: values.map((value) => ({ value, label: value.toUpperCase() })),
+  })
+  const attributes = [
+    choice('feuillage', true, ['persistant', 'caduc'], 1),
+    choice('port', true, ['buissonnant', 'retombant'], 2),
+    choice('couleur', false, ['vert'], 3),
+    { ...choice('hauteur', false, [], 4), type: 'number' as const, unit: 'cm' },
+  ]
+
+  it('garde les attributs filtrables et leurs valeurs connues, ignore le reste', () => {
+    const criteria = parseCriteria(
+      rawCriteriaFromQuery(
+        'attributes[inconnu][]=x&attributes[feuillage][]=epineux&attributes[couleur][]=vert&attributes[hauteur][]=250&attributes[port][]=buissonnant&attributes[port][]=autre',
+      ),
+    )
+
+    expect(toSearchQuery(criteria, [], attributes)).toMatchObject({
+      attributeFilters: new Map([['port', ['buissonnant']]]),
+      attributeFacets: ['feuillage', 'port'],
+    })
+  })
+
+  it('ne publie que les attributs comptés, toutes leurs valeurs, y compris à 0', () => {
+    const list = toProductList([], attributes, {
+      items: [],
+      totalItems: 1,
+      exposureCounts: {},
+      sizeCounts: {},
+      categoryCounts: {},
+      attributeCounts: new Map([['port', { buissonnant: 1 }]]),
+    })
+
+    expect(list.facets.attributes).toEqual([
+      {
+        code: 'port',
+        label: 'port',
+        values: [
+          { value: 'buissonnant', label: 'BUISSONNANT', count: 1 },
+          { value: 'retombant', label: 'RETOMBANT', count: 0 },
+        ],
+      },
+    ])
   })
 })

@@ -9,12 +9,17 @@ import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
 import {
   createCategory,
   createProduct,
+  createProductAttribute,
   deleteCategory,
   deleteProduct,
+  deleteProductAttribute,
   updateCategory,
   updateProduct,
+  updateProductAttribute,
 } from '#/catalog/application/adminCatalog.ts'
 
+import { attributeValues, readAttributeForm, withEmptyRows } from './adminAttributeForms.ts'
+import { attributeFormPage, attributesPage } from './adminAttributePages.ts'
 import { readCategoryForm, readProductForm } from './adminCatalogForms.ts'
 import {
   categoriesPage,
@@ -36,6 +41,9 @@ const DONE: Record<string, string> = {
   'produit-cree': 'Produit créé.',
   'produit-modifie': 'Produit modifié.',
   'produit-supprime': 'Produit supprimé.',
+  'attribut-cree': 'Attribut créé.',
+  'attribut-modifie': 'Attribut modifié.',
+  'attribut-supprime': 'Attribut supprimé.',
 }
 
 /** Règle refusée : son message, à montrer dans la page ; toute autre erreur remonte (500). */
@@ -53,12 +61,13 @@ const refusal = (error: unknown): string => {
 const productId = (value: string): number | null => (/^\d+$/.test(value) ? Number(value) : null)
 
 /**
- * Pages de l'admin du catalogue (ADR 0001), montées par l'admin derrière sa session : catégories
- * et produits. La forme est vérifiée par les formulaires, les règles par les cas d'usage.
+ * Pages de l'admin du catalogue (ADR 0001), montées par l'admin derrière sa session : catégories,
+ * produits et attributs (ADR 0006). La forme est vérifiée par les formulaires, les règles par les cas d'usage.
  */
 export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
   const app = new Hono()
   const tree = async () => CategoryTree.of(await dependencies.categories.findAll())
+  const attributes = () => dependencies.attributes.findAll()
   const done = (key: string | undefined) => (key === undefined ? undefined : DONE[key])
 
   app.get('/admin/categories', async (c) =>
@@ -171,11 +180,17 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
 
   app.get('/admin/produits/nouveau', async (c) =>
     c.html(
-      productFormPage('Nouveau produit', '/admin/produits/nouveau', await tree(), {
-        exposure: 'soleil',
-        size: 'M',
-        inStock: 'on',
-      }),
+      productFormPage(
+        'Nouveau produit',
+        '/admin/produits/nouveau',
+        await tree(),
+        await attributes(),
+        {
+          exposure: 'soleil',
+          size: 'M',
+          inStock: 'on',
+        },
+      ),
     ),
   )
 
@@ -184,7 +199,14 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
     const action = '/admin/produits/nouveau'
     if (form.data === null) {
       return c.html(
-        productFormPage('Nouveau produit', action, await tree(), form.values, form.errors),
+        productFormPage(
+          'Nouveau produit',
+          action,
+          await tree(),
+          await attributes(),
+          form.values,
+          form.errors,
+        ),
         422,
       )
     }
@@ -192,7 +214,15 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
       await createProduct(dependencies, form.data)
     } catch (error) {
       return c.html(
-        productFormPage('Nouveau produit', action, await tree(), form.values, {}, refusal(error)),
+        productFormPage(
+          'Nouveau produit',
+          action,
+          await tree(),
+          await attributes(),
+          form.values,
+          {},
+          refusal(error),
+        ),
         422,
       )
     }
@@ -210,6 +240,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
         `Modifier « ${product.name} »`,
         c.req.path,
         await tree(),
+        await attributes(),
         productValues(product),
         {},
         undefined,
@@ -232,6 +263,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
           title,
           c.req.path,
           await tree(),
+          await attributes(),
           form.values,
           form.errors,
           undefined,
@@ -248,6 +280,7 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
           title,
           c.req.path,
           await tree(),
+          await attributes(),
           form.values,
           {},
           refusal(error),
@@ -288,6 +321,100 @@ export const adminCatalogRoutes = (dependencies: CatalogAdminDependencies) => {
       return c.html(productsPage(products, await tree(), undefined, refusal(error)), 422)
     }
     return c.redirect('/admin/produits?ok=produit-supprime', 303)
+  })
+
+  app.get('/admin/attributs', async (c) =>
+    c.html(attributesPage(await attributes(), done(c.req.query('ok')))),
+  )
+
+  app.get('/admin/attributs/nouveau', (c) =>
+    c.html(
+      attributeFormPage(
+        'Nouvel attribut',
+        '/admin/attributs/nouveau',
+        withEmptyRows({ type: 'choice', position: '0' }),
+      ),
+    ),
+  )
+
+  app.post('/admin/attributs/nouveau', async (c) => {
+    const form = readAttributeForm(await c.req.parseBody(), null)
+    const action = '/admin/attributs/nouveau'
+    if (form.data === null) {
+      return c.html(attributeFormPage('Nouvel attribut', action, form.values, form.errors), 422)
+    }
+    try {
+      await createProductAttribute(dependencies, form.data)
+    } catch (error) {
+      return c.html(
+        attributeFormPage('Nouvel attribut', action, form.values, {}, refusal(error)),
+        422,
+      )
+    }
+    return c.redirect('/admin/attributs?ok=attribut-cree', 303)
+  })
+
+  app.get('/admin/attributs/:code/modifier', async (c) => {
+    const attribute = await dependencies.attributeWriter.findByCode(c.req.param('code'))
+    if (attribute === null) {
+      return c.html(notFoundPage(), 404)
+    }
+    return c.html(
+      attributeFormPage(
+        `Modifier « ${attribute.label} »`,
+        c.req.path,
+        attributeValues(attribute),
+        {},
+        undefined,
+        true,
+      ),
+    )
+  })
+
+  app.post('/admin/attributs/:code/modifier', async (c) => {
+    const code = c.req.param('code')
+    const form = readAttributeForm(await c.req.parseBody(), code)
+    const title = "Modifier l'attribut"
+    if (form.data === null) {
+      return c.html(
+        attributeFormPage(title, c.req.path, form.values, form.errors, undefined, true),
+        422,
+      )
+    }
+    try {
+      await updateProductAttribute(dependencies, code, form.data)
+    } catch (error) {
+      return c.html(
+        attributeFormPage(title, c.req.path, form.values, {}, refusal(error), true),
+        422,
+      )
+    }
+    return c.redirect('/admin/attributs?ok=attribut-modifie', 303)
+  })
+
+  app.get('/admin/attributs/:code/supprimer', async (c) => {
+    const attribute = await dependencies.attributeWriter.findByCode(c.req.param('code'))
+    if (attribute === null) {
+      return c.html(notFoundPage(), 404)
+    }
+    return c.html(
+      confirmDeletePage(
+        `Supprimer « ${attribute.label} »`,
+        '/admin/attributs',
+        `L'attribut « ${attribute.label} » sera supprimé et retiré des produits qui le renseignent.`,
+        c.req.path,
+        '/admin/attributs',
+      ),
+    )
+  })
+
+  app.post('/admin/attributs/:code/supprimer', async (c) => {
+    try {
+      await deleteProductAttribute(dependencies, c.req.param('code'))
+    } catch (error) {
+      return c.html(attributesPage(await attributes(), undefined, refusal(error)), 422)
+    }
+    return c.redirect('/admin/attributs?ok=attribut-supprime', 303)
   })
 
   return app

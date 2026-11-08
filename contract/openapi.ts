@@ -9,6 +9,9 @@ const COMPARED_SCHEMAS = [
   'ProductFacets',
   'FacetValue',
   'CategoryFacetValue',
+  'AttributeValue',
+  'AttributeFacet',
+  'AttributeFacetValue',
   'LegalPage',
   'LegalSection',
   'SiteIdentity',
@@ -71,12 +74,18 @@ const normalizeSchema = (schema: unknown): unknown => {
 const parameters = (operation: JsonRecord): unknown =>
   (Array.isArray(operation['parameters']) ? operation['parameters'] : [])
     .map(record)
-    .map((parameter) => ({
-      name: parameter['name'],
-      in: parameter['in'],
-      required: parameter['required'] ?? false,
-      schema: normalizeSchema(parameter['schema']),
-    }))
+    .map((parameter) => {
+      // Valeurs par défaut d'OpenAPI, écrites partout par API Platform, seulement quand elles changent par zod-openapi
+      const style = parameter['style'] ?? (parameter['in'] === 'query' ? 'form' : 'simple')
+      return {
+        name: parameter['name'],
+        in: parameter['in'],
+        required: parameter['required'] ?? false,
+        style,
+        explode: parameter['explode'] ?? style === 'form',
+        schema: normalizeSchema(parameter['schema']),
+      }
+    })
     .sort((a, b) => String(a.name).localeCompare(String(b.name)))
 
 const content = (value: unknown): unknown =>

@@ -39,6 +39,7 @@ export const dashboardPage = (email: string) =>
       <ul>
         <li><a href="/admin/categories">Catégories du catalogue</a></li>
         <li><a href="/admin/produits">Produits du catalogue</a></li>
+        <li><a href="/admin/attributs">Attributs des produits</a></li>
         <li><a href="/admin/articles">Articles du blog</a></li>
         <li><a href="/admin/pages-legales">Pages légales</a></li>
         <li><a href="/admin/identite-du-site">Identité du site</a></li>

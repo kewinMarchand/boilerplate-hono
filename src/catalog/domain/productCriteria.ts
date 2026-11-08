@@ -51,5 +51,6 @@ export const parseCriteria = (raw: Catalog.RawCriteria): Catalog.Criteria => {
       itemsPerPage !== null && itemsPerPage >= 1 && itemsPerPage <= MAX_ITEMS_PER_PAGE
         ? itemsPerPage
         : DEFAULT_ITEMS_PER_PAGE,
+    attributes: raw.attributes,
   }
 }

@@ -36,6 +36,14 @@ const counts = (values: ProductFacets['exposure']) =>
 const categoryCounts = ({ category }: ProductFacets) =>
   Object.fromEntries(category.map(({ slug, count }) => [slug, count]))
 
+const attributeCounts = ({ attributes }: ProductFacets) =>
+  Object.fromEntries(
+    attributes.map(({ code, label, values }) => [
+      code,
+      { label, values: Object.fromEntries(values.map(({ value, count }) => [value, count])) },
+    ]),
+  )
+
 describe('GET /api/products et /api/product-facets (scénarios de ProductApiTest)', () => {
   it('liste la première page des produits sans filtre', async () => {
     const items = await products('')
@@ -51,6 +59,24 @@ describe('GET /api/products et /api/product-facets (scénarios de ProductApiTest
       size: 'M',
       inStock: true,
       image: demoView('product-1', 'product', 'Monstera deliciosa'),
+      attributes: [
+        {
+          code: 'feuillage',
+          label: 'Feuillage',
+          type: 'choice',
+          value: 'persistant',
+          valueLabel: 'Persistant',
+          unit: null,
+        },
+        {
+          code: 'hauteur-adulte',
+          label: 'Hauteur adulte',
+          type: 'number',
+          value: '300',
+          valueLabel: '300',
+          unit: 'cm',
+        },
+      ],
     })
   })
 
@@ -167,5 +193,79 @@ describe('GET /api/products et /api/product-facets (scénarios de ProductApiTest
     expect((await facets(query)).totalItems).toBe(24)
 
     expect(await products('page=99999999999999999999')).toEqual([])
+  })
+})
+
+describe('attributs configurables (scénarios de ProductApiTest)', () => {
+  it('compte les attributs filtrables sans filtre', async () => {
+    expect(attributeCounts(await facets(''))).toEqual({
+      feuillage: { label: 'Feuillage', values: { persistant: 6, caduc: 2 } },
+    })
+  })
+
+  it('garde disjonctifs les compteurs de l’attribut filtré', async () => {
+    const deciduous = await facets('attributes[feuillage][]=caduc')
+
+    expect(deciduous.totalItems).toBe(2)
+    expect((await products('attributes[feuillage][]=caduc')).map(({ slug }) => slug)).toEqual([
+      'nenuphar-blanc-rustique',
+      'lotus-sacre',
+    ])
+    expect(attributeCounts(deciduous)['feuillage']?.values).toEqual({ persistant: 6, caduc: 2 })
+    expect(counts(deciduous.exposure)).toEqual({ soleil: 2, 'mi-ombre': 0, ombre: 0 })
+    expect(categoryCounts(deciduous)).toEqual({
+      'plantes-interieur': 0,
+      'plantes-exterieur': 0,
+      'plantes-aquatiques': 2,
+    })
+  })
+
+  it('combine les valeurs d’un attribut en OU et les autres filtres en ET', async () => {
+    expect(
+      (await facets('attributes[feuillage][]=persistant&attributes[feuillage][]=caduc')).totalItems,
+    ).toBe(8)
+
+    const query = 'exposure[]=mi-ombre&attributes[feuillage][]=persistant'
+    const combined = await facets(query)
+    expect(combined.totalItems).toBe(2)
+    expect((await products(query)).map(({ slug }) => slug)).toEqual([
+      'monstera-deliciosa',
+      'monstera-adansonii',
+    ])
+    expect(attributeCounts(combined)['feuillage']?.values).toEqual({ persistant: 2, caduc: 0 })
+    expect(counts(combined.exposure)).toEqual({ soleil: 3, 'mi-ombre': 2, ombre: 1 })
+  })
+
+  it('ignore les attributs et valeurs inconnus et les attributs non filtrables', async () => {
+    const query =
+      'attributes[inconnu][]=x&attributes[feuillage][]=epineux&attributes[hauteur-adulte][]=300&attributes[]=y'
+
+    expect((await facets(query)).totalItems).toBe(24)
+    expect(await products(query)).toHaveLength(12)
+    expect((await facets('attributes=feuillage')).totalItems).toBe(24)
+    expect((await facets('attributes[feuillage]=caduc')).totalItems).toBe(2)
+  })
+
+  it('ne liste que les attributs portés dans la branche', async () => {
+    expect((await facets('category=anthurium')).attributes).toEqual([])
+    expect(
+      attributeCounts(await facets('category=plantes-aquatiques'))['feuillage']?.values,
+    ).toEqual({ persistant: 0, caduc: 2 })
+  })
+
+  it('ne liste sur un produit que les attributs renseignés', async () => {
+    const items = new Map((await products('itemsPerPage=48')).map((item) => [item.slug, item]))
+
+    expect(items.get('anthurium-clarinervium')?.attributes).toEqual([])
+    expect(items.get('palmier-nain')?.attributes).toEqual([
+      {
+        code: 'hauteur-adulte',
+        label: 'Hauteur adulte',
+        type: 'number',
+        value: '250',
+        valueLabel: '250',
+        unit: 'cm',
+      },
+    ])
   })
 })

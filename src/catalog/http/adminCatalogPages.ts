@@ -164,10 +164,53 @@ export const productsPage = (
   )
 }
 
+/** Nom du champ d'un attribut dans le formulaire du produit : `attributes[feuillage]`. */
+export const attributeFieldName = (code: string): string => `attributes[${code}]`
+
+/** Un champ facultatif par attribut défini dans la section « Attributs ». */
+const attributeFields = (
+  attributes: readonly Catalog.ProductAttribute[],
+  values: Values,
+  errors: Errors,
+) => {
+  if (attributes.length === 0) {
+    return ''
+  }
+  const fields = attributes.map(({ code, label, type, unit, choices }) => {
+    const name = attributeFieldName(code)
+    const text = unit === null ? label : `${label} (${unit})`
+    if (type === 'choice') {
+      return selectField(
+        text,
+        name,
+        [['', 'Non renseigné'], ...choices.map((choice) => [choice.value, choice.label] as const)],
+        values,
+        errors,
+      )
+    }
+    return type === 'number'
+      ? html`<label for="${name}">${text}</label>
+          <input
+            id="${name}"
+            name="${name}"
+            type="number"
+            step="any"
+            value="${values[name] ?? ''}"
+          />`
+      : textField(text, name, values, errors)
+  })
+
+  return html`<fieldset>
+    <legend>Attributs</legend>
+    ${fields}
+  </fieldset>`
+}
+
 export const productFormPage = (
   title: string,
   action: string,
   tree: CategoryTree,
+  attributes: readonly Catalog.ProductAttribute[],
   values: Values,
   errors: Errors = {},
   error?: string,
@@ -229,6 +272,7 @@ export const productFormPage = (
           Montré dans le carrousel de la page d'accueil, par ordre alphabétique.
         </p>
         ${imageFieldsHtml('product', 'Vide : le nom du produit, qui suffit le plus souvent.', values, errors, image)}
+        ${attributeFields(attributes, values, errors)}
         <button type="submit">Enregistrer</button>
       </form>
       <p><a href="/admin/produits">Retour aux produits</a></p>`,
@@ -253,4 +297,10 @@ export const productValues = (product: Catalog.Product): Values => ({
   featured: product.featured ? 'on' : '',
   description: product.description,
   ...imageValues(product.image),
+  ...Object.fromEntries(
+    Object.entries(product.attributeValues).map(([code, value]) => [
+      attributeFieldName(code),
+      value,
+    ]),
+  ),
 })

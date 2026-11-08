@@ -5,10 +5,13 @@ import { Price } from '#/catalog/domain/price.ts'
 import {
   createCategory,
   createProduct,
+  createProductAttribute,
   deleteCategory,
   deleteProduct,
+  deleteProductAttribute,
   updateCategory,
   updateProduct,
+  updateProductAttribute,
 } from '#/catalog/application/adminCatalog.ts'
 import { centsToEuros, euroCents } from '#/catalog/http/adminCatalogForms.ts'
 
@@ -40,6 +43,39 @@ const catalogue = () => {
       featured: false,
       description: '',
       image: testImage('Monstera deliciosa'),
+      attributeValues: { feuillage: 'persistant', hauteur: '250' },
+    },
+  ]
+  let attributes: Catalog.ProductAttribute[] = [
+    {
+      code: 'feuillage',
+      label: 'Feuillage',
+      type: 'choice',
+      unit: null,
+      filterable: true,
+      position: 1,
+      choices: [
+        { value: 'persistant', label: 'Persistant' },
+        { value: 'caduc', label: 'Caduc' },
+      ],
+    },
+    {
+      code: 'hauteur-adulte',
+      label: 'Hauteur adulte',
+      type: 'number',
+      unit: 'cm',
+      filterable: false,
+      position: 2,
+      choices: [],
+    },
+    {
+      code: 'origine',
+      label: 'Origine',
+      type: 'text',
+      unit: null,
+      filterable: false,
+      position: 3,
+      choices: [],
     },
   ]
   const strip = ({ categoryPath, ...product }: Stored): Catalog.Product => product
@@ -91,11 +127,40 @@ const catalogue = () => {
         )
         return Promise.resolve()
       },
+      removeAttributeValue: (code: string) => {
+        products = products.map(({ attributeValues: { [code]: _, ...kept }, ...p }) => ({
+          ...p,
+          attributeValues: kept,
+        }))
+        return Promise.resolve()
+      },
+    },
+    attributes: { findAll: () => Promise.resolve(attributes) },
+    attributeWriter: {
+      findByCode: (code: string) =>
+        Promise.resolve(attributes.find((attribute) => attribute.code === code) ?? null),
+      create: (attribute: Catalog.ProductAttribute) => {
+        attributes = [...attributes, attribute]
+        return Promise.resolve()
+      },
+      update: (attribute: Catalog.ProductAttribute) => {
+        attributes = attributes.map((a) => (a.code === attribute.code ? attribute : a))
+        return Promise.resolve()
+      },
+      remove: (code: string) => {
+        attributes = attributes.filter((a) => a.code !== code)
+        return Promise.resolve()
+      },
     },
     media: fakeMedia().media,
   }
 
-  return { dependencies, categories: () => categories, products: () => products }
+  return {
+    dependencies,
+    categories: () => categories,
+    products: () => products,
+    attributes: () => attributes,
+  }
 }
 
 const category = (slug: string, parent: string | null): Catalog.Category => ({
@@ -122,6 +187,7 @@ const product = (
   imageContent,
   imageAlt: '',
   imageDecorative: false,
+  attributeValues: {},
 })
 
 describe('catégories', () => {
@@ -239,6 +305,144 @@ describe('produits', () => {
       "Ce produit n'existe plus.",
     )
     await expect(deleteProduct(dependencies, 99)).rejects.toThrow("Ce produit n'existe plus.")
+  })
+})
+
+describe('valeurs d’attributs d’un produit', () => {
+  it('enregistre les attributs renseignés, sans espaces, et ignore les codes inconnus', async () => {
+    const { dependencies, products } = catalogue()
+
+    await updateProduct(dependencies, 1, {
+      ...product('monstera-deliciosa', 'monstera', null),
+      attributeValues: { feuillage: 'persistant', 'hauteur-adulte': ' 250 ', origine: '', x: 'y' },
+    })
+
+    expect(products()[0]?.attributeValues).toEqual({
+      feuillage: 'persistant',
+      'hauteur-adulte': '250',
+    })
+  })
+
+  it('vide un attribut laissé vide', async () => {
+    const { dependencies, products } = catalogue()
+
+    await updateProduct(dependencies, 1, product('monstera-deliciosa', 'monstera', null))
+
+    expect(products()[0]?.attributeValues).toEqual({})
+  })
+
+  it.each([
+    [{ feuillage: 'epineux' }, "« epineux » n'est pas une valeur de l'attribut « Feuillage »."],
+    [{ 'hauteur-adulte': 'deux mètres' }, "L'attribut « Hauteur adulte » attend un nombre."],
+    [{ origine: 'a'.repeat(121) }, "L'attribut « Origine » a 120 caractères au plus."],
+  ])('refuse une valeur que sa définition rejette', async (attributeValues, message) => {
+    await expect(
+      createProduct(catalogue().dependencies, {
+        ...product('nouveau', 'monstera'),
+        attributeValues,
+      }),
+    ).rejects.toThrow(new CatalogRuleViolation(message))
+  })
+})
+
+const attributeInput = (
+  code: string,
+  type: Catalog.AttributeType,
+  choices: Record<string, string> = {},
+): Catalog.ProductAttributeInput => ({
+  code,
+  label: code.charAt(0).toUpperCase() + code.slice(1),
+  type,
+  unit: '',
+  filterable: type === 'choice',
+  position: 0,
+  choices: Object.entries(choices).map(([value, label]) => ({ value, label })),
+})
+
+describe('attributs', () => {
+  it('crée un attribut et écarte les lignes vides', async () => {
+    const { dependencies, attributes } = catalogue()
+
+    await createProductAttribute(
+      dependencies,
+      attributeInput('port', 'choice', { buissonnant: 'Buissonnant', '': '' }),
+    )
+
+    expect(attributes().at(-1)).toEqual({
+      code: 'port',
+      label: 'Port',
+      type: 'choice',
+      unit: null,
+      filterable: true,
+      position: 0,
+      choices: [{ value: 'buissonnant', label: 'Buissonnant' }],
+    })
+  })
+
+  it('refuse un code déjà pris et une ligne à moitié remplie', async () => {
+    await expect(
+      createProductAttribute(catalogue().dependencies, attributeInput('feuillage', 'choice')),
+    ).rejects.toThrow(
+      new CatalogRuleViolation('Le code « feuillage » est déjà pris par un autre attribut.'),
+    )
+    await expect(
+      createProductAttribute(catalogue().dependencies, {
+        ...attributeInput('port', 'choice'),
+        choices: [{ value: 'buissonnant', label: '' }],
+      }),
+    ).rejects.toThrow(new CatalogRuleViolation('Chaque valeur a un code et un libellé.'))
+  })
+
+  it('modifie un attribut et garde son code', async () => {
+    const { dependencies, attributes } = catalogue()
+
+    await updateProductAttribute(dependencies, 'feuillage', {
+      ...attributeInput('autre-code', 'choice', {
+        persistant: 'Toujours vert',
+        'semi-persistant': 'Semi-persistant',
+      }),
+      label: 'Type de feuillage',
+    })
+
+    expect(attributes()[0]).toMatchObject({
+      code: 'feuillage',
+      label: 'Type de feuillage',
+      choices: [
+        { value: 'persistant', label: 'Toujours vert' },
+        { value: 'semi-persistant', label: 'Semi-persistant' },
+      ],
+    })
+  })
+
+  it('refuse de retirer une valeur ou de changer le type quand un produit les porte', async () => {
+    await expect(
+      updateProductAttribute(
+        catalogue().dependencies,
+        'feuillage',
+        attributeInput('feuillage', 'choice', { caduc: 'Caduc' }),
+      ),
+    ).rejects.toThrow(
+      new CatalogRuleViolation('La valeur « Persistant » est utilisée par 1 produit.'),
+    )
+    await expect(
+      updateProductAttribute(catalogue().dependencies, 'feuillage', attributeInput('x', 'text')),
+    ).rejects.toThrow(
+      new CatalogRuleViolation(
+        'Le type de « Feuillage » ne peut plus changer : il est renseigné sur 1 produit.',
+      ),
+    )
+    await expect(
+      updateProductAttribute(catalogue().dependencies, 'inconnu', attributeInput('x', 'text')),
+    ).rejects.toThrow(new CatalogRuleViolation("Cet attribut n'existe plus."))
+  })
+
+  it('supprimer un attribut retire sa valeur des produits', async () => {
+    const { dependencies, attributes, products } = catalogue()
+
+    await deleteProductAttribute(dependencies, 'feuillage')
+
+    expect(attributes().map(({ code }) => code)).toEqual(['hauteur-adulte', 'origine'])
+    expect(products()[0]?.attributeValues).toEqual({ hauteur: '250' })
   })
 })
 

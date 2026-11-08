@@ -16,12 +16,19 @@ import {
   articleFixtures,
   MongoArticleRepository,
 } from '#/blog/infrastructure/mongoArticle.ts'
-import { categoryFixtures, productFixtures } from '#/catalog/infrastructure/catalogFixtures.ts'
+import {
+  categoryFixtures,
+  productAttributeFixtures,
+  productFixtures,
+} from '#/catalog/infrastructure/catalogFixtures.ts'
 import {
   categoryCollection,
   MongoCategoryRepository,
+  MongoProductAttributeRepository,
   MongoProductRepository,
+  productAttributeCollection,
   productCollection,
+  toProductAttributeDocument,
 } from '#/catalog/infrastructure/mongoCatalog.ts'
 import {
   contactMessageCollection,
@@ -58,6 +65,7 @@ const COLLECTIONS = [
   counterCollection,
   categoryCollection,
   productCollection,
+  productAttributeCollection,
   legalPageCollection,
   adminUserCollection,
   siteIdentityCollection,
@@ -77,6 +85,9 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
     typedCollection(db, productCollection),
     typedCollection(db, counterCollection),
   )
+  const attributes = new MongoProductAttributeRepository(
+    typedCollection(db, productAttributeCollection),
+  )
   const legalPages = new MongoLegalPageRepository(typedCollection(db, legalPageCollection))
   const articles = new MongoArticleRepository(
     typedCollection(db, articleCollection),
@@ -94,6 +105,8 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
     products,
     categoryWriter: categories,
     productWriter: products,
+    attributes,
+    attributeWriter: attributes,
     articleWriter: articles,
     legalPages,
     legalPageWriter: legalPages,
@@ -165,11 +178,15 @@ export const resetDatabase = async (db: Db, media: MediaDependencies): Promise<v
   await typedCollection(db, categoryCollection).insertMany(
     categoryFixtures.map(({ slug, ...category }) => ({ _id: slug, ...category })),
   )
+  await typedCollection(db, productAttributeCollection).insertMany(
+    productAttributeFixtures.map(toProductAttributeDocument),
+  )
   const tree = CategoryTree.of(categoryFixtures)
   await typedCollection(db, productCollection).insertMany(
     await mapInSequence(productFixtures, async ({ id, demoImage: name, ...product }) => ({
       _id: id,
       ...product,
+      attributeValues: { ...product.attributeValues },
       ...(await demoImage(media, name, 'product', product.name)),
       categoryPath: CategoryTree.pathTo(tree, product.categorySlug),
     })),

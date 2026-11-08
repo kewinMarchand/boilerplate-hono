@@ -9,3 +9,4 @@ Une décision structurante par fichier, numérotée, jamais réécrite une fois 
 | [0003](0003-variante-intermediaire-des-produits.md)     | Variante intermédiaire des produits : adoption de l'ADR 0003 de l'API Platform     | Acceptée                     |
 | [0004](0004-carrousel-de-produits-a-la-une.md)          | Carrousel de produits à la une : adoption de l'ADR 0004 de l'API Platform          | Proposée                     |
 | [0005](0005-identite-du-site-administree-dans-l-api.md) | Identité du site administrée dans l'API : adoption de l'ADR 0006 de l'API Platform | Acceptée                     |
+| [0006](0006-attributs-de-produit-configurables.md)      | Attributs de produit configurables : adoption de l'ADR 0007 de l'API Platform      | Acceptée                     |

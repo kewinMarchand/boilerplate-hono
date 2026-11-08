@@ -164,6 +164,45 @@ const FEATURED: readonly string[] = [
   'nenuphar-bleu-du-nil',
 ]
 
+/** Attributs de démonstration (section 23 de SPEC-COMMUNE), comme dans l'API Platform. */
+export const productAttributeFixtures: Catalog.ProductAttribute[] = [
+  {
+    code: 'feuillage',
+    label: 'Feuillage',
+    type: 'choice',
+    unit: null,
+    filterable: true,
+    position: 1,
+    choices: [
+      { value: 'persistant', label: 'Persistant' },
+      { value: 'caduc', label: 'Caduc' },
+    ],
+  },
+  {
+    code: 'hauteur-adulte',
+    label: 'Hauteur adulte',
+    type: 'number',
+    unit: 'cm',
+    filterable: false,
+    position: 2,
+    choices: [],
+  },
+]
+
+/** Attributs renseignés, par slug : feuillage (liste filtrable) et hauteur adulte (nombre, en cm). */
+const ATTRIBUTE_VALUES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  'monstera-deliciosa': { feuillage: 'persistant', 'hauteur-adulte': '300' },
+  'monstera-adansonii': { feuillage: 'persistant' },
+  'fougere-de-boston': { feuillage: 'persistant' },
+  'fougere-arborescente-dicksonia': { 'hauteur-adulte': '500' },
+  'strelitzia-nicolai': { feuillage: 'persistant', 'hauteur-adulte': '600' },
+  'palmier-de-chine': { feuillage: 'persistant', 'hauteur-adulte': '1200' },
+  'palmier-bleu-du-mexique': { feuillage: 'persistant' },
+  'palmier-nain': { 'hauteur-adulte': '250' },
+  'nenuphar-blanc-rustique': { feuillage: 'caduc' },
+  'lotus-sacre': { feuillage: 'caduc', 'hauteur-adulte': '150' },
+}
+
 /** Description de chaque produit, par slug, comme dans l'API Platform. */
 const DESCRIPTIONS: Readonly<Record<string, string>> = {
   'monstera-deliciosa':
@@ -231,6 +270,7 @@ export const productFixtures: ProductFixture[] = PRODUCTS.map(
     inStock,
     featured: FEATURED.includes(slug),
     description: DESCRIPTIONS[slug] ?? '',
+    attributeValues: ATTRIBUTE_VALUES[slug] ?? {},
     demoImage: `product-${(index % 12) + 1}`,
   }),
 )

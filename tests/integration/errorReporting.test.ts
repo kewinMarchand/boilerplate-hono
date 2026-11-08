@@ -45,6 +45,14 @@ const failingDatabase: AppDependencies = {
     update: unavailable,
     remove: unavailable,
     moveCategory: unavailable,
+    removeAttributeValue: unavailable,
+  },
+  attributes: { findAll: unavailable },
+  attributeWriter: {
+    findByCode: unavailable,
+    create: unavailable,
+    update: unavailable,
+    remove: unavailable,
   },
   articleWriter: {
     findById: unavailable,

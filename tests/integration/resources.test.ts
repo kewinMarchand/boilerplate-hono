@@ -115,6 +115,24 @@ describe('GET /api/products/{slug}', () => {
       ],
       description:
         'Grandes feuilles vert profond, découpées et perforées avec l’âge : le monstera deliciosa habille une pièce à lui seul.\n\nLumière vive sans soleil direct, arrosage quand le terreau a séché sur deux centimètres. Un tuteur en mousse l’aide à grimper.',
+      attributes: [
+        {
+          code: 'feuillage',
+          label: 'Feuillage',
+          type: 'choice',
+          value: 'persistant',
+          valueLabel: 'Persistant',
+          unit: null,
+        },
+        {
+          code: 'hauteur-adulte',
+          label: 'Hauteur adulte',
+          type: 'number',
+          value: '300',
+          valueLabel: '300',
+          unit: 'cm',
+        },
+      ],
     })
   })
 
@@ -140,6 +158,7 @@ describe('GET /api/featured-products', () => {
     ])
     expect(Object.keys(products[0] ?? {})).not.toContain('featured')
     expect(Object.keys(products[0] ?? {})).not.toContain('description')
+    expect(Object.keys(products[0] ?? {})).toContain('attributes')
   })
 })
 

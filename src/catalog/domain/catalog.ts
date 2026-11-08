@@ -3,6 +3,8 @@ import type { Media } from '#/media/domain/Media.ts'
 
 export const EXPOSURES = ['soleil', 'mi-ombre', 'ombre'] as const
 export const SIZES = ['S', 'M', 'L'] as const
+/** Types d'un attribut configurable (section 23 de SPEC-COMMUNE, ADR 0006). */
+export const ATTRIBUTE_TYPES = ['choice', 'number', 'text'] as const
 export const DEFAULT_ITEMS_PER_PAGE = 12
 export const MAX_ITEMS_PER_PAGE = 48
 /** Borne le décalage de pagination dans les entiers sûrs : au-delà, la page est simplement vide. */
@@ -10,15 +12,58 @@ export const MAX_PAGE = 1_000_000
 
 const EXPOSURE_VALUES: readonly string[] = EXPOSURES
 const SIZE_VALUES: readonly string[] = SIZES
+const ATTRIBUTE_TYPE_VALUES: readonly string[] = ATTRIBUTE_TYPES
 
 export const isExposure = (value: string): value is Catalog.Exposure =>
   EXPOSURE_VALUES.includes(value)
 
 export const isSize = (value: string): value is Catalog.Size => SIZE_VALUES.includes(value)
 
+export const isAttributeType = (value: string): value is Catalog.AttributeType =>
+  ATTRIBUTE_TYPE_VALUES.includes(value)
+
 export declare namespace Catalog {
   type Exposure = (typeof EXPOSURES)[number]
   type Size = (typeof SIZES)[number]
+  type AttributeType = (typeof ATTRIBUTE_TYPES)[number]
+
+  /** Valeur d'un attribut à choix : son code, porté par les produits et les filtres, et son libellé. */
+  interface AttributeChoice {
+    readonly value: string
+    readonly label: string
+  }
+
+  /**
+   * Caractéristique de produit définie dans l'admin. Le code ne change pas après la création :
+   * les produits et les filtres le portent. Valeurs et filtre réservés au type « choice ».
+   */
+  interface ProductAttribute {
+    readonly code: string
+    readonly label: string
+    readonly type: AttributeType
+    readonly unit: string | null
+    readonly filterable: boolean
+    readonly position: number
+    /** Dans l'ordre d'affichage. */
+    readonly choices: readonly AttributeChoice[]
+  }
+
+  /** Attribut renseigné sur un produit, avec ce qu'il faut pour l'afficher. */
+  interface AttributeValue {
+    readonly code: string
+    readonly label: string
+    readonly type: AttributeType
+    readonly value: string
+    /** Libellé de la valeur pour une liste, la valeur elle-même sinon. */
+    readonly valueLabel: string
+    readonly unit: string | null
+  }
+
+  interface AttributeFacet {
+    readonly code: string
+    readonly label: string
+    readonly values: { readonly value: string; readonly label: string; readonly count: number }[]
+  }
 
   interface Category {
     readonly slug: string
@@ -49,6 +94,8 @@ export declare namespace Catalog {
     readonly featured: boolean
     /** Texte brut, paragraphes séparés par une ligne vide ; vide tant que l'admin n'en a pas écrit. */
     readonly description: string
+    /** Valeurs des attributs renseignés, en chaîne, par code. */
+    readonly attributeValues: Readonly<Record<string, string>>
   }
 
   interface FacetValue {
@@ -70,6 +117,8 @@ export declare namespace Catalog {
       readonly size: FacetValue[]
       /** Sous-catégories directes de la catégorie filtrée, racines sans filtre, vide sur une feuille. */
       readonly category: CategoryFacetValue[]
+      /** Attributs filtrables portés par au moins un produit de la branche, par position. */
+      readonly attributes: AttributeFacet[]
     }
   }
 
@@ -87,6 +136,8 @@ export declare namespace Catalog {
     readonly orderName: string | undefined
     readonly page: string | undefined
     readonly itemsPerPage: string | undefined
+    /** Valeurs demandées par code d'attribut (`attributes[<code>][]`). */
+    readonly attributes: ReadonlyMap<string, readonly string[]>
   }
 
   interface Criteria {
@@ -99,6 +150,8 @@ export declare namespace Catalog {
     readonly sort: Sort | null
     readonly page: number
     readonly itemsPerPage: number
+    /** Codes et valeurs inconnus écartés par la recherche, qui voit les définitions. */
+    readonly attributes: ReadonlyMap<string, readonly string[]>
   }
 
   /** Requête passée au dépôt : la branche est résolue, les sous-catégories à compter connues. */
@@ -113,6 +166,10 @@ export declare namespace Catalog {
     readonly sort: Sort | null
     readonly skip: number
     readonly limit: number
+    /** Filtres d'attributs retenus : attributs filtrables, valeurs connues, en OU dans un attribut. */
+    readonly attributeFilters: ReadonlyMap<string, readonly string[]>
+    /** Codes des attributs filtrables à compter. */
+    readonly attributeFacets: readonly string[]
   }
 
   interface SearchResult {
@@ -121,6 +178,35 @@ export declare namespace Catalog {
     readonly exposureCounts: Partial<Record<Exposure, number>>
     readonly sizeCounts: Partial<Record<Size, number>>
     readonly categoryCounts: Partial<Record<string, number>>
+    /**
+     * Par code d'attribut filtrable porté par au moins un produit de la branche (absent sinon) :
+     * compteur de chaque valeur, avec tous les filtres sauf celui de l'attribut.
+     */
+    readonly attributeCounts: ReadonlyMap<string, Partial<Record<string, number>>>
+  }
+
+  interface ProductAttributeRepository {
+    /** Tous les attributs, triés par position. */
+    findAll(): Promise<ProductAttribute[]>
+  }
+
+  /** Écritures de l'admin sur les attributs. */
+  interface ProductAttributeWriter {
+    findByCode(code: string): Promise<ProductAttribute | null>
+    create(attribute: ProductAttribute): Promise<void>
+    update(attribute: ProductAttribute): Promise<void>
+    remove(code: string): Promise<void>
+  }
+
+  /** Saisie d'un attribut dans l'admin ; les lignes de valeurs vides sont écartées par le cas d'usage. */
+  interface ProductAttributeInput {
+    readonly code: string
+    readonly label: string
+    readonly type: AttributeType
+    readonly unit: string
+    readonly filterable: boolean
+    readonly position: number
+    readonly choices: readonly AttributeChoice[]
   }
 
   interface CategoryRepository {
@@ -151,6 +237,8 @@ export declare namespace Catalog {
     /** Vide (et non décorative) : le nom du produit. */
     readonly imageAlt: string
     readonly imageDecorative: boolean
+    /** Valeur saisie par code d'attribut, vide quand il n'est pas renseigné. */
+    readonly attributeValues: Readonly<Record<string, string>>
   }
 
   /** Produit enregistré par l'admin, image résolue. */
@@ -165,6 +253,7 @@ export declare namespace Catalog {
     readonly featured: boolean
     readonly description: string
     readonly image: Media.Image
+    readonly attributeValues: Readonly<Record<string, string>>
   }
 
   /** Écritures de l'admin sur les catégories. */
@@ -187,5 +276,7 @@ export declare namespace Catalog {
     remove(id: number): Promise<void>
     /** Produits rangés dans `previousSlug` : leur catégorie devient `slug`, avec son chemin. */
     moveCategory(previousSlug: string, slug: string, categoryPath: readonly string[]): Promise<void>
+    /** Retire la valeur de l'attribut `code` de tous les produits. */
+    removeAttributeValue(code: string): Promise<void>
   }
 }
