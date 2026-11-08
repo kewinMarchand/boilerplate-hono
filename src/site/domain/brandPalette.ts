@@ -7,6 +7,7 @@ import { contrast, mix } from './hexColor.ts'
  */
 export const LIGHT_BACKGROUND = '#ffffff'
 export const DARK_BACKGROUND = '#0f141d'
+export const DARK_CONTRAST_SURFACE = '#1c222e'
 export const DARK_CONTRAST = 4.5
 
 const BLACK = '#000000'
@@ -61,14 +62,15 @@ const darkShades = (color: string): ColorShades => ({
 })
 
 /**
- * Éclaircit par pas de 5 % de blanc jusqu'à 4,5:1 sur le fond sombre (ADR 0007), le minimum AA du
- * texte courant, qui garde la couleur reconnaissable. Le blanc pur y dépasse 4,5:1 : la boucle
- * s'arrête au plus tard au vingtième pas.
+ * Éclaircit par pas de 5 % de blanc jusqu'à 4,5:1 sur la surface secondaire sombre, plus claire
+ * que le fond (ADR 0007 et 0012), le minimum AA du texte courant sur le fond comme sur les surfaces,
+ * qui garde la couleur reconnaissable. Le blanc pur y dépasse 4,5:1 : la boucle s'arrête au plus
+ * tard au vingtième pas.
  */
 const readableOnDark = (color: string): string => {
   for (let step = 0; ; step++) {
     const lightened = mix(color, WHITE, step * LIGHTENING_STEP)
-    if (contrast(lightened, DARK_BACKGROUND) >= DARK_CONTRAST) {
+    if (contrast(lightened, DARK_CONTRAST_SURFACE) >= DARK_CONTRAST) {
       return lightened
     }
   }
