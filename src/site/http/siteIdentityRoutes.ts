@@ -42,9 +42,21 @@ const toSiteIcon = (icon: Media.Image | null, options: RouteOptions) => {
   return { png32: url(32), png180: url(180), png192: url(192), png512: url(512) }
 }
 
-/** Ressource du contrat : les jetons clair et sombre sont calculés à la lecture, null sans couleurs saisies. */
+/**
+ * Ressource du contrat : les jetons clair et sombre sont calculés à la lecture, null sans couleurs
+ * saisies. L'adresse qui reçoit les messages reste privée.
+ */
 const toView = (
-  { name, tagline, logo, colors, defaultColorScheme, shareImage, icon }: SiteIdentity.Entity,
+  {
+    name,
+    tagline,
+    logo,
+    colors,
+    defaultColorScheme,
+    shareImage,
+    icon,
+    salesEnabled,
+  }: SiteIdentity.Entity,
   options: RouteOptions,
 ) => ({
   name,
@@ -53,6 +65,7 @@ const toView = (
   shareImage: toImageView(options.mediaBaseUrl, shareImage, 'share'),
   icon: toSiteIcon(icon, options),
   defaultColorScheme,
+  salesEnabled,
   theme:
     colors === null
       ? null

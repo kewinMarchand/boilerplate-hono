@@ -20,7 +20,8 @@ export const errorFlavor = (accept: string | undefined): ErrorFlavor => {
 export interface Violation {
   readonly propertyPath: string
   readonly message: string
-  readonly code: string
+  /** null pour une violation levée hors contrainte Symfony (produit inconnu du contact). */
+  readonly code: string | null
 }
 
 const TITLE = 'An error occurred'

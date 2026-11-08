@@ -39,7 +39,7 @@ import type { BlogAdminDependencies } from '#/blog/application/adminBlog.ts'
 import type { CatalogAdminDependencies } from '#/catalog/application/adminCatalog.ts'
 import type { CatalogRepositories } from '#/catalog/application/searchProducts.ts'
 import type { Config } from '#/config.ts'
-import type { ContactMessage } from '#/contact/domain/ContactMessage.ts'
+import type { ContactDependencies } from '#/contact/application/receiveContactMessage.ts'
 import type { ContentAdminDependencies } from '#/content/application/adminContent.ts'
 import type { ContentRepositories } from '#/content/http/contentRoutes.ts'
 import type { ErrorReporter } from '#/shared/infrastructure/errorReporting.ts'
@@ -55,9 +55,9 @@ export interface AppDependencies
     CatalogAdminDependencies,
     BlogAdminDependencies,
     ContentAdminDependencies,
-    SiteDependencies {
+    SiteDependencies,
+    ContactDependencies {
   readonly tasks: Task.Repository
-  readonly contactMessages: ContactMessage.Repository
 }
 
 export type AppConfig = Pick<
@@ -114,6 +114,10 @@ export const createApp = (
 ) => {
   const options = { scenarios: config.APP_ENV !== 'prod', mediaBaseUrl: config.MEDIA_BASE_URL }
   const app = new OpenAPIHono()
+  const reportMailFailure = (error: unknown): void => {
+    console.error('Envoi du mail du message de contact en échec', error)
+    reporter.capture(error, { method: 'POST', path: '/api/contact_messages' })
+  }
 
   app.use('*', contentSecurityPolicy())
   app.use('/api/*', cors(config.CORS_ALLOW_ORIGIN))
@@ -122,7 +126,7 @@ export const createApp = (
   const routes = app
     .route('/', taskRoutes(dependencies.tasks, options))
     .route('/', articleRoutes(dependencies.articles, dependencies.articleTerms, options))
-    .route('/', contactMessageRoutes(dependencies.contactMessages, options))
+    .route('/', contactMessageRoutes(dependencies, options, reportMailFailure))
     .route('/', catalogRoutes(dependencies, options))
     .route('/', contentRoutes(dependencies, options))
     .route('/', siteIdentityRoutes(dependencies, options))

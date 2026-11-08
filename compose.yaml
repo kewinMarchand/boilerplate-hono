@@ -13,6 +13,7 @@ services:
     environment:
       MONGODB_URI: mongodb://app:app@mongo:27017/?authSource=admin
       MONGODB_DB: app
+      MAILER_DSN: smtp://mailpit:1025
     depends_on:
       mongo:
         condition: service_healthy
@@ -56,6 +57,12 @@ services:
       retries: 30
     volumes:
       - mongo_data:/data/db
+
+  # Boîte de réception de développement : interface sur 8027, SMTP (1025) seulement dans le réseau du compose
+  mailpit:
+    image: axllent/mailpit:v1.31.5
+    ports:
+      - '127.0.0.1:${MAILPIT_PORT:-8027}:8025'
 
 volumes:
   mongo_data:

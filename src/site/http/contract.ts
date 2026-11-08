@@ -58,6 +58,10 @@ export const siteIdentityContract = z
         'Favicons en PNG (32, 180, 192 et 512 px), null sans icône : les fronts gardent leurs fichiers.',
     }),
     defaultColorScheme: z.enum(COLOR_SCHEMES),
+    salesEnabled: z.boolean().meta({
+      description:
+        "Vente en ligne : false, les fronts n'affichent ni prix ni panier et chaque produit propose une demande de renseignement.",
+    }),
     theme: z.union([siteThemeContract, z.null()]).meta({
       description:
         'Jetons de couleur de marque calculés, null sans couleurs saisies : le front garde alors ceux de boilerplates-ui.',

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { constraintViolationSchema } from '#/shared/http/problemSchemas.ts'
 
@@ -78,6 +78,122 @@ describe('POST /api/contact_messages', () => {
         (body.violations ?? []).map(({ propertyPath, message }) => [propertyPath, message]),
       ),
     ).toEqual(expected)
+  })
+
+  it('envoie le message de contact par mail à l’adresse de l’identité du site', async () => {
+    const response = await post(
+      JSON.stringify({
+        name: 'Camille Martin',
+        email: 'camille@example.fr',
+        message: 'Bonjour, je souhaite un devis.',
+      }),
+    )
+
+    expect(response.status).toBe(201)
+    expect(context.mailer.sent.at(-1)).toEqual({
+      to: 'contact@example.com',
+      replyTo: 'camille@example.fr',
+      subject: 'Message de contact : Camille Martin',
+      text: 'Nom : Camille Martin\nAdresse : camille@example.fr\n\nMessage :\nBonjour, je souhaite un devis.\n',
+    })
+  })
+
+  it('enregistre une demande de renseignement et l’envoie avec le nom du produit', async () => {
+    const response = await post(
+      JSON.stringify({
+        name: 'Camille',
+        email: 'camille@example.fr',
+        message: 'Est-elle disponible en grand pot ?',
+        product: 'monstera-deliciosa',
+      }),
+    )
+    const saved = contactMessageContract.parse(await response.json())
+
+    expect(response.status).toBe(201)
+    expect(saved.product).toBe('monstera-deliciosa')
+    const mail = context.mailer.sent.at(-1)
+    expect(mail?.subject).toBe('Demande de renseignement : Monstera deliciosa')
+    expect(mail?.text).toContain('Produit : Monstera deliciosa (monstera-deliciosa)')
+    const document = await context.db
+      .collection<{ _id: number; product: string | null }>('contact_messages')
+      .findOne({ _id: saved.id ?? 0 })
+    expect(document?.product).toBe('monstera-deliciosa')
+  })
+
+  it('ne vérifie le produit qu’une fois les champs de texte valides, comme l’API Platform', async () => {
+    const response = await post(
+      JSON.stringify({
+        name: 'C',
+        email: 'camille@example.fr',
+        message: 'Un message.',
+        product: 'x',
+      }),
+    )
+    const body = constraintViolationSchema.parse(await response.json())
+
+    expect(response.status).toBe(422)
+    expect(body.violations?.map(({ propertyPath }) => propertyPath)).toEqual(['name'])
+  })
+
+  it('refuse un produit inconnu en 422 sur product, sans rien enregistrer ni envoyer', async () => {
+    const sent = context.mailer.sent.length
+    const before = await context.db.collection('contact_messages').countDocuments()
+    const response = await post(
+      JSON.stringify({
+        name: 'Camille',
+        email: 'camille@example.fr',
+        message: 'Est-elle disponible ?',
+        product: 'plante-inconnue',
+      }),
+    )
+
+    expect(response.status).toBe(422)
+    expect(await response.json()).toMatchObject({
+      violations: [{ propertyPath: 'product', message: "Ce produit n'existe pas.", code: null }],
+      detail: "product: Ce produit n'existe pas.",
+    })
+    expect(await context.db.collection('contact_messages').countDocuments()).toBe(before)
+    expect(context.mailer.sent).toHaveLength(sent)
+  })
+
+  it('répond 201 et garde le message quand l’envoi du mail échoue, erreur journalisée', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    context.mailer.failure = new Error('SMTP injoignable')
+    try {
+      const response = await post(
+        JSON.stringify({
+          name: 'Camille',
+          email: 'camille@example.fr',
+          message: 'Un message qui part en erreur.',
+        }),
+      )
+      const saved = contactMessageContract.parse(await response.json())
+
+      expect(response.status).toBe(201)
+      expect(
+        await context.db
+          .collection<{ _id: number; message: string }>('contact_messages')
+          .findOne({ _id: saved.id ?? 0 }),
+      ).toMatchObject({ message: 'Un message qui part en erreur.' })
+      expect(log).toHaveBeenCalledWith(
+        'Envoi du mail du message de contact en échec',
+        context.mailer.failure,
+      )
+    } finally {
+      context.mailer.failure = null
+      log.mockRestore()
+    }
+  })
+
+  it('répond 500 à un produit qui n’est pas une chaîne, comme le serializer de l’API Platform', async () => {
+    const response = await post(
+      '{"name":"Camille","email":"camille@example.fr","message":"Un message.","product":3}',
+    )
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toMatchObject({
+      detail: 'The type of the "product" attribute must be "null|string", "integer" given.',
+    })
   })
 
   it('répond 500 « Syntax error » sur un JSON invalide, comme API Platform', async () => {

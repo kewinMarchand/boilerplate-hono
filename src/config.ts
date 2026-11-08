@@ -16,6 +16,10 @@ const configSchema = z.object({
   MEDIA_BASE_URL: z.url().default('http://localhost:8091'),
   /** Dossier des variantes des images envoyées par l'admin, servi sous /media/. */
   MEDIA_DIR: z.string().min(1).default('var/media'),
+  /** Serveur SMTP des mails du contact (SPEC-COMMUNE, section 27) : Mailpit en développement. */
+  MAILER_DSN: z.url({ protocol: /^smtps?$/ }).default('smtp://mailpit:1025'),
+  /** Expéditeur des mails du contact ; la réponse va au visiteur (Reply-To). */
+  MAILER_FROM: z.email().default('site@example.com'),
   GLITCHTIP_DSN: z
     .string()
     .optional()

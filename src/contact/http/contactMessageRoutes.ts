@@ -10,17 +10,22 @@ import {
 } from '#/shared/http/problemSchemas.ts'
 import { scenario } from '#/shared/http/scenario.ts'
 
+import { UnknownProductError } from '#/contact/domain/ContactMessage.ts'
+import { receiveContactMessage } from '#/contact/application/receiveContactMessage.ts'
+
 import { ContactMessageValidationError } from './ContactMessageValidationError.ts'
 import {
   contactMessageContract,
   contactMessageWriteContract,
   contactViolations,
   toDraft,
+  UNKNOWN_PRODUCT_VIOLATION,
   violationsFromIssues,
 } from './contract.ts'
 import { deserializeContactMessage } from './deserializeContactMessage.ts'
 
 import type { ContactMessageOutput } from './contract.ts'
+import type { ContactDependencies } from '#/contact/application/receiveContactMessage.ts'
 import type { ContactMessage } from '#/contact/domain/ContactMessage.ts'
 import type { RouteOptions } from '#/shared/http/routeOptions.ts'
 
@@ -42,12 +47,16 @@ const toOutput = (message: ContactMessage.Entity): ContactMessageOutput => ({
   name: message.name,
   email: message.email,
   message: message.message,
+  // Absent plutôt que null, comme la sortie de l'API Platform (skip_null_values)
+  ...(message.product === null ? {} : { product: message.product }),
   receivedAt: toIsoSeconds(message.receivedAt),
 })
 
+/** `onMailFailure` : journal de l'envoi en échec, la réponse reste 201 (SPEC-COMMUNE, section 27). */
 export const contactMessageRoutes = (
-  repository: ContactMessage.Repository,
+  dependencies: ContactDependencies,
   options: RouteOptions,
+  onMailFailure: (error: unknown) => void,
 ) =>
   new OpenAPIHono().openapi(
     createRoute({
@@ -85,7 +94,18 @@ export const contactMessageRoutes = (
       },
     }),
     async (c) => {
-      const saved = await repository.save(toDraft(c.req.valid('json'), new Date()))
+      let saved: ContactMessage.Entity
+      try {
+        saved = await receiveContactMessage(
+          dependencies,
+          toDraft(c.req.valid('json'), new Date()),
+          onMailFailure,
+        )
+      } catch (error) {
+        throw error instanceof UnknownProductError
+          ? new ContactMessageValidationError([UNKNOWN_PRODUCT_VIOLATION])
+          : error
+      }
       const location = `/api/contact_messages/${saved.id}`
 
       return c.json(toOutput(saved), 201, {

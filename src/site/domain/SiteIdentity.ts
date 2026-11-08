@@ -24,6 +24,10 @@ export declare namespace SiteIdentity {
     readonly shareImage: Media.Image | null
     /** Décorative : les favicons n'ont pas de texte de remplacement. */
     readonly icon: Media.Image | null
+    /** Faux : ni prix ni panier sur les fronts, une demande de renseignement par produit (SPEC-COMMUNE, section 27). */
+    readonly salesEnabled: boolean
+    /** Adresse qui reçoit les messages du formulaire de contact. Privée : absente du contrat. */
+    readonly contactRecipient: string
   }
 
   interface Repository {
@@ -57,6 +61,8 @@ export declare namespace SiteIdentity {
     /** Contenu de l'icône envoyée, null pour garder l'actuelle. */
     readonly iconContent: Uint8Array | null
     readonly removeIcon: boolean
+    readonly salesEnabled: boolean
+    readonly contactRecipient: string
   }
 }
 
@@ -71,6 +77,8 @@ export const DEFAULT_SITE_IDENTITY: SiteIdentity.Entity = {
   defaultColorScheme: 'auto',
   shareImage: null,
   icon: null,
+  salesEnabled: true,
+  contactRecipient: 'contact@example.com',
 }
 
 /** Une modification de l'identité du site enfreint une de ses règles. Le message s'affiche tel quel dans l'admin. */

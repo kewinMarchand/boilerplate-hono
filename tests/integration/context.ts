@@ -10,11 +10,27 @@ import { loadConfig } from '#/config.ts'
 import { createRepositories, mediaDependencies, resetDatabase } from '#/database.ts'
 
 import type { AppConfig } from '#/app.ts'
+import type { ContactMessage } from '#/contact/domain/ContactMessage.ts'
 import type { Media } from '#/media/domain/Media.ts'
 import type { Db, MongoClient } from 'mongodb'
 
+/** Faux transport des mails : les garde au lieu de les envoyer, ou échoue tant que `failure` est renseignée. */
+export class FakeMailer implements ContactMessage.Mailer {
+  readonly sent: ContactMessage.Mail[] = []
+  failure: Error | null = null
+
+  send(mail: ContactMessage.Mail): Promise<void> {
+    if (this.failure !== null) {
+      return Promise.reject(this.failure)
+    }
+    this.sent.push(mail)
+    return Promise.resolve()
+  }
+}
+
 export interface TestContext {
   readonly app: ReturnType<typeof createApp>
+  readonly mailer: FakeMailer
   readonly db: Db
   readonly client: MongoClient
   readonly close: () => Promise<void>
@@ -33,14 +49,15 @@ export const createTestContext = async (
   const db = client.db(`${config.MONGODB_DB}_${name}`)
   const media = mediaDependencies(TEST_MEDIA_DIR)
   await resetDatabase(db, media)
-  const app = createApp(createRepositories(db, media), {
-    ...config,
-    MEDIA_DIR: TEST_MEDIA_DIR,
-    ...overrides,
-  })
+  const mailer = new FakeMailer()
+  const app = createApp(
+    { ...createRepositories(db, media), mailer },
+    { ...config, MEDIA_DIR: TEST_MEDIA_DIR, ...overrides },
+  )
 
   return {
     app,
+    mailer,
     db,
     client,
     close: async () => {

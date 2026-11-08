@@ -6,6 +6,7 @@ import { ensureCollections, typedCollection } from '#/shared/infrastructure/mong
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
 import { storeAudio } from '#/media/application/storeAudio.ts'
 import { storeImage } from '#/media/application/storeImage.ts'
+import { getSiteIdentity } from '#/site/application/siteIdentity.ts'
 import {
   adminUserCollection,
   MongoAdminUserRepository,
@@ -92,7 +93,11 @@ export const mediaDependencies = (directory: string): MediaDependencies => ({
   fingerprint,
 })
 
-export const createRepositories = (db: Db, media: MediaDependencies): AppDependencies => {
+/** Tout sauf le mailer, ajouté par l'appelant depuis la configuration (MAILER_DSN, MAILER_FROM), un faux en test. */
+export const createRepositories = (
+  db: Db,
+  media: MediaDependencies,
+): Omit<AppDependencies, 'mailer'> => {
   const categories = new MongoCategoryRepository(typedCollection(db, categoryCollection))
   const products = new MongoProductRepository(
     typedCollection(db, productCollection),
@@ -112,6 +117,9 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
     typedCollection(db, counterCollection),
     articleTerms,
   )
+  const siteIdentities = new MongoSiteIdentityRepository(
+    typedCollection(db, siteIdentityCollection),
+  )
 
   return {
     tasks: new MongoTaskRepository(typedCollection(db, taskCollection)),
@@ -120,6 +128,16 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
       typedCollection(db, contactMessageCollection),
       typedCollection(db, counterCollection),
     ),
+    // Le contact lit le catalogue et l'identité du site par ses propres ports, branchés ici
+    contactProducts: {
+      find: async (slug) => {
+        const product = await products.findBySlug(slug)
+        return product === null ? null : { slug: product.slug, name: product.name }
+      },
+    },
+    contactRecipient: {
+      address: async () => (await getSiteIdentity({ siteIdentities })).contactRecipient,
+    },
     categories,
     products,
     categoryWriter: categories,
@@ -136,7 +154,7 @@ export const createRepositories = (db: Db, media: MediaDependencies): AppDepende
     articleRenderer: markdownArticle,
     adminUsers: new MongoAdminUserRepository(typedCollection(db, adminUserCollection)),
     passwordHasher: new ScryptPasswordHasher(),
-    siteIdentities: new MongoSiteIdentityRepository(typedCollection(db, siteIdentityCollection)),
+    siteIdentities,
     media,
   }
 }

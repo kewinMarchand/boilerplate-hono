@@ -12,6 +12,8 @@ const contactMessageDocumentSchema = z.object({
   name: z.string().min(1),
   email: z.string().min(1),
   message: z.string().min(1),
+  /** Slug du produit d'une demande de renseignement, null pour un message de contact simple. */
+  product: z.string().nullable(),
   receivedAt: z.date(),
 })
 

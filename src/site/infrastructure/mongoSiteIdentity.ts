@@ -37,6 +37,10 @@ const siteIdentityDocumentSchema = z.object({
     .string()
     .regex(/^[0-9a-f]{32}$/)
     .nullable(),
+  /** Vente en ligne (SPEC-COMMUNE, section 27). */
+  salesEnabled: z.boolean(),
+  /** Adresse qui reçoit les messages du contact, privée. */
+  contactRecipient: z.string().min(1),
 })
 
 type SiteIdentityDocument = z.infer<typeof siteIdentityDocumentSchema>
@@ -55,6 +59,8 @@ const toDocument = ({
   defaultColorScheme,
   shareImage,
   icon,
+  salesEnabled,
+  contactRecipient,
 }: SiteIdentity.Entity): SiteIdentityDocument => ({
   _id: ID,
   name,
@@ -68,6 +74,8 @@ const toDocument = ({
   shareImageKey: shareImage?.key ?? null,
   shareImageAlt: shareImage?.alt ?? '',
   iconKey: icon?.key ?? null,
+  salesEnabled,
+  contactRecipient,
 })
 
 const toEntity = (document: SiteIdentityDocument): SiteIdentity.Entity => {
@@ -89,10 +97,12 @@ const toEntity = (document: SiteIdentityDocument): SiteIdentity.Entity => {
     defaultColorScheme: document.defaultColorScheme,
     shareImage: shareImageKey === null ? null : { key: shareImageKey, alt: document.shareImageAlt },
     icon: iconKey === null ? null : { key: iconKey, alt: '' },
+    salesEnabled: document.salesEnabled,
+    contactRecipient: document.contactRecipient,
   }
 }
 
-/** Fixture : les valeurs du modèle, sans logo, image de partage, icône ni couleurs, comme SiteIdentityFixtures. */
+/** Fixture : les valeurs du modèle, sans logo, image de partage, icône ni couleurs, vente en ligne active, comme SiteIdentityFixtures. */
 export const siteIdentityFixture: SiteIdentityDocument = toDocument(DEFAULT_SITE_IDENTITY)
 
 export class MongoSiteIdentityRepository implements SiteIdentity.Repository {

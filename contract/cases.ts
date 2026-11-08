@@ -332,6 +332,14 @@ export const CASES: readonly ContractCase[] = [
     knownDifference:
       'API Platform lit le corps sans limite et répond 422 (message trop long). Ici : 413 problem+json en français.',
   },
+  post('demande de renseignement', `{"name":"Camille",${VALID},"product":"monstera-deliciosa"}`),
+  post('produit null', `{"name":"Camille",${VALID},"product":null}`),
+  post('produit inconnu, nom trop court', `{"name":"C",${VALID},"product":"inconnu"}`),
+  post('produit numérique', `{"name":"Camille",${VALID},"product":3}`),
+  post('produit inconnu', `{"name":"Camille",${VALID},"product":"inconnu"}`, JSON_BODY, {
+    knownDifference:
+      "Violation sans code : l'API Platform tire `type` d'une empreinte d'objet PHP, non reproductible. Propriété, message et code (null) identiques.",
+  }),
   post('nom null', `{"name":null,${VALID}}`),
   post('id null', `{"id":null,"name":"Camille",${VALID}}`),
   post('id fourni', `{"id":5,"name":"Camille",${VALID}}`),

@@ -28,6 +28,8 @@ const withLogo: SiteIdentity.Entity = {
   defaultColorScheme: 'auto',
   shareImage: null,
   icon: null,
+  salesEnabled: true,
+  contactRecipient: 'contact@example.com',
 }
 
 const input = (overrides: Partial<SiteIdentity.Input> = {}): SiteIdentity.Input => ({
@@ -45,6 +47,8 @@ const input = (overrides: Partial<SiteIdentity.Input> = {}): SiteIdentity.Input 
   removeShareImage: false,
   iconContent: null,
   removeIcon: false,
+  salesEnabled: false,
+  contactRecipient: 'ventes@oraki.fr',
   ...overrides,
 })
 
@@ -71,6 +75,8 @@ describe('identité du site', () => {
       colors: { primary: '#c2410c', secondary: '#ffffff' },
       defaultColorScheme: 'dark',
       logo: { alt: 'Oraki', height: 120 },
+      salesEnabled: false,
+      contactRecipient: 'ventes@oraki.fr',
     })
   })
 

@@ -17,6 +17,17 @@ export const CONTACT_TOO_LONG_ERRORS = {
   message: `Votre message ne doit pas dépasser ${CONTACT_LIMITS.messageMaxLength} caractères.`,
 } as const
 
+/**
+ * Slug inconnu du catalogue sur une demande de renseignement (SPEC-COMMUNE, section 27). Vérifié
+ * par le cas d'usage, donc seulement quand les champs de texte sont valides, sans code de
+ * contrainte (null), comme la violation levée par le processeur de l'API Platform.
+ */
+export const UNKNOWN_PRODUCT_VIOLATION: ContactViolation = {
+  propertyPath: 'product',
+  message: "Ce produit n'existe pas.",
+  code: null,
+}
+
 /** Codes des contraintes Symfony, renvoyés tels quels par API Platform dans `violations[].code`. */
 export const CONSTRAINT_CODES = {
   notNull: 'ad32d13f-c3d4-423b-909a-857b961eb720',
@@ -28,9 +39,9 @@ export const CONSTRAINT_CODES = {
 } as const
 
 export interface ContactViolation {
-  readonly propertyPath: ContactMessage.Field
+  readonly propertyPath: ContactMessage.WritableField
   readonly message: string
-  readonly code: string
+  readonly code: string | null
 }
 
 /** trim() de PHP : espaces, tabulations, retours à la ligne, NUL et tabulation verticale. */
@@ -84,12 +95,16 @@ export const contactMessageContract = z
       minLength: CONTACT_LIMITS.messageMinLength,
       maxLength: CONTACT_LIMITS.messageMaxLength,
     }),
+    product: z.string().nullable().optional().meta({
+      description:
+        "Slug du produit d'une demande de renseignement ; null ou absent pour un message de contact simple.",
+    }),
     receivedAt: z.iso.datetime({ offset: true }).nullable().optional().meta({ readOnly: true }),
   })
   .meta({
     id: 'ContactMessage',
     description:
-      'Enregistre un message de contact. Répond 422 avec la liste des violations si un champ est invalide.',
+      "Enregistre un message de contact, ou une demande de renseignement sur un produit, puis l'envoie par mail. Répond 422 avec la liste des violations si un champ est invalide ou si le produit n'existe pas ; un mail non envoyé ne change pas la réponse.",
   })
 
 export type ContactMessageOutput = z.infer<typeof contactMessageContract>
@@ -106,6 +121,7 @@ const contactMessageInputContract = z.object({
     minLength: CONTACT_LIMITS.messageMinLength,
     maxLength: CONTACT_LIMITS.messageMaxLength,
   }),
+  product: writableText,
 })
 
 export type ContactMessageInput = z.infer<typeof contactMessageInputContract>
@@ -161,5 +177,6 @@ export const toDraft = (input: ContactMessageInput, receivedAt: Date): ContactMe
   name: phpTrim(input.name ?? ''),
   email: phpTrim(input.email ?? ''),
   message: phpTrim(input.message ?? ''),
+  product: input.product ?? null,
   receivedAt,
 })

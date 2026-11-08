@@ -6,6 +6,7 @@ import {
   checkboxField,
   field,
   maxLength,
+  requiredEmail,
   selectField,
   textField,
 } from '#/shared/http/adminForms.ts'
@@ -58,6 +59,7 @@ export const readSiteIdentityForm = async (
   const primaryColor = field(body, 'primaryColor')
   const secondaryColor = field(body, 'secondaryColor')
   const defaultColorScheme = field(body, 'defaultColorScheme')
+  const contactRecipient = field(body, 'contactRecipient')
   const values: Values = {
     name,
     tagline,
@@ -68,6 +70,8 @@ export const readSiteIdentityForm = async (
     removeLogo: checkbox(body, 'removeLogo'),
     removeIcon: checkbox(body, 'removeIcon'),
     removeShareImage: checkbox(body, 'removeShareImage'),
+    salesEnabled: checkbox(body, 'salesEnabled'),
+    contactRecipient,
   }
   const errors: Errors = {}
   if (name === '') {
@@ -78,6 +82,7 @@ export const readSiteIdentityForm = async (
   if (!isColorScheme(defaultColorScheme)) {
     errors.defaultColorScheme = 'Le choix sélectionné est invalide.'
   }
+  requiredEmail(errors, 'contactRecipient', contactRecipient)
   const image = await readImageFields(body, values, errors)
   const shareImage = await readImageFields(body, values, errors, 'shareImage')
   const iconContent = await fileContent(body, 'iconContent')
@@ -102,6 +107,8 @@ export const readSiteIdentityForm = async (
             removeShareImage: values.removeShareImage === 'on',
             iconContent,
             removeIcon: values.removeIcon === 'on',
+            salesEnabled: values.salesEnabled === 'on',
+            contactRecipient,
           }
         : null,
   }
@@ -114,6 +121,8 @@ const valuesOf = ({
   colors,
   defaultColorScheme,
   shareImage,
+  salesEnabled,
+  contactRecipient,
 }: SiteIdentity.Entity): Values => ({
   name,
   tagline,
@@ -126,6 +135,8 @@ const valuesOf = ({
   shareImageAlt: shareImage?.alt ?? '',
   removeShareImage: '',
   removeIcon: '',
+  salesEnabled: salesEnabled ? 'on' : '',
+  contactRecipient,
 })
 
 const formPage = (
@@ -203,6 +214,14 @@ const formPage = (
           errors,
         )}
         <p>Thème servi tant que le visiteur n'a rien choisi.</p>
+        ${checkboxField(
+          'Vente en ligne (prix, panier et commande)',
+          'salesEnabled',
+          values,
+          "Décochée : les fronts n'affichent ni prix ni panier, chaque produit propose une demande de renseignement.",
+        )}
+        ${textField('Adresse qui reçoit les messages', 'contactRecipient', values, errors, 'email')}
+        <p>Messages du formulaire de contact et demandes de renseignement. Jamais publiée.</p>
         <button type="submit">Enregistrer</button>
       </form>
       ${imagePreviewScript}`,

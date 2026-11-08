@@ -41,6 +41,18 @@ export const slugField = (errors: Errors, value: string): void => {
   }
 }
 
+/** Format HTML5 de la contrainte Email de Symfony (mode html5), celui du formulaire de contact. */
+const EMAIL_PATTERN =
+  /^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
+
+/** Adresse mail obligatoire, messages des contraintes NotBlank, Length et Email de Symfony. */
+export const requiredEmail = (errors: Errors, name: string, value: string): void => {
+  requiredText(errors, name, value)
+  if (errors[name] === undefined && !EMAIL_PATTERN.test(value)) {
+    errors[name] = "Cette valeur n'est pas une adresse email valide."
+  }
+}
+
 export const integer = (value: string): number | null =>
   /^-?\d+$/.test(value) ? Number(value) : null
 

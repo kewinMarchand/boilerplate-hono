@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { contactMessageViolations } from '#/contact/domain/ContactMessage.ts'
+import { contactMail, contactMessageViolations } from '#/contact/domain/ContactMessage.ts'
 import {
   CONSTRAINT_CODES,
   CONTACT_ERRORS,
@@ -11,6 +11,8 @@ import {
   violationsFromIssues,
 } from '#/contact/http/contract.ts'
 import { deserializationError, invalidTypeField } from '#/contact/http/deserializeContactMessage.ts'
+
+import type { ContactMessage } from '#/contact/domain/ContactMessage.ts'
 
 const VALID = { name: 'Camille', email: 'a@b.fr', message: 'Un message assez long.' }
 
@@ -108,6 +110,39 @@ describe('contrat du formulaire de contact', () => {
   })
 })
 
+describe('contactMail (domaine)', () => {
+  const message: ContactMessage.Entity = {
+    id: 1,
+    name: 'Camille',
+    email: 'camille@example.fr',
+    message: 'Bonjour,\n<b>une question</b>.',
+    product: null,
+    receivedAt: new Date(0),
+  }
+
+  it('écrit un message de contact simple, réponse au visiteur', () => {
+    expect(contactMail(message, null, 'contact@example.com')).toEqual({
+      to: 'contact@example.com',
+      replyTo: 'camille@example.fr',
+      subject: 'Message de contact : Camille',
+      text: 'Nom : Camille\nAdresse : camille@example.fr\n\nMessage :\nBonjour,\n<b>une question</b>.\n',
+    })
+  })
+
+  it('écrit une demande de renseignement avec le nom et le slug du produit', () => {
+    const mail = contactMail(
+      { ...message, product: 'monstera-deliciosa' },
+      { slug: 'monstera-deliciosa', name: 'Monstera deliciosa' },
+      'contact@example.com',
+    )
+
+    expect(mail.subject).toBe('Demande de renseignement : Monstera deliciosa')
+    expect(mail.text).toContain(
+      'Adresse : camille@example.fr\nProduit : Monstera deliciosa (monstera-deliciosa)\n',
+    )
+  })
+})
+
 describe('deserializationError', () => {
   it.each([
     ['"abc"', 'Invalid IRI "abc".'],
@@ -133,6 +168,7 @@ describe('invalidTypeField', () => {
     ['{"name":1.5}', 'name'],
     ['{"name":{}}', 'name'],
     ['{"email":["a"]}', 'email'],
+    ['{"product":3}', 'product'],
   ])('%s : %s', (body, expected) => {
     expect(invalidTypeField(JSON.parse(body))).toBe(expected)
   })

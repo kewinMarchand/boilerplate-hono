@@ -65,5 +65,7 @@ export const updateSiteIdentity = async (
     defaultColorScheme: input.defaultColorScheme,
     shareImage,
     icon,
+    salesEnabled: input.salesEnabled,
+    contactRecipient: input.contactRecipient,
   })
 }

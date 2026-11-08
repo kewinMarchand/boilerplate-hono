@@ -26,6 +26,7 @@ const DEFAULT = {
   shareImage: null,
   icon: null,
   defaultColorScheme: 'auto',
+  salesEnabled: true,
   theme: null,
 }
 
@@ -35,6 +36,8 @@ const FIELDS = {
   primaryColor: '#c2410c',
   secondaryColor: '#ffffff',
   defaultColorScheme: 'dark',
+  salesEnabled: 'on',
+  contactRecipient: 'contact@example.com',
 }
 
 beforeAll(async () => {
@@ -165,6 +168,7 @@ describe('Identité du site', () => {
       name: 'Oraki',
       tagline: 'Plantes rares et tropicales, livrées chez vous.',
       defaultColorScheme: 'dark',
+      salesEnabled: true,
       logo: { alt: 'Oraki', width: 400, height: 120 },
       theme: {
         light: { primary: '#c2410c', 'on-primary': '#ffffff' },
@@ -244,6 +248,43 @@ describe('Identité du site', () => {
     expect(await response.text()).toContain(
       'Recadrée au format 1:1, l&#39;image doit faire au moins 512 × 512 px : elle fait 256 × 256 px.',
     )
+  })
+
+  it('montre la case « Vente en ligne », cochée, et l’adresse qui reçoit les messages', async () => {
+    const body = await (await page()).text()
+
+    expect(body).toContain('Vente en ligne (prix, panier et commande)')
+    expect(body).toMatch(/name="salesEnabled"[^>]*checked/)
+    expect(body).toMatch(/id="contactRecipient"\s+name="contactRecipient"\s+type="email"/)
+    expect(body).toContain('value="contact@example.com"')
+  })
+
+  it('coupe la vente en ligne et change l’adresse, qui reste hors du contrat', async () => {
+    const { salesEnabled: _checked, ...withoutSales } = FIELDS
+    const saved = await submit({ ...withoutSales, contactRecipient: 'ventes@oraki.fr' })
+    expect(saved.status).toBe(303)
+
+    const { body } = await getJson(context, '/api/site-identity')
+    expect(body).toMatchObject({ salesEnabled: false })
+    expect(JSON.stringify(body)).not.toContain('ventes@oraki.fr')
+    const form = await (await page()).text()
+    expect(form).toContain('value="ventes@oraki.fr"')
+    expect(form).not.toMatch(/name="salesEnabled"[^>]*checked/)
+
+    await submit(FIELDS)
+    expect((await getJson(context, '/api/site-identity')).body).toMatchObject({
+      salesEnabled: true,
+    })
+  })
+
+  it('refuse une adresse qui reçoit les messages vide ou invalide', async () => {
+    const empty = await submit({ ...FIELDS, contactRecipient: '' })
+    const invalid = await submit({ ...FIELDS, contactRecipient: 'contact@' })
+
+    expect(empty.status).toBe(422)
+    expect(await empty.text()).toContain('Cette valeur ne doit pas être vide.')
+    expect(invalid.status).toBe(422)
+    expect(await invalid.text()).toContain('Cette valeur n&#39;est pas une adresse email valide.')
   })
 
   it('sert l’identité par défaut avec X-Scenario: empty, quelle que soit celle enregistrée', async () => {

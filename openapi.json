@@ -407,6 +407,13 @@
                         "minLength": 10,
                         "maxLength": 5000
                     },
+                    "product": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "description": "Slug du produit d'une demande de renseignement ; null ou absent pour un message de contact simple."
+                    },
                     "receivedAt": {
                         "type": [
                             "string",
@@ -421,7 +428,7 @@
                     "email",
                     "message"
                 ],
-                "description": "Enregistre un message de contact. Répond 422 avec la liste des violations si un champ est invalide."
+                "description": "Enregistre un message de contact, ou une demande de renseignement sur un produit, puis l'envoie par mail. Répond 422 avec la liste des violations si un champ est invalide ou si le produit n'existe pas ; un mail non envoyé ne change pas la réponse."
             },
             "ConstraintViolation": {
                 "type": "object",
@@ -998,6 +1005,10 @@
                             "dark"
                         ]
                     },
+                    "salesEnabled": {
+                        "type": "boolean",
+                        "description": "Vente en ligne : false, les fronts n'affichent ni prix ni panier et chaque produit propose une demande de renseignement."
+                    },
                     "theme": {
                         "anyOf": [
                             {
@@ -1017,6 +1028,7 @@
                     "shareImage",
                     "icon",
                     "defaultColorScheme",
+                    "salesEnabled",
                     "theme"
                 ],
                 "description": "Lit l'identité du site."
@@ -1344,6 +1356,12 @@
                                         ],
                                         "minLength": 10,
                                         "maxLength": 5000
+                                    },
+                                    "product": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
                                     }
                                 }
                             }

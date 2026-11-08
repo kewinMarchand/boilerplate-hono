@@ -7,13 +7,15 @@ import { CONSTRAINT_CODES } from './contract.ts'
 
 import type { ContactMessage } from '#/contact/domain/ContactMessage.ts'
 
-const WRITABLE_FIELDS: ReadonlySet<string> = new Set<ContactMessage.Field>([
+const WRITABLE_FIELDS: ReadonlySet<string> = new Set<ContactMessage.WritableField>([
   'name',
   'email',
   'message',
+  'product',
 ])
 
-const isWritableField = (key: string): key is ContactMessage.Field => WRITABLE_FIELDS.has(key)
+const isWritableField = (key: string): key is ContactMessage.WritableField =>
+  WRITABLE_FIELDS.has(key)
 
 /** Nom du type PHP (gettype) d'une valeur JSON décodée par json_decode. */
 const phpType = (value: unknown): string => {
@@ -49,14 +51,14 @@ export const deserializationError = (body: unknown): string | null => {
 
 /**
  * Premier champ du corps ni chaîne ni null : l'API Platform le refuse en 422 (contrainte Type),
- * seul, avant les règles du formulaire.
+ * seul, avant les règles du formulaire ; en 500 quand c'est le produit (voir le middleware).
  */
-export const invalidTypeField = (body: unknown): ContactMessage.Field | null => {
+export const invalidTypeField = (body: unknown): ContactMessage.WritableField | null => {
   if (typeof body !== 'object' || body === null) {
     return null
   }
   const invalid = Object.entries(body).find(
-    (entry): entry is [ContactMessage.Field, unknown] =>
+    (entry): entry is [ContactMessage.WritableField, unknown] =>
       isWritableField(entry[0]) && entry[1] !== null && typeof entry[1] !== 'string',
   )
 
@@ -75,6 +77,12 @@ export const deserializeContactMessage = createMiddleware(async (c, next) => {
     throw new DeserializationError(error)
   }
   const field = invalidTypeField(body)
+  // Seule erreur de type que l'API Platform ne collecte pas en violation : 500 du serializer
+  if (field === 'product' && typeof body === 'object' && body !== null && 'product' in body) {
+    throw new DeserializationError(
+      `The type of the "product" attribute must be "null|string", "${phpType(body.product)}" given.`,
+    )
+  }
   if (field !== null) {
     throw new ContactMessageValidationError([
       {

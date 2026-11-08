@@ -10,12 +10,21 @@ const EMAIL_FORMAT =
   /^[a-zA-Z0-9.!#$%&'*+\\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
 
 export declare namespace ContactMessage {
+  /** Champs de texte saisis. */
   type Field = 'name' | 'email' | 'message'
   type ViolationKind = 'missing' | 'tooShort' | 'tooLong' | 'invalidFormat'
+  /** Champs écrits par le visiteur : les textes, et le produit d'une demande de renseignement. */
+  type WritableField = Field | 'product'
 
   interface Violation {
     readonly field: Field
     readonly kind: ViolationKind
+  }
+
+  /** Produit d'une demande de renseignement, résolu dans le catalogue. */
+  interface Product {
+    readonly slug: string
+    readonly name: string
   }
 
   /** Saisie à vérifier, valeurs déjà nettoyées par l'adaptateur (espaces de bord retirés). */
@@ -29,6 +38,8 @@ export declare namespace ContactMessage {
     readonly name: string
     readonly email: string
     readonly message: string
+    /** Slug du produit d'une demande de renseignement (SPEC-COMMUNE, section 27), null pour un message de contact simple. */
+    readonly product: string | null
     readonly receivedAt: Date
   }
 
@@ -38,6 +49,28 @@ export declare namespace ContactMessage {
 
   interface Repository {
     save(draft: Draft): Promise<Entity>
+  }
+
+  /** Produits du catalogue, vus du contact : un produit par son slug, null s'il n'existe pas. */
+  interface Products {
+    find(slug: string): Promise<Product | null>
+  }
+
+  /** Adresse qui reçoit les messages (champ privé de l'identité du site). */
+  interface Recipient {
+    address(): Promise<string>
+  }
+
+  /** Mail en texte brut ; l'expéditeur est celui de la configuration de l'adaptateur. */
+  interface Mail {
+    readonly to: string
+    readonly replyTo: string
+    readonly subject: string
+    readonly text: string
+  }
+
+  interface Mailer {
+    send(mail: Mail): Promise<void>
   }
 }
 
@@ -99,3 +132,37 @@ export const contactMessageViolations = (
 
   return violations.filter((violation) => violation !== null)
 }
+
+/** Le slug d'une demande de renseignement ne désigne aucun produit du catalogue. */
+export class UnknownProductError extends Error {
+  constructor(slug: string) {
+    super(`Produit inconnu : ${slug}`)
+    this.name = 'UnknownProductError'
+  }
+}
+
+/**
+ * Mail envoyé à la réception d'un message (SPEC-COMMUNE, section 27) : demande de renseignement
+ * avec un produit, message de contact sinon. Texte brut, rien de saisi n'est interprété.
+ */
+export const contactMail = (
+  message: ContactMessage.Entity,
+  product: ContactMessage.Product | null,
+  recipient: string,
+): ContactMessage.Mail => ({
+  to: recipient,
+  replyTo: message.email,
+  subject:
+    product === null
+      ? `Message de contact : ${message.name}`
+      : `Demande de renseignement : ${product.name}`,
+  text: [
+    `Nom : ${message.name}`,
+    `Adresse : ${message.email}`,
+    ...(product === null ? [] : [`Produit : ${product.name} (${product.slug})`]),
+    '',
+    'Message :',
+    message.message,
+    '',
+  ].join('\n'),
+})
