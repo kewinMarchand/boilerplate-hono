@@ -24,9 +24,9 @@ import type { CatalogRepositories } from '#/catalog/application/searchProducts.t
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { RouteOptions } from '#/shared/http/routeOptions.ts'
 
-/** Élément de liste du contrat : sans `featured`, qui ne sert qu'à l'admin et au choix du carrousel. */
+/** Élément de liste du contrat : sans `featured`, qui ne sert qu'à l'admin et au choix du carrousel, ni `description`, réservée à la fiche. */
 const toProductItem = (
-  { featured: _, image, ...product }: Catalog.Product,
+  { featured: _, description: __, image, ...product }: Catalog.Product,
   options: RouteOptions,
 ) => ({ ...product, image: toImageView(options.mediaBaseUrl, image, 'product') })
 
@@ -114,7 +114,10 @@ export const catalogRoutes = (repositories: CatalogRepositories, options: RouteO
           return { slug, name }
         })
 
-        return c.json({ ...toProductItem(product, options), categoryPath }, 200)
+        return c.json(
+          { ...toProductItem(product, options), categoryPath, description: product.description },
+          200,
+        )
       },
     )
     .openapi(

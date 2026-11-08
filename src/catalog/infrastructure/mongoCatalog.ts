@@ -28,6 +28,7 @@ const productDocumentSchema = z.object({
   size: z.enum(SIZES),
   inStock: z.boolean(),
   featured: z.boolean(),
+  description: z.string(),
   /** Empreinte de l'image envoyée par l'admin (ADR 0002), null pour un produit d'avant l'envoi des images. */
   imageKey: z
     .string()

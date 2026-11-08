@@ -160,8 +160,13 @@ describe('Admin : catalogue', () => {
       size: 'S',
       inStock: 'on',
       featured: 'on',
+      description: 'Rustique.\r\n\r\nRésiste au vent.',
     })
     expect(product.status).toBe(303)
+    expect(await apiJson('/api/products/cactus-cierge')).toHaveProperty(
+      'description',
+      'Rustique.\n\nRésiste au vent.',
+    )
     expect(JSON.stringify(await apiJson('/api/featured-products'))).toContain(
       '"slug":"cactus-cierge"',
     )

@@ -47,6 +47,8 @@ export declare namespace Catalog {
     readonly image: Media.Image | null
     /** À la une : montré dans le carrousel de la page d'accueil. */
     readonly featured: boolean
+    /** Texte brut, paragraphes séparés par une ligne vide ; vide tant que l'admin n'en a pas écrit. */
+    readonly description: string
   }
 
   interface FacetValue {
@@ -147,6 +149,7 @@ export declare namespace Catalog {
     readonly size: Size
     readonly inStock: boolean
     readonly featured: boolean
+    readonly description: string
     /** Contenu du fichier envoyé, null pour garder l'image actuelle. */
     readonly imageContent: Uint8Array | null
     /** Vide (et non décorative) : le nom du produit. */
@@ -164,6 +167,7 @@ export declare namespace Catalog {
     readonly size: Size
     readonly inStock: boolean
     readonly featured: boolean
+    readonly description: string
     readonly image: Media.Image
   }
 

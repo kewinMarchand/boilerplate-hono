@@ -113,6 +113,8 @@ describe('GET /api/products/{slug}', () => {
         { slug: 'feuillages', name: 'Feuillages' },
         { slug: 'monstera', name: 'Monstera' },
       ],
+      description:
+        'Grandes feuilles vert profond, découpées et perforées avec l’âge : le monstera deliciosa habille une pièce à lui seul.\n\nLumière vive sans soleil direct, arrosage quand le terreau a séché sur deux centimètres. Un tuteur en mousse l’aide à grimper.',
     })
   })
 
@@ -124,7 +126,7 @@ describe('GET /api/products/{slug}', () => {
 })
 
 describe('GET /api/featured-products', () => {
-  it('liste les produits à la une par nom, sans le champ featured', async () => {
+  it('liste les produits à la une par nom, sans les champs featured ni description', async () => {
     const { response, body } = await getJson(context, '/api/featured-products')
     const products = z.array(z.record(z.string(), z.unknown())).parse(body)
 
@@ -137,6 +139,7 @@ describe('GET /api/featured-products', () => {
       'strelitzia-reginae',
     ])
     expect(Object.keys(products[0] ?? {})).not.toContain('featured')
+    expect(Object.keys(products[0] ?? {})).not.toContain('description')
   })
 })
 

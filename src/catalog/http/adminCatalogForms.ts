@@ -7,6 +7,8 @@ import { readImageFields } from '#/media/http/adminImageFields.ts'
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
 
+const DESCRIPTION_MAX_LENGTH = 2000
+
 /**
  * Lecture des formulaires de l'admin du catalogue : la forme est vérifiée ici, à la frontière
  * (outils communs de shared/http/adminForms.ts) ; les règles du catalogue le sont ensuite par les
@@ -69,6 +71,8 @@ export const readProductForm = async (
     size: field(body, 'size'),
     inStock: field(body, 'inStock') === '' ? '' : 'on',
     featured: field(body, 'featured') === '' ? '' : 'on',
+    // Fins de ligne du formulaire (CRLF) ramenées à LF, comme Product dans l'API Platform
+    description: field(body, 'description').replaceAll('\r\n', '\n'),
   }
   const errors: Errors = {}
   requiredText(errors, 'name', values.name)
@@ -88,6 +92,9 @@ export const readProductForm = async (
   if (!isSize(values.size)) {
     errors.size = "Le choix sélectionné n'est pas valide."
   }
+  if (Array.from(values.description).length > DESCRIPTION_MAX_LENGTH) {
+    errors.description = `Cette chaîne est trop longue. Elle doit avoir au maximum ${DESCRIPTION_MAX_LENGTH} caractères.`
+  }
   const formValues: Values = { ...values }
   const image = await readImageFields(body, formValues, errors)
   const { exposure, size } = values
@@ -102,6 +109,7 @@ export const readProductForm = async (
           size,
           inStock: values.inStock === 'on',
           featured: values.featured === 'on',
+          description: values.description,
           imageContent: image.content,
           imageAlt: image.alt,
           imageDecorative: image.decorative,

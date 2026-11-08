@@ -2,17 +2,17 @@
 
 Seconde API de test des boilerplates front, en NoSQL. Elle sert exactement le même contrat que [boilerplate-api-platform](../boilerplate-api-platform) (API Platform, PostgreSQL, port 8090) : mêmes chemins, mêmes paramètres, mêmes formes JSON, mêmes codes et messages d'erreur, mêmes données. Un front passe de l'une à l'autre en changeant une seule variable d'URL.
 
-| Ressource         | Opération                     | Ce qu'elle renvoie                                                                                                                 |
-| ----------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `Task`            | `GET /api/tasks`              | Les 3 tâches de démonstration (`id`, `title`, `done`)                                                                              |
-| `Article`         | `GET /api/articles`           | 3 articles (`id`, `slug`, `title`, `excerpt`, `publishedAt`), du plus récent au plus ancien                                        |
-| `ArticleDetail`   | `GET /api/articles/{slug}`    | Fiche d'un article : les mêmes champs, plus `html` (texte saisi en Markdown dans l'admin, converti à l'enregistrement) ; 404 sinon |
-| `ContactMessage`  | `POST /api/contact_messages`  | 201 et le message enregistré, ou 422 avec les violations en français                                                               |
-| `Category`        | `GET /api/categories`         | L'arbre des 14 catégories du catalogue                                                                                             |
-| `ProductList`     | `GET /api/products`           | Une page des 24 produits, filtrée et triée, avec le total et les compteurs de facettes                                             |
-| `ProductDetail`   | `GET /api/products/{slug}`    | Fiche d'un produit : les champs de la liste, plus `categoryPath` (catégories de la racine à la sienne) ; 404 sinon                 |
-| `FeaturedProduct` | `GET /api/featured-products`  | Les produits « À la une » (case de l'admin), par nom, sous la forme des éléments de la liste : le carrousel de l'accueil           |
-| `LegalPage`       | `GET /api/legal_pages/{slug}` | Une page légale découpée en sections HTML, ou 404                                                                                  |
+| Ressource         | Opération                     | Ce qu'elle renvoie                                                                                                                                                      |
+| ----------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Task`            | `GET /api/tasks`              | Les 3 tâches de démonstration (`id`, `title`, `done`)                                                                                                                   |
+| `Article`         | `GET /api/articles`           | 3 articles (`id`, `slug`, `title`, `excerpt`, `publishedAt`), du plus récent au plus ancien                                                                             |
+| `ArticleDetail`   | `GET /api/articles/{slug}`    | Fiche d'un article : les mêmes champs, plus `html` (texte saisi en Markdown dans l'admin, converti à l'enregistrement) ; 404 sinon                                      |
+| `ContactMessage`  | `POST /api/contact_messages`  | 201 et le message enregistré, ou 422 avec les violations en français                                                                                                    |
+| `Category`        | `GET /api/categories`         | L'arbre des 14 catégories du catalogue                                                                                                                                  |
+| `ProductList`     | `GET /api/products`           | Une page des 24 produits, filtrée et triée, avec le total et les compteurs de facettes                                                                                  |
+| `ProductDetail`   | `GET /api/products/{slug}`    | Fiche d'un produit : les champs de la liste, plus `categoryPath` (catégories de la racine à la sienne) et `description` (texte brut, chaîne vide si aucune) ; 404 sinon |
+| `FeaturedProduct` | `GET /api/featured-products`  | Les produits « À la une » (case de l'admin), par nom, sous la forme des éléments de la liste : le carrousel de l'accueil                                                |
+| `LegalPage`       | `GET /api/legal_pages/{slug}` | Une page légale découpée en sections HTML, ou 404                                                                                                                       |
 
 Les diapositives (`GET /api/slides`) sont retirées, comme dans l'API Platform : le carrousel des fronts montre les produits à la une ([ADR 0004 de l'API Platform](../boilerplate-api-platform/doc/adr/0004-carrousel-de-produits-a-la-une.md)).
 

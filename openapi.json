@@ -586,6 +586,10 @@
                             "$ref": "#/components/schemas/CategoryLink"
                         },
                         "description": "Catégories de la racine à celle du produit, pour le fil d'Ariane."
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Texte brut, paragraphes séparés par une ligne vide ; chaîne vide si l'admin n'en a pas écrit."
                     }
                 },
                 "required": [
@@ -598,7 +602,8 @@
                     "size",
                     "inStock",
                     "image",
-                    "categoryPath"
+                    "categoryPath",
+                    "description"
                 ],
                 "description": "Lit un produit par son slug."
             },

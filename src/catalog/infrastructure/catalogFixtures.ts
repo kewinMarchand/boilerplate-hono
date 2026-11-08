@@ -164,6 +164,58 @@ const FEATURED: readonly string[] = [
   'nenuphar-bleu-du-nil',
 ]
 
+/** Description de chaque produit, par slug, comme dans l'API Platform. */
+const DESCRIPTIONS: Readonly<Record<string, string>> = {
+  'monstera-deliciosa':
+    'Grandes feuilles vert profond, découpées et perforées avec l’âge : le monstera deliciosa habille une pièce à lui seul.\n\nLumière vive sans soleil direct, arrosage quand le terreau a séché sur deux centimètres. Un tuteur en mousse l’aide à grimper.',
+  'monstera-adansonii':
+    'Feuillage léger, percé de nombreux trous ovales. Ce petit monstera retombe joliment d’une suspension ou grimpe le long d’un tuteur.\n\nIl aime l’humidité : vaporisez ses feuilles en période de chauffage.',
+  'monstera-thai-constellation':
+    'Variété rare au feuillage moucheté de crème, chaque feuille est unique. Sa croissance est lente et sa panachure stable.\n\nLumière vive indispensable pour garder les taches claires, arrosage modéré.',
+  'fougere-de-boston':
+    'Frondes arquées d’un vert tendre, en touffe généreuse. La fougère de Boston aime les pièces lumineuses et humides, comme une salle de bains.\n\nGardez le terreau frais, sans excès d’eau.',
+  'asplenium-nidus':
+    'Ses feuilles entières et brillantes s’ouvrent en rosette, comme un nid d’oiseau. Une fougère facile qui tolère la mi-ombre.\n\nArrosez autour du cœur, jamais dedans.',
+  'fougere-arborescente-dicksonia':
+    'Un tronc fibreux surmonté d’une couronne de frondes : la silhouette d’une forêt primitive pour un patio abrité.\n\nArrosez le tronc lui-même en été, il absorbe l’eau. Protégez la couronne du gel.',
+  'anthurium-andreanum-rouge':
+    'Spathes rouge vif, brillantes comme laquées, qui durent plusieurs semaines. L’anthurium fleurit presque toute l’année en intérieur.\n\nLumière vive sans soleil direct, terreau léger juste humide.',
+  'anthurium-clarinervium':
+    'Feuilles en cœur, épaisses et veloutées, parcourues de nervures argentées. Un anthurium de collection, cultivé pour son feuillage.\n\nAtmosphère humide et arrosage doux, à l’eau non calcaire.',
+  'anthurium-blanc-champion':
+    'Spathes blanc pur, élégantes et sobres, au-dessus d’un feuillage vert brillant. Une floraison longue pour une pièce claire.\n\nÉvitez les courants d’air et le soleil de midi.',
+  'strelitzia-reginae':
+    'Ses fleurs orange et bleu évoquent la tête d’un oiseau exotique. Le strelitzia reginae fleurit après quelques années, au soleil.\n\nArrosage régulier en été, plus rare en hiver. Sortez-le au jardin aux beaux jours.',
+  'strelitzia-nicolai':
+    'Grandes feuilles en éventail, façon bananier : le strelitzia nicolai donne de la hauteur à un salon lumineux.\n\nPlein soleil ou lumière très vive, arrosage quand le terreau a séché en surface.',
+  'strelitzia-reginae-jeune-plant':
+    'Jeune plant d’oiseau de paradis, à faire grandir. Comptez trois à cinq ans avant les premières fleurs.\n\nRempotez-le au printemps dans un pot à peine plus grand.',
+  'palmier-de-chine':
+    'Palmier rustique jusqu’à −15 °C, aux palmes en éventail portées par un stipe couvert de fibres. Il pousse en pleine terre comme en grand bac.\n\nSoleil ou mi-ombre, sol drainé.',
+  'palmier-bleu-du-mexique':
+    'Palmes argent-bleuté, très graphiques. Le brahea armata supporte la sécheresse et le froid sec une fois installé.\n\nPlein soleil, sol caillouteux, arrosages rares.',
+  'palmier-nain':
+    'Seul palmier originaire d’Europe, le palmier nain forme une touffe compacte, idéale en pot sur une terrasse ensoleillée.\n\nIl résiste au vent, aux embruns et à la sécheresse.',
+  'heliconia-rostrata':
+    'Bractées rouges bordées de jaune, en cascade pendante : l’heliconia rostrata, ou pince de homard, est la fleur des jardins tropicaux.\n\nChaleur, soleil et arrosage généreux en saison.',
+  'heliconia-psittacorum':
+    'Petites bractées orange et rouge, dressées comme des becs de perroquet. Une floraison abondante en massif ou en pot.\n\nSoleil, sol riche et humide.',
+  'heliconia-wagneriana':
+    'Bractées rose corail ourlées de vert et de jaune, alternées sur la hampe. L’une des heliconias les plus spectaculaires.\n\nMi-ombre lumineuse, chaleur et humidité constantes.',
+  'calliandra-haematocephala':
+    'Pompons rouges soyeux, faits d’étamines, sur un feuillage fin et léger. Un arbuste qui attire les colibris sous les tropiques.\n\nSoleil, taille légère après la floraison.',
+  'calliandra-surinamensis':
+    'Pompons bicolores blancs à pointe rose, en floraison presque continue. Ce calliandra reste compact et convient au pot.\n\nSoleil et arrosage régulier.',
+  'calliandra-tweedii':
+    'Houppes rouge vif sur un feuillage plumeux. Le calliandra tweedii supporte un peu de fraîcheur et forme un bel arbuste isolé.\n\nSoleil, sol bien drainé.',
+  'nenuphar-blanc-rustique':
+    'Fleurs blanches parfumées, posées sur de grandes feuilles rondes. Ce nénuphar indigène passe l’hiver au fond du bassin.\n\nPlantez-le en panier, entre 50 cm et 1 m de profondeur.',
+  'nenuphar-bleu-du-nil':
+    'Fleurs bleu ciel étoilées, ouvertes le matin et refermées l’après-midi. Le nénuphar sacré de l’Égypte ancienne.\n\nEau chaude et plein soleil ; rentrez-le à l’abri du gel.',
+  'lotus-sacre':
+    'Fleurs roses dressées au-dessus de l’eau, puis capsules de graines décoratives. Ses grandes feuilles déperlantes restent sèches sous la pluie.\n\nBassin peu profond, plein soleil et chaleur.',
+}
+
 /** Fixture : la photo de démonstration (fixtures/images), importée par resetDatabase avec le nom pour texte. */
 export type ProductFixture = Omit<Catalog.Product, 'image'> & { readonly demoImage: string }
 
@@ -178,6 +230,7 @@ export const productFixtures: ProductFixture[] = PRODUCTS.map(
     size,
     inStock,
     featured: FEATURED.includes(slug),
+    description: DESCRIPTIONS[slug] ?? '',
     demoImage: `product-${(index % 12) + 1}`,
   }),
 )

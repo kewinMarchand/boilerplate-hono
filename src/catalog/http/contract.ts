@@ -51,6 +51,10 @@ export const productDetailContract = z
     categoryPath: z.array(categoryLinkContract).meta({
       description: "Catégories de la racine à celle du produit, pour le fil d'Ariane.",
     }),
+    description: z.string().meta({
+      description:
+        "Texte brut, paragraphes séparés par une ligne vide ; chaîne vide si l'admin n'en a pas écrit.",
+    }),
   })
   .meta({ id: 'ProductDetail', description: 'Lit un produit par son slug.' })
 

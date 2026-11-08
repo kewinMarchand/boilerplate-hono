@@ -38,6 +38,7 @@ const catalogue = () => {
       size: 'M',
       inStock: true,
       featured: false,
+      description: '',
       image: testImage('Monstera deliciosa'),
     },
   ]
@@ -117,6 +118,7 @@ const product = (
   size: 'S',
   inStock: true,
   featured: false,
+  description: '',
   imageContent,
   imageAlt: '',
   imageDecorative: false,

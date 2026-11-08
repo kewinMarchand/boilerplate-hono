@@ -1,6 +1,6 @@
 import { html } from 'hono/html'
 
-import { selectField, textField } from '#/shared/http/adminForms.ts'
+import { selectField, textareaField, textField } from '#/shared/http/adminForms.ts'
 import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
 
 import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
@@ -193,6 +193,7 @@ export const productFormPage = (
           errors,
         )}
         ${textField('Prix (€)', 'price', values, errors)}
+        ${textareaField('Description (texte brut, une ligne vide sépare deux paragraphes)', 'description', values, errors, 6)}
         ${selectField(
           'Exposition',
           'exposure',
@@ -250,5 +251,6 @@ export const productValues = (product: Catalog.Product): Values => ({
   size: product.size,
   inStock: product.inStock ? 'on' : '',
   featured: product.featured ? 'on' : '',
+  description: product.description,
   ...imageValues(product.image),
 })
