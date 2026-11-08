@@ -87,10 +87,17 @@ export const productQueryDocumentation = z.object({
   ),
   page: parameter(
     { type: 'integer', default: 1 },
-    'Numéro de page, à partir de 1. Au-delà de la dernière page : items vide.',
+    'Numéro de page, à partir de 1. Au-delà de la dernière page : tableau vide.',
   ),
   itemsPerPage: parameter(
     { type: 'integer', default: DEFAULT_ITEMS_PER_PAGE },
     `Produits par page, de 1 à ${MAX_ITEMS_PER_PAGE}.`,
   ),
+})
+
+export const productFacetsQueryDocumentation = productQueryDocumentation.omit({
+  'order[price]': true,
+  'order[name]': true,
+  page: true,
+  itemsPerPage: true,
 })

@@ -24,49 +24,49 @@ const request = (
 ) => context.app.request(path, { ...init, headers: { Accept: 'application/json', ...headers } })
 
 describe('X-Scenario', () => {
-  it.each(['/api/tasks', '/api/articles', '/api/categories'])(
-    'error : 500 problem+json sur %s',
-    async (path) => {
-      const response = await request(dev, path, { 'X-Scenario': 'error' })
+  it.each([
+    '/api/tasks',
+    '/api/articles',
+    '/api/categories',
+    '/api/products',
+    '/api/product-facets',
+  ])('error : 500 problem+json sur %s', async (path) => {
+    const response = await request(dev, path, { 'X-Scenario': 'error' })
 
-      expect(response.status).toBe(500)
-      expect(response.headers.get('content-type')).toBe('application/problem+json')
-    },
-  )
+    expect(response.status).toBe(500)
+    expect(response.headers.get('content-type')).toBe('application/problem+json')
+  })
 
-  it.each(['/api/tasks', '/api/articles', '/api/categories'])(
-    'empty : collection vide sur %s',
-    async (path) => {
-      const response = await request(dev, path, { 'X-Scenario': 'empty' })
+  it.each([
+    '/api/tasks',
+    '/api/articles',
+    '/api/categories',
+    '/api/products',
+    '/api/featured-products',
+  ])('empty : collection vide sur %s', async (path) => {
+    const response = await request(dev, path, { 'X-Scenario': 'empty' })
 
-      expect(await response.json()).toEqual([])
-    },
-  )
+    expect(await response.json()).toEqual([])
+  })
 
-  it('empty : liste de produits vide, compteurs à 0', async () => {
-    const response = await request(dev, '/api/products?category=feuillages', {
+  it('empty : total et compteurs de facettes à 0', async () => {
+    const response = await request(dev, '/api/product-facets?category=feuillages', {
       'X-Scenario': 'empty',
     })
 
     expect(await response.json()).toEqual({
-      items: [],
       totalItems: 0,
-      page: 1,
-      itemsPerPage: 12,
-      totalPages: 0,
-      facets: {
-        exposure: [
-          { value: 'soleil', count: 0 },
-          { value: 'mi-ombre', count: 0 },
-          { value: 'ombre', count: 0 },
-        ],
-        size: [
-          { value: 'S', count: 0 },
-          { value: 'M', count: 0 },
-          { value: 'L', count: 0 },
-        ],
-        category: [],
-      },
+      exposure: [
+        { value: 'soleil', count: 0 },
+        { value: 'mi-ombre', count: 0 },
+        { value: 'ombre', count: 0 },
+      ],
+      size: [
+        { value: 'S', count: 0 },
+        { value: 'M', count: 0 },
+        { value: 'L', count: 0 },
+      ],
+      category: [],
     })
   })
 

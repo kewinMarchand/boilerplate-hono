@@ -18,18 +18,14 @@ describe('client typé hc (AppType)', () => {
     const client = testClient(context.app)
 
     const tasks: Task.Entity[] = await (await client.api.tasks.$get()).json()
-    const response = await client.api.products.$get({ query: { category: 'monstera' } })
+    const response = await client.api['product-facets'].$get({ query: { category: 'monstera' } })
     if (response.status !== 200) {
       throw new Error(`Statut inattendu : ${response.status}`)
     }
-    const list = await response.json()
+    const facets = await response.json()
 
     expect(tasks).toHaveLength(3)
-    expect(list.totalItems).toBe(3)
-    expect(list.facets.exposure.map((facet) => facet.value)).toEqual([
-      'soleil',
-      'mi-ombre',
-      'ombre',
-    ])
+    expect(facets.totalItems).toBe(3)
+    expect(facets.exposure.map((facet) => facet.value)).toEqual(['soleil', 'mi-ombre', 'ombre'])
   })
 })

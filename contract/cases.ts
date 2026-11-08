@@ -188,6 +188,13 @@ export const CASES: readonly ContractCase[] = [
   get('/api/products?category=cactus', { ...JSON_ACCEPT, 'X-Scenario': 'error' }),
   get('/api/products', { Accept: 'text/html' }),
   get('/api/products?page=99999999999999999999'),
+  ...PRODUCT_QUERIES.map((query) => get(`/api/product-facets?${query}`)),
+  get('/api/product-facets?category=cactus', ANY_ACCEPT),
+  get('/api/product-facets?category=cactus', {}),
+  get('/api/product-facets?category=feuillages', { ...JSON_ACCEPT, 'X-Scenario': 'empty' }),
+  get('/api/product-facets?category=cactus', { ...JSON_ACCEPT, 'X-Scenario': 'empty' }),
+  get('/api/product-facets?category=cactus', { ...JSON_ACCEPT, 'X-Scenario': 'error' }),
+  get('/api/product-facets', { Accept: 'text/html' }),
   post('valide', `{"name":"Camille Martin",${VALID}}`),
   post('valide, Accept */*', `{"name":"Camille Martin",${VALID}}`, {
     'Content-Type': 'application/json',

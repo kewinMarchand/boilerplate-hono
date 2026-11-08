@@ -22,5 +22,5 @@ export const searchProducts = async (
   const children = CategoryTree.childrenOf(tree, current)
   const result = await repositories.products.search(toSearchQuery(criteria, children))
 
-  return toProductList(criteria, children, result)
+  return toProductList(children, result)
 }

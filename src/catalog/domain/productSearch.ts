@@ -1,4 +1,4 @@
-import { DEFAULT_ITEMS_PER_PAGE, EXPOSURES, SIZES } from './catalog.ts'
+import { EXPOSURES, SIZES } from './catalog.ts'
 
 import type { Catalog } from './catalog.ts'
 
@@ -8,15 +8,11 @@ const facetValues = <TValue extends string>(
 ): Catalog.FacetValue[] => values.map((value) => ({ value, count: counts[value] ?? 0 }))
 
 export const toProductList = (
-  criteria: Catalog.Criteria,
   children: readonly Catalog.Category[],
   result: Catalog.SearchResult,
 ): Catalog.ProductList => ({
   items: result.items,
   totalItems: result.totalItems,
-  page: criteria.page,
-  itemsPerPage: criteria.itemsPerPage,
-  totalPages: Math.ceil(result.totalItems / criteria.itemsPerPage),
   facets: {
     exposure: facetValues(EXPOSURES, result.exposureCounts),
     size: facetValues(SIZES, result.sizeCounts),
@@ -31,9 +27,6 @@ export const toProductList = (
 export const emptyProductList = (): Catalog.ProductList => ({
   items: [],
   totalItems: 0,
-  page: 1,
-  itemsPerPage: DEFAULT_ITEMS_PER_PAGE,
-  totalPages: 0,
   facets: { exposure: facetValues(EXPOSURES, {}), size: facetValues(SIZES, {}), category: [] },
 })
 

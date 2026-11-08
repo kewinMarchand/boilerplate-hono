@@ -14,11 +14,15 @@ import { toImageView } from '#/media/http/imageContract.ts'
 
 import {
   categoryNodeContract,
-  featuredProductContract,
+  productContract,
   productDetailContract,
-  productListContract,
+  productFacetsContract,
 } from './contract.ts'
-import { productQueryDocumentation, rawCriteriaFromQuery } from './productQuery.ts'
+import {
+  productFacetsQueryDocumentation,
+  productQueryDocumentation,
+  rawCriteriaFromQuery,
+} from './productQuery.ts'
 
 import type { CatalogRepositories } from '#/catalog/application/searchProducts.ts'
 import type { Catalog } from '#/catalog/domain/catalog.ts'
@@ -30,8 +34,16 @@ const toProductItem = (
   options: RouteOptions,
 ) => ({ ...product, image: toImageView(options.mediaBaseUrl, image, 'product') })
 
-export const catalogRoutes = (repositories: CatalogRepositories, options: RouteOptions) =>
-  new OpenAPIHono()
+const toProductFacets = ({ totalItems, facets }: Catalog.ProductList) => ({
+  totalItems,
+  ...facets,
+})
+
+export const catalogRoutes = (repositories: CatalogRepositories, options: RouteOptions) => {
+  const search = (url: string) =>
+    searchProducts(parseCriteria(rawCriteriaFromQuery(new URL(url).search)), repositories)
+
+  return new OpenAPIHono()
     .openapi(
       createRoute({
         method: 'get',
@@ -56,31 +68,50 @@ export const catalogRoutes = (repositories: CatalogRepositories, options: RouteO
       createRoute({
         method: 'get',
         path: '/api/products',
-        operationId: 'api_products_get',
-        tags: ['ProductList'],
-        summary: 'Retrieves a ProductList resource.',
-        description:
-          "Liste les produits du catalogue. Les filtres se combinent en ET, les valeurs d'une même facette en OU. Une valeur invalide (inconnue, non numérique, hors bornes) est ignorée et remplacée par la valeur par défaut.",
-        middleware: [negotiateFormat(), scenario(options.scenarios, emptyProductList)],
+        operationId: 'api_products_get_collection',
+        tags: ['Product'],
+        summary: 'Retrieves the collection of Product resources.',
+        description: 'Retrieves the collection of Product resources.',
+        middleware: [negotiateFormat(), scenario(options.scenarios, () => [])],
         request: { query: productQueryDocumentation },
         responses: {
           200: {
-            description: 'ProductList resource',
-            content: { 'application/json': { schema: productListContract } },
+            description: 'Product collection',
+            content: { 'application/json': { schema: z.array(productContract) } },
+          },
+        },
+      }),
+      async (c) => {
+        const { items } = await search(c.req.url)
+
+        return c.json(
+          items.map((product) => toProductItem(product, options)),
+          200,
+        )
+      },
+    )
+    .openapi(
+      createRoute({
+        method: 'get',
+        path: '/api/product-facets',
+        operationId: 'api_product-facets_get',
+        tags: ['ProductFacets'],
+        summary: 'Retrieves a ProductFacets resource.',
+        description: 'Retrieves a ProductFacets resource.',
+        middleware: [
+          negotiateFormat(),
+          scenario(options.scenarios, () => toProductFacets(emptyProductList())),
+        ],
+        request: { query: productFacetsQueryDocumentation },
+        responses: {
+          200: {
+            description: 'ProductFacets resource',
+            content: { 'application/json': { schema: productFacetsContract } },
           },
           404: { description: 'Not found', content: problemContent(errorSchema) },
         },
       }),
-      async (c) => {
-        const criteria = parseCriteria(rawCriteriaFromQuery(new URL(c.req.url).search))
-
-        const list = await searchProducts(criteria, repositories)
-
-        return c.json(
-          { ...list, items: list.items.map((product) => toProductItem(product, options)) },
-          200,
-        )
-      },
+      async (c) => c.json(toProductFacets(await search(c.req.url)), 200),
     )
     .openapi(
       createRoute({
@@ -125,14 +156,14 @@ export const catalogRoutes = (repositories: CatalogRepositories, options: RouteO
         method: 'get',
         path: '/api/featured-products',
         operationId: 'api_featured-products_get_collection',
-        tags: ['FeaturedProduct'],
-        summary: 'Retrieves the collection of FeaturedProduct resources.',
-        description: 'Retrieves the collection of FeaturedProduct resources.',
+        tags: ['Product'],
+        summary: 'Retrieves the collection of Product resources.',
+        description: 'Retrieves the collection of Product resources.',
         middleware: [negotiateFormat(), scenario(options.scenarios, () => [])],
         responses: {
           200: {
-            description: 'FeaturedProduct collection',
-            content: { 'application/json': { schema: z.array(featuredProductContract) } },
+            description: 'Product collection',
+            content: { 'application/json': { schema: z.array(productContract) } },
           },
         },
       }),
@@ -144,3 +175,4 @@ export const catalogRoutes = (repositories: CatalogRepositories, options: RouteO
         )
       },
     )
+}

@@ -51,10 +51,9 @@ describe('arbre des catégories', () => {
 })
 
 describe('liste de produits', () => {
-  it('complète les facettes à 0 dans un ordre fixe et compte les pages', () => {
-    const criteria = parseCriteria(rawCriteriaFromQuery('category=feuillages&itemsPerPage=5'))
+  it('complète les facettes à 0 dans un ordre fixe', () => {
     const children = CategoryTree.childrenOf(tree, CategoryTree.find(tree, 'feuillages'))
-    const list = toProductList(criteria, children, {
+    const list = toProductList(children, {
       items: [],
       totalItems: 6,
       exposureCounts: { ombre: 2, 'mi-ombre': 4 },
@@ -62,7 +61,6 @@ describe('liste de produits', () => {
       categoryCounts: { fougeres: 3 },
     })
 
-    expect(list.totalPages).toBe(2)
     expect(list.facets.exposure).toEqual([
       { value: 'soleil', count: 0 },
       { value: 'mi-ombre', count: 4 },
@@ -81,12 +79,6 @@ describe('liste de produits', () => {
   })
 
   it('a une forme vide pour X-Scenario: empty', () => {
-    expect(emptyProductList()).toMatchObject({
-      items: [],
-      totalItems: 0,
-      page: 1,
-      itemsPerPage: 12,
-      totalPages: 0,
-    })
+    expect(emptyProductList()).toMatchObject({ items: [], totalItems: 0 })
   })
 })

@@ -49,7 +49,7 @@ describe('searchProducts (cas d’utilisation)', () => {
         limit: 2,
       }),
     ])
-    expect(list).toMatchObject({ totalItems: 3, page: 2, itemsPerPage: 2, totalPages: 2 })
+    expect(list.totalItems).toBe(3)
     expect(list.facets.category.map(({ slug, count }) => [slug, count])).toEqual([
       ['monstera', 0],
       ['fougeres', 0],

@@ -33,12 +33,10 @@ const productItemShape = {
   image: z.union([imageViewContract, z.null()]),
 }
 
-export const productItemContract = z.object(productItemShape).meta({ id: 'ProductItem' })
-
-/** Même forme que ProductItem, sous le nom que lui donne l'API Platform (sortie de la ressource FeaturedProduct). */
-export const featuredProductContract = z.object(productItemShape).meta({
-  id: 'FeaturedProduct.ProductItem',
-  description: 'Liste les produits à la une par ordre alphabétique, sans pagination.',
+export const productContract = z.object(productItemShape).meta({
+  id: 'Product',
+  description:
+    "Liste une page de produits. Les filtres se combinent en ET, les valeurs d'une même facette en OU. Une valeur invalide (inconnue, non numérique, hors bornes) est ignorée et remplacée par la valeur par défaut. Le total et les compteurs de facettes : GET /api/product-facets avec les mêmes filtres.",
 })
 
 export const categoryLinkContract = z
@@ -80,6 +78,9 @@ export const categoryFacetValueContract = z
 
 export const productFacetsContract = z
   .object({
+    totalItems: z
+      .int()
+      .meta({ description: 'Nombre de produits filtrés, toutes pages confondues.' }),
     exposure: z
       .array(facetValueContract)
       .meta({ description: 'Toutes les expositions, y compris à 0.' }),
@@ -89,21 +90,8 @@ export const productFacetsContract = z
         'Sous-catégories directes de la catégorie filtrée (catégories racines sans filtre). Vide sur une feuille.',
     }),
   })
-  .meta({ id: 'ProductFacets' })
-
-export const productListContract = z
-  .object({
-    items: z.array(productItemContract),
-    totalItems: z
-      .int()
-      .meta({ description: 'Nombre total de produits filtrés, toutes pages confondues.' }),
-    page: z.int(),
-    itemsPerPage: z.int(),
-    totalPages: z.int().meta({ description: 'Nombre de pages, 0 si aucun résultat.' }),
-    facets: productFacetsContract,
-  })
   .meta({
-    id: 'ProductList',
+    id: 'ProductFacets',
     description:
-      "Liste les produits du catalogue. Les filtres se combinent en ET, les valeurs d'une même facette en OU. Une valeur invalide (inconnue, non numérique, hors bornes) est ignorée et remplacée par la valeur par défaut.",
+      'Compte les produits filtrés, au total et par valeur de facette. Mêmes filtres que GET /api/products, sans tri ni pagination.',
   })

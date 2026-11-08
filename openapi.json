@@ -367,44 +367,7 @@
                 ],
                 "description": "Renvoie l'arbre des catégories : les catégories racines, chacune avec ses enfants, triées par position."
             },
-            "ProductList": {
-                "type": "object",
-                "properties": {
-                    "items": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/ProductItem"
-                        }
-                    },
-                    "totalItems": {
-                        "type": "integer",
-                        "description": "Nombre total de produits filtrés, toutes pages confondues."
-                    },
-                    "page": {
-                        "type": "integer"
-                    },
-                    "itemsPerPage": {
-                        "type": "integer"
-                    },
-                    "totalPages": {
-                        "type": "integer",
-                        "description": "Nombre de pages, 0 si aucun résultat."
-                    },
-                    "facets": {
-                        "$ref": "#/components/schemas/ProductFacets"
-                    }
-                },
-                "required": [
-                    "items",
-                    "totalItems",
-                    "page",
-                    "itemsPerPage",
-                    "totalPages",
-                    "facets"
-                ],
-                "description": "Liste les produits du catalogue. Les filtres se combinent en ET, les valeurs d'une même facette en OU. Une valeur invalide (inconnue, non numérique, hors bornes) est ignorée et remplacée par la valeur par défaut."
-            },
-            "ProductItem": {
+            "Product": {
                 "type": "object",
                 "properties": {
                     "id": {
@@ -463,11 +426,16 @@
                     "size",
                     "inStock",
                     "image"
-                ]
+                ],
+                "description": "Liste une page de produits. Les filtres se combinent en ET, les valeurs d'une même facette en OU. Une valeur invalide (inconnue, non numérique, hors bornes) est ignorée et remplacée par la valeur par défaut. Le total et les compteurs de facettes : GET /api/product-facets avec les mêmes filtres."
             },
             "ProductFacets": {
                 "type": "object",
                 "properties": {
+                    "totalItems": {
+                        "type": "integer",
+                        "description": "Nombre de produits filtrés, toutes pages confondues."
+                    },
                     "exposure": {
                         "type": "array",
                         "items": {
@@ -491,10 +459,12 @@
                     }
                 },
                 "required": [
+                    "totalItems",
                     "exposure",
                     "size",
                     "category"
-                ]
+                ],
+                "description": "Compte les produits filtrés, au total et par valeur de facette. Mêmes filtres que GET /api/products, sans tri ni pagination."
             },
             "FacetValue": {
                 "type": "object",
@@ -621,68 +591,6 @@
                     "slug",
                     "name"
                 ]
-            },
-            "FeaturedProduct.ProductItem": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "slug": {
-                        "type": "string"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "categorySlug": {
-                        "type": "string"
-                    },
-                    "price": {
-                        "type": "integer",
-                        "description": "Prix en centimes."
-                    },
-                    "exposure": {
-                        "type": "string",
-                        "enum": [
-                            "soleil",
-                            "mi-ombre",
-                            "ombre"
-                        ]
-                    },
-                    "size": {
-                        "type": "string",
-                        "enum": [
-                            "S",
-                            "M",
-                            "L"
-                        ]
-                    },
-                    "inStock": {
-                        "type": "boolean"
-                    },
-                    "image": {
-                        "anyOf": [
-                            {
-                                "$ref": "#/components/schemas/ImageView"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ]
-                    }
-                },
-                "required": [
-                    "id",
-                    "slug",
-                    "name",
-                    "categorySlug",
-                    "price",
-                    "exposure",
-                    "size",
-                    "inStock",
-                    "image"
-                ],
-                "description": "Liste les produits à la une par ordre alphabétique, sans pagination."
             },
             "LegalPage": {
                 "type": "object",
@@ -960,12 +868,12 @@
         },
         "/api/products": {
             "get": {
-                "operationId": "api_products_get",
+                "operationId": "api_products_get_collection",
                 "tags": [
-                    "ProductList"
+                    "Product"
                 ],
-                "summary": "Retrieves a ProductList resource.",
-                "description": "Liste les produits du catalogue. Les filtres se combinent en ET, les valeurs d'une même facette en OU. Une valeur invalide (inconnue, non numérique, hors bornes) est ignorée et remplacée par la valeur par défaut.",
+                "summary": "Retrieves the collection of Product resources.",
+                "description": "Retrieves the collection of Product resources.",
                 "parameters": [
                     {
                         "schema": {
@@ -1067,10 +975,10 @@
                         "schema": {
                             "type": "integer",
                             "default": 1,
-                            "description": "Numéro de page, à partir de 1. Au-delà de la dernière page : items vide."
+                            "description": "Numéro de page, à partir de 1. Au-delà de la dernière page : tableau vide."
                         },
                         "required": false,
-                        "description": "Numéro de page, à partir de 1. Au-delà de la dernière page : items vide.",
+                        "description": "Numéro de page, à partir de 1. Au-delà de la dernière page : tableau vide.",
                         "name": "page",
                         "in": "query"
                     },
@@ -1088,11 +996,114 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "ProductList resource",
+                        "description": "Product collection",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ProductList"
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Product"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/product-facets": {
+            "get": {
+                "operationId": "api_product-facets_get",
+                "tags": [
+                    "ProductFacets"
+                ],
+                "summary": "Retrieves a ProductFacets resource.",
+                "description": "Retrieves a ProductFacets resource.",
+                "parameters": [
+                    {
+                        "schema": {
+                            "type": "string",
+                            "description": "Slug de catégorie : inclut toute la branche. Slug inconnu : 404."
+                        },
+                        "required": false,
+                        "description": "Slug de catégorie : inclut toute la branche. Slug inconnu : 404.",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "soleil",
+                                    "mi-ombre",
+                                    "ombre"
+                                ]
+                            },
+                            "description": "Expositions acceptées, clé répétée : exposure[]=soleil&exposure[]=ombre."
+                        },
+                        "required": false,
+                        "description": "Expositions acceptées, clé répétée : exposure[]=soleil&exposure[]=ombre.",
+                        "name": "exposure[]",
+                        "in": "query"
+                    },
+                    {
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "S",
+                                    "M",
+                                    "L"
+                                ]
+                            },
+                            "description": "Tailles acceptées, clé répétée : size[]=S&size[]=M."
+                        },
+                        "required": false,
+                        "description": "Tailles acceptées, clé répétée : size[]=S&size[]=M.",
+                        "name": "size[]",
+                        "in": "query"
+                    },
+                    {
+                        "schema": {
+                            "type": "integer",
+                            "description": "Prix minimum inclus, en centimes."
+                        },
+                        "required": false,
+                        "description": "Prix minimum inclus, en centimes.",
+                        "name": "priceMin",
+                        "in": "query"
+                    },
+                    {
+                        "schema": {
+                            "type": "integer",
+                            "description": "Prix maximum inclus, en centimes."
+                        },
+                        "required": false,
+                        "description": "Prix maximum inclus, en centimes.",
+                        "name": "priceMax",
+                        "in": "query"
+                    },
+                    {
+                        "schema": {
+                            "type": "boolean",
+                            "description": "true : uniquement les produits en stock."
+                        },
+                        "required": false,
+                        "description": "true : uniquement les produits en stock.",
+                        "name": "inStock",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ProductFacets resource",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductFacets"
                                 }
                             }
                         }
@@ -1168,19 +1179,19 @@
             "get": {
                 "operationId": "api_featured-products_get_collection",
                 "tags": [
-                    "FeaturedProduct"
+                    "Product"
                 ],
-                "summary": "Retrieves the collection of FeaturedProduct resources.",
-                "description": "Retrieves the collection of FeaturedProduct resources.",
+                "summary": "Retrieves the collection of Product resources.",
+                "description": "Retrieves the collection of Product resources.",
                 "responses": {
                     "200": {
-                        "description": "FeaturedProduct collection",
+                        "description": "Product collection",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "type": "array",
                                     "items": {
-                                        "$ref": "#/components/schemas/FeaturedProduct.ProductItem"
+                                        "$ref": "#/components/schemas/Product"
                                     }
                                 }
                             }

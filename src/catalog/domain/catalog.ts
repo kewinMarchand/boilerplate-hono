@@ -65,10 +65,6 @@ export declare namespace Catalog {
   interface ProductList {
     readonly items: Product[]
     readonly totalItems: number
-    readonly page: number
-    readonly itemsPerPage: number
-    /** 0 si aucun résultat. */
-    readonly totalPages: number
     readonly facets: {
       readonly exposure: FacetValue[]
       readonly size: FacetValue[]

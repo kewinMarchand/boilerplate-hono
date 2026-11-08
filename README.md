@@ -2,17 +2,18 @@
 
 Seconde API de test des boilerplates front, en NoSQL. Elle sert exactement le même contrat que [boilerplate-api-platform](../boilerplate-api-platform) (API Platform, PostgreSQL, port 8090) : mêmes chemins, mêmes paramètres, mêmes formes JSON, mêmes codes et messages d'erreur, mêmes données. Un front passe de l'une à l'autre en changeant une seule variable d'URL.
 
-| Ressource         | Opération                     | Ce qu'elle renvoie                                                                                                                                                      |
-| ----------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Task`            | `GET /api/tasks`              | Les 3 tâches de démonstration (`id`, `title`, `done`)                                                                                                                   |
-| `Article`         | `GET /api/articles`           | 3 articles (`id`, `slug`, `title`, `excerpt`, `publishedAt`), du plus récent au plus ancien                                                                             |
-| `ArticleDetail`   | `GET /api/articles/{slug}`    | Fiche d'un article : les mêmes champs, plus `html` (texte saisi en Markdown dans l'admin, converti à l'enregistrement) ; 404 sinon                                      |
-| `ContactMessage`  | `POST /api/contact_messages`  | 201 et le message enregistré, ou 422 avec les violations en français                                                                                                    |
-| `Category`        | `GET /api/categories`         | L'arbre des 14 catégories du catalogue                                                                                                                                  |
-| `ProductList`     | `GET /api/products`           | Une page des 24 produits, filtrée et triée, avec le total et les compteurs de facettes                                                                                  |
-| `ProductDetail`   | `GET /api/products/{slug}`    | Fiche d'un produit : les champs de la liste, plus `categoryPath` (catégories de la racine à la sienne) et `description` (texte brut, chaîne vide si aucune) ; 404 sinon |
-| `FeaturedProduct` | `GET /api/featured-products`  | Les produits « À la une » (case de l'admin), par nom, sous la forme des éléments de la liste : le carrousel de l'accueil                                                |
-| `LegalPage`       | `GET /api/legal_pages/{slug}` | Une page légale découpée en sections HTML, ou 404                                                                                                                       |
+| Ressource        | Opération                     | Ce qu'elle renvoie                                                                                                                                                      |
+| ---------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Task`           | `GET /api/tasks`              | Les 3 tâches de démonstration (`id`, `title`, `done`)                                                                                                                   |
+| `Article`        | `GET /api/articles`           | 3 articles (`id`, `slug`, `title`, `excerpt`, `publishedAt`), du plus récent au plus ancien                                                                             |
+| `ArticleDetail`  | `GET /api/articles/{slug}`    | Fiche d'un article : les mêmes champs, plus `html` (texte saisi en Markdown dans l'admin, converti à l'enregistrement) ; 404 sinon                                      |
+| `ContactMessage` | `POST /api/contact_messages`  | 201 et le message enregistré, ou 422 avec les violations en français                                                                                                    |
+| `Category`       | `GET /api/categories`         | L'arbre des 14 catégories du catalogue                                                                                                                                  |
+| `Product`        | `GET /api/products`           | Une page des 24 produits, filtrée et triée : un tableau JSON, vide au-delà de la dernière page                                                                          |
+| `ProductFacets`  | `GET /api/product-facets`     | Le total des produits filtrés et les compteurs de facettes, mêmes filtres que la liste sans tri ni pagination                                                           |
+| `ProductDetail`  | `GET /api/products/{slug}`    | Fiche d'un produit : les champs de la liste, plus `categoryPath` (catégories de la racine à la sienne) et `description` (texte brut, chaîne vide si aucune) ; 404 sinon |
+| `Product`        | `GET /api/featured-products`  | Les produits « À la une » (case de l'admin), par nom, sous la forme des éléments de la liste : le carrousel de l'accueil                                                |
+| `LegalPage`      | `GET /api/legal_pages/{slug}` | Une page légale découpée en sections HTML, ou 404                                                                                                                       |
 
 Les diapositives (`GET /api/slides`) sont retirées, comme dans l'API Platform : le carrousel des fronts montre les produits à la une ([ADR 0004 de l'API Platform](../boilerplate-api-platform/doc/adr/0004-carrousel-de-produits-a-la-une.md)).
 
@@ -89,10 +90,10 @@ import type { AppType } from '../boilerplate-hono/src/app.ts'
 
 const api = hc<AppType>('http://localhost:8091')
 
-const response = await api.api.products.$get({ query: { category: 'feuillages' } })
+const response = await api.api['product-facets'].$get({ query: { category: 'feuillages' } })
 if (response.status === 200) {
-  const list = await response.json() // Catalog.ProductList, inféré depuis le schéma zod
-  console.info(list.totalItems, list.facets.exposure)
+  const facets = await response.json() // ProductFacets, inféré depuis le schéma zod
+  console.info(facets.totalItems, facets.exposure)
 }
 ```
 
@@ -143,7 +144,7 @@ Le catalogue calcule filtre, tri, pagination et compteurs disjonctifs en **une a
 make contract   # API Platform sur 8090 et cette API sur 8091, lancées et avec leurs fixtures
 ```
 
-`contract/cases.ts` liste 175 requêtes représentatives (tous les scénarios des tests fonctionnels de l'API Platform, paramètres invalides, négociation, erreurs, CORS). Chacune part vers les deux API, puis le script compare statut, `Content-Type`, en-têtes utiles (`Allow`, `Location`, `Access-Control-*`) et corps JSON normalisé : clés triées, clés de débogage Symfony (`trace`, `class`) retirées, origine des URL et dates-heures masquées, `id` d'un message de contact créé masqué. Il compare ensuite les deux documents OpenAPI : opérations, paramètres, codes de réponse et schémas consommés par les fronts (seule la réponse 413 du contact, documentée ici, est écartée). Toute différence est listée et fait échouer la commande.
+`contract/cases.ts` liste 277 requêtes représentatives (tous les scénarios des tests fonctionnels de l'API Platform, paramètres invalides, négociation, erreurs, CORS). Chacune part vers les deux API, puis le script compare statut, `Content-Type`, en-têtes utiles (`Allow`, `Location`, `Access-Control-*`) et corps JSON normalisé : clés triées, clés de débogage Symfony (`trace`, `class`) retirées, origine des URL et dates-heures masquées, `id` d'un message de contact créé masqué. Il compare ensuite les deux documents OpenAPI : opérations, paramètres, codes de réponse et schémas consommés par les fronts (seule la réponse 413 du contact, documentée ici, est écartée). Toute différence est listée et fait échouer la commande.
 
 Les variables `CONTRACT_REFERENCE_URL` et `CONTRACT_CANDIDATE_URL` changent les deux origines. Les requêtes `POST` créent des messages de contact dans les deux bases.
 
