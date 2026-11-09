@@ -25,6 +25,7 @@ const COMPARED_SCHEMAS = [
   'ThemeTokens',
   'ImageView',
   'ImageSource',
+  'Alternate',
   'ConstraintViolation',
   'Error',
 ]

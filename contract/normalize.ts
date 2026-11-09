@@ -39,6 +39,9 @@ export const normalizeJson = (value: unknown, options: NormalizeOptions, key = '
   return value
 }
 
+/** Valeurs de Vary comparées. */
+const CONTRACT_VARY = new Set(['accept-language'])
+
 export const normalizeHeader = (name: string, value: string | undefined): string | undefined => {
   if (value === undefined) {
     return undefined
@@ -49,6 +52,14 @@ export const normalizeHeader = (name: string, value: string | undefined): string
   }
   if (name === 'location' || name === 'content-location') {
     return trimmed.replace(/\/\d+/, '/<id>')
+  }
+  if (name === 'vary') {
+    // Seul Accept-Language est du contrat (ADR 0014) : les autres valeurs viennent des bundles de l'API Platform
+    return trimmed
+      .split(',')
+      .map((token) => token.trim().toLowerCase())
+      .filter((token) => CONTRACT_VARY.has(token))
+      .join(', ')
   }
 
   return trimmed

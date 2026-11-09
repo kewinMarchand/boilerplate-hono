@@ -158,7 +158,95 @@ const ARTICLE_QUERIES = [
   'format=guide&format=',
 ]
 
+const LANGUAGE_HEADERS = ['content-language', 'vary']
+const BILINGUAL = { ...JSON_ACCEPT, 'X-Scenario': 'bilingual' }
+
+/** Langue du contenu (ADR 0014) : Content-Language et Vary comparés en plus du corps. */
+const localized = (path: string, headers: Record<string, string> = JSON_ACCEPT): ContractCase => ({
+  ...get(path, headers),
+  compareHeaders: LANGUAGE_HEADERS,
+})
+
+/** Cas bilingue : X-Scenario: bilingual active l'anglais et ses traductions de fixtures. */
+const bilingual = (path: string, headers: Record<string, string> = {}): ContractCase =>
+  localized(path, { ...BILINGUAL, ...headers })
+
+const LOCALE_CASES: readonly ContractCase[] = [
+  localized('/api/tasks'),
+  localized('/api/products/monstera-deliciosa?locale=en', {
+    ...JSON_ACCEPT,
+    'Accept-Language': 'en',
+  }),
+  localized('/api/products/swiss-cheese-plant?locale=en'),
+  localized('/api/nimporte'),
+  localized('/api/site-identity', {
+    ...JSON_ACCEPT,
+    'X-Scenario': 'empty',
+    'Accept-Language': 'en',
+  }),
+  bilingual('/api/site-identity'),
+  bilingual('/api/site-identity', { 'Accept-Language': 'en' }),
+  bilingual('/api/site-identity', { 'Accept-Language': 'en-GB' }),
+  bilingual('/api/site-identity', { 'Accept-Language': 'de, en;q=0.8, fr;q=0.5' }),
+  bilingual('/api/site-identity', { 'Accept-Language': 'fr;q=0.4, en' }),
+  bilingual('/api/site-identity', { 'Accept-Language': 'en;q=0' }),
+  bilingual('/api/site-identity', { 'Accept-Language': 'de' }),
+  bilingual('/api/site-identity?locale=fr', { 'Accept-Language': 'en' }),
+  bilingual('/api/site-identity?locale=en'),
+  bilingual('/api/site-identity?locale=EN-us'),
+  bilingual('/api/site-identity?locale=de', { 'Accept-Language': 'en' }),
+  bilingual('/api/site-identity?locale[]=en'),
+  bilingual('/api/products/swiss-cheese-plant', { 'Accept-Language': 'en' }),
+  bilingual('/api/products/swiss-cheese-plant?locale=fr', { 'Accept-Language': 'en' }),
+  bilingual('/api/products/monstera-deliciosa?locale=en'),
+  bilingual('/api/products/monstera-deliciosa?locale=fr'),
+  bilingual('/api/products/monstera-adansonii?locale=en'),
+  bilingual('/api/products/strelitzia-reginae?locale=en'),
+  bilingual('/api/products/inconnu', { 'Accept-Language': 'en' }),
+  bilingual('/api/products?locale=en&category=foliage-plants&itemsPerPage=48'),
+  bilingual('/api/products?locale=en&category=feuillages'),
+  bilingual('/api/products?locale=en&order[name]=desc&itemsPerPage=48'),
+  bilingual('/api/products?locale=en&order[name]=asc&itemsPerPage=48'),
+  bilingual('/api/products?locale=fr&order[name]=asc&itemsPerPage=48'),
+  bilingual('/api/product-facets?locale=en&category=indoor-plants'),
+  bilingual('/api/product-facets?locale=en'),
+  bilingual('/api/featured-products?locale=en'),
+  bilingual('/api/categories?locale=en'),
+  bilingual('/api/categories'),
+  bilingual('/api/articles?locale=en'),
+  bilingual('/api/articles?locale=en&section=tips'),
+  bilingual('/api/articles?locale=en&section=conseils'),
+  bilingual('/api/articles/enhanced-accessibility-mode?locale=en'),
+  bilingual('/api/articles/le-mode-accessibilite-renforcee?locale=en'),
+  bilingual('/api/articles/le-mode-accessibilite-renforcee'),
+  bilingual('/api/article-sections?locale=en'),
+  bilingual('/api/article-formats?locale=en'),
+  bilingual('/api/legal_pages/mentions-legales?locale=en'),
+  bilingual('/api/legal_pages/accessibilite?locale=en'),
+  bilingual('/api/page-metas?locale=en'),
+  bilingual('/api/tasks?locale=en'),
+  {
+    ...post(
+      'demande de renseignement en anglais',
+      `{"name":"Camille",${VALID},"product":"swiss-cheese-plant"}`,
+      { ...JSON_BODY, 'X-Scenario': 'bilingual', 'Accept-Language': 'en' },
+    ),
+    compareHeaders: ['location', 'content-location', ...LANGUAGE_HEADERS],
+  },
+  {
+    ...post(
+      'slug français refusé en anglais',
+      `{"name":"Camille",${VALID},"product":"monstera-deliciosa"}`,
+      { ...JSON_BODY, 'X-Scenario': 'bilingual', 'Accept-Language': 'en' },
+    ),
+    compareHeaders: LANGUAGE_HEADERS,
+    knownDifference:
+      "Violation sans code : l'API Platform tire `type` d'une empreinte d'objet PHP, non reproductible. Propriété, message et code (null) identiques.",
+  },
+]
+
 export const CASES: readonly ContractCase[] = [
+  ...LOCALE_CASES,
   get('/api/tasks'),
   get('/api/tasks', {}),
   get('/api/tasks', ANY_ACCEPT),
