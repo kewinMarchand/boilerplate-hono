@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const DEFAULT_CORS_ALLOW_ORIGIN =
-  '^http://localhost:(3000|3010|3100|3102|3110|3111|3112|3120|3121|3122|3130|3133|3150|3151|3170|3171|3200|3210|3220|3230|3250|3270|4321|5173|8095)$'
+  '^http://localhost:(3000|3010|3100|3102|3106|3110|3111|3112|3118|3119|3120|3121|3122|3128|3129|3130|3133|3134|3150|3151|3160|3161|3170|3171|3200|3210|3220|3230|3250|3270|4321|5173|8095)$'
 
 /** Secret de développement et de test : refusé en production (ADMIN_SESSION_SECRET obligatoire). */
 const DEV_SESSION_SECRET = 'secret-de-developpement-a-ne-pas-utiliser-en-production'
