@@ -1,7 +1,9 @@
-/** Règle des contenus refusée : le message est montré tel quel dans l'admin (ADR 0001 des deux dépôts). */
-export class ContentRuleViolation extends Error {
-  constructor(message: string) {
-    super(message)
+import { RuleViolation } from '#/shared/domain/ruleViolation.ts'
+
+/** Règle des contenus refusée : le message s'affiche dans l'admin, traduit dans la langue de son interface (ADR 0001 et 0014). */
+export class ContentRuleViolation extends RuleViolation {
+  constructor(template: string, parameters: Readonly<Record<string, string | number>> = {}) {
+    super(template, parameters)
     this.name = 'ContentRuleViolation'
   }
 }

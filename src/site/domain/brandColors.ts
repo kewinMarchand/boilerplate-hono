@@ -19,13 +19,15 @@ export const brandColors = (primary: string, secondary: string): SiteIdentity.Co
   const onLight = contrast(primary, LIGHT_BACKGROUND)
   if (onLight < MIN_CONTRAST) {
     throw new SiteRuleViolation(
-      `La couleur principale doit contraster à 4,5:1 au moins avec le fond clair (actuellement ${ratio(onLight)}:1).`,
+      'La couleur principale doit contraster à 4,5:1 au moins avec le fond clair (actuellement %ratio%:1).',
+      { ratio: ratio(onLight) },
     )
   }
   const text = contrast(lightPalette(primary, secondary).secondary.on, secondary)
   if (text < MIN_CONTRAST) {
     throw new SiteRuleViolation(
-      `La couleur secondaire ne permet pas de texte lisible dessus (au mieux ${ratio(text)}:1, 4,5:1 au minimum).`,
+      'La couleur secondaire ne permet pas de texte lisible dessus (au mieux %ratio%:1, 4,5:1 au minimum).',
+      { ratio: ratio(text) },
     )
   }
   return { primary, secondary }

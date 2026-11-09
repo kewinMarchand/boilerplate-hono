@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { nextSequence } from '#/shared/infrastructure/counters.ts'
+import { slugFilter, translationsSchema } from '#/shared/infrastructure/translations.ts'
 
 import { SPEAKER_MAX_LENGTH, TERM_KINDS } from '#/blog/domain/Article.ts'
 import { AUDIO_FORMATS } from '#/media/domain/audioRules.ts'
@@ -39,6 +40,8 @@ const articleDocumentSchema = z.object({
   /** Référencement de la fiche (SPEC-COMMUNE, section 26). */
   metaTitle: z.string(),
   metaDescription: z.string(),
+  /** Textes dans les autres langues (ADR 0014), slug et Markdown compris. */
+  translations: translationsSchema(),
 })
 
 /** Rubrique ou format : identifiant entier (compteur), slug unique dans sa sorte. */
@@ -48,6 +51,8 @@ const articleTermDocumentSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
   position: z.int().min(0),
+  /** Nom et slug dans les autres langues (ADR 0014). */
+  translations: translationsSchema(),
 })
 
 type ArticleDocument = z.infer<typeof articleDocumentSchema>
@@ -79,9 +84,24 @@ export const articleTermCollection: CollectionDefinition<typeof articleTermDocum
 
 /** Deux rubriques et un format, comme ArticleFixtures de l'API Platform. */
 export const articleTermFixtures: ArticleTermDocument[] = [
-  { _id: 1, kind: 'section', slug: 'conseils', name: 'Conseils', position: 1 },
-  { _id: 2, kind: 'section', slug: 'actualites', name: 'Actualités', position: 2 },
-  { _id: 3, kind: 'format', slug: 'guide', name: 'Guide', position: 1 },
+  {
+    _id: 1,
+    kind: 'section',
+    slug: 'conseils',
+    name: 'Conseils',
+    position: 1,
+    // Traduction anglaise dormante (ADR 0014), servie avec X-Scenario: bilingual
+    translations: { en: { name: 'Tips', slug: 'tips' } },
+  },
+  {
+    _id: 2,
+    kind: 'section',
+    slug: 'actualites',
+    name: 'Actualités',
+    position: 2,
+    translations: {},
+  },
+  { _id: 3, kind: 'format', slug: 'guide', name: 'Guide', position: 1, translations: {} },
 ]
 
 export const articleFixtures: ArticleFixture[] = [
@@ -98,6 +118,7 @@ export const articleFixtures: ArticleFixture[] = [
     speaker: '',
     metaTitle: '',
     metaDescription: '',
+    translations: {},
     body: 'Une page dont le texte n’arrive qu’après l’exécution du JavaScript reste vide pour un moteur de recherche pressé, et pour le visiteur dont le téléphone est lent. Rendre le contenu sur le serveur, c’est envoyer une page déjà lisible.\n\n## Ce que le visiteur gagne\n\nLe premier affichage contient le titre, le texte et les images. Le navigateur peut commencer à peindre la page sans attendre le moindre script, et l’image la plus grande, celle que mesure le *Largest Contentful Paint*, est découverte dès la lecture du HTML.\n\n- le texte est lisible même si un script échoue ;\n- les liens fonctionnent avant l’hydratation ;\n- le référencement voit la même page que le visiteur.\n\n## Ce qu’il reste au navigateur\n\nLe JavaScript n’ajoute que ce qui demande une interaction : un carrousel qu’on fait glisser, des filtres appliqués sans recharger la page. Sans lui, la page reste utilisable : c’est l’amélioration progressive.',
   },
   {
@@ -113,6 +134,7 @@ export const articleFixtures: ArticleFixture[] = [
     speaker: 'Présenté par Hina Teriierooiterai',
     metaTitle: '',
     metaDescription: '',
+    translations: {},
     body: 'Un carrousel est souvent le composant le moins accessible d’une page d’accueil : défilement automatique impossible à arrêter, boutons sans nom, diapositives annoncées dans le désordre. Il peut pourtant rester simple.\n\n## Partir du défilement natif\n\nSans JavaScript, la piste défile au doigt, à la molette ou au clavier grâce à `overflow-x: auto` et à l’accrochage `scroll-snap`. Le script ne fait qu’ajouter le glisser à la souris et les boutons.\n\n## Nommer chaque élément\n\n- les boutons Précédent et Suivant disent ce qu’ils font, et se désactivent aux extrémités ;\n- chaque diapositive est un groupe annoncé « 2 sur 5 » ;\n- les points de pagination indiquent la diapositive courante.\n\nEnfin, pas de lecture automatique : c’est le visiteur qui décide du rythme, et l’animation se coupe quand il demande moins de mouvement.',
   },
   {
@@ -128,6 +150,14 @@ export const articleFixtures: ArticleFixture[] = [
     speaker: '',
     metaTitle: '',
     metaDescription: '',
+    // Traductions anglaises dormantes (ADR 0014) : le texte de l'article reste en repli sur le français
+    translations: {
+      en: {
+        slug: 'enhanced-accessibility-mode',
+        title: 'The enhanced accessibility mode',
+        excerpt: 'Larger text, WCAG 1.4.12 spacing and AAA contrast, without duplicated logic.',
+      },
+    },
     body: 'Le mode accessibilité renforcée agrandit le texte, élargit les espacements et pousse les contrastes au niveau AAA, d’un seul clic, sans recharger la page.\n\n## Un seul thème, des jetons redéfinis\n\nAucun second thème n’est maintenu à côté du premier. Le bouton pose un attribut sur l’élément racine, et les jetons de la charte (couleurs, tailles du texte, épaisseur du focus) prennent leurs valeurs renforcées sous cet attribut. Les composants ne changent pas.\n\n## Ce que le mode applique\n\n- les espacements du critère WCAG 1.4.12 sur le texte de contenu ;\n- des couleurs qui atteignent un contraste de 7:1 ;\n- un indicateur de focus plus épais.\n\nLe choix est gardé dans le navigateur et appliqué avant le premier affichage : la page ne clignote pas d’un mode à l’autre.',
   },
 ]
@@ -154,6 +184,7 @@ const toArticle = (
     speaker,
     metaTitle,
     metaDescription,
+    translations,
   }: ArticleDocument,
   terms: ReadonlyMap<number, Article.Term>,
 ): Article.Entity => ({
@@ -174,6 +205,7 @@ const toArticle = (
   speaker,
   metaTitle,
   metaDescription,
+  translations,
 })
 
 /** Champs dans l'ordre des fixtures, que suit le JSON de l'API. */
@@ -191,6 +223,7 @@ const toDocument = ({
   speaker,
   metaTitle,
   metaDescription,
+  translations,
 }: Article.Saved) => ({
   slug,
   title,
@@ -208,6 +241,7 @@ const toDocument = ({
   speaker,
   metaTitle,
   metaDescription,
+  translations,
 })
 
 export class MongoArticleTermRepository implements Article.TermRepository {
@@ -231,8 +265,15 @@ export class MongoArticleTermRepository implements Article.TermRepository {
     return document === null ? null : toTerm(document)
   }
 
-  async findBySlug(kind: Article.TermKind, slug: string): Promise<Article.Term | null> {
-    const document = await this.collection.findOne({ kind, slug })
+  async findBySlug(
+    kind: Article.TermKind,
+    slug: string,
+    locale?: string | null,
+  ): Promise<Article.Term | null> {
+    const document = await this.collection.findOne(
+      { kind, ...slugFilter(slug, locale) },
+      { sort: { _id: 1 } },
+    )
     return document === null ? null : toTerm(document)
   }
 
@@ -242,7 +283,7 @@ export class MongoArticleTermRepository implements Article.TermRepository {
     return new Map(documents.map((document) => [document._id, toTerm(document)]))
   }
 
-  async create(kind: Article.TermKind, term: Article.TermInput): Promise<Article.Term> {
+  async create(kind: Article.TermKind, term: Article.TermSaved): Promise<Article.Term> {
     const [last] = await this.collection.find({}, { sort: { _id: -1 }, limit: 1 }).toArray()
     const id = await nextSequence(this.counters, articleTermCollection.name, last?._id ?? 0)
     const document: ArticleTermDocument = { _id: id, kind, ...term }
@@ -250,7 +291,7 @@ export class MongoArticleTermRepository implements Article.TermRepository {
     return toTerm(document)
   }
 
-  async update(id: number, term: Article.TermInput): Promise<void> {
+  async update(id: number, term: Article.TermSaved): Promise<void> {
     await this.collection.updateOne({ _id: id }, { $set: term })
   }
 
@@ -279,8 +320,8 @@ export class MongoArticleRepository implements Article.Repository, Article.Write
     return document === null ? null : toArticle(document, await this.terms.byId())
   }
 
-  async findBySlug(slug: string): Promise<Article.Entity | null> {
-    const document = await this.collection.findOne({ slug })
+  async findBySlug(slug: string, locale?: string | null): Promise<Article.Entity | null> {
+    const document = await this.collection.findOne(slugFilter(slug, locale), { sort: { _id: 1 } })
     return document === null ? null : toArticle(document, await this.terms.byId())
   }
 

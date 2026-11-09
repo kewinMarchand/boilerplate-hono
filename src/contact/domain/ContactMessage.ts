@@ -54,9 +54,12 @@ export declare namespace ContactMessage {
     find(id: number): Promise<Entity | null>
   }
 
-  /** Produits du catalogue, vus du contact : un produit par son slug, null s'il n'existe pas. */
+  /**
+   * Produits du catalogue, vus du contact : un produit par son slug dans la langue `locale` (ADR 0014),
+   * null s'il n'existe pas. Le produit rendu porte le slug et le nom de la langue par défaut.
+   */
   interface Products {
-    find(slug: string): Promise<Product | null>
+    find(slug: string, locale: string): Promise<Product | null>
   }
 
   /** Adresse qui reçoit les messages (champ privé de l'identité du site). */

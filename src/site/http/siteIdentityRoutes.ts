@@ -6,7 +6,7 @@ import { scenario } from '#/shared/http/scenario.ts'
 
 import { fileName } from '#/media/domain/imageRules.ts'
 import { darkPalette, lightPalette } from '#/site/domain/brandPalette.ts'
-import { DEFAULT_SITE_IDENTITY } from '#/site/domain/SiteIdentity.ts'
+import { DEFAULT_SITE_IDENTITY, siteIdentityIn } from '#/site/domain/SiteIdentity.ts'
 import { getSiteIdentity } from '#/site/application/siteIdentity.ts'
 import { mediaUrl, toImageView } from '#/media/http/imageContract.ts'
 
@@ -44,36 +44,35 @@ const toSiteIcon = (icon: Media.Image | null, options: RouteOptions) => {
 
 /**
  * Ressource du contrat : les jetons clair et sombre sont calculés à la lecture, null sans couleurs
- * saisies. L'adresse qui reçoit les messages reste privée.
+ * saisies. L'adresse qui reçoit les messages reste privée. Nom et accroche dans la langue demandée,
+ * `locales` : langues activées pour la requête.
  */
 const toView = (
-  {
+  identity: SiteIdentity.Entity,
+  options: RouteOptions,
+  locale: string | null,
+  locales: readonly string[],
+) => {
+  const { name, tagline, logo, colors, defaultColorScheme, shareImage, icon, salesEnabled } =
+    siteIdentityIn(identity, locale)
+  return {
     name,
     tagline,
-    logo,
-    colors,
+    logo: toImageView(options.mediaBaseUrl, logo, 'logo'),
+    shareImage: toImageView(options.mediaBaseUrl, shareImage, 'share'),
+    icon: toSiteIcon(icon, options),
     defaultColorScheme,
-    shareImage,
-    icon,
     salesEnabled,
-  }: SiteIdentity.Entity,
-  options: RouteOptions,
-) => ({
-  name,
-  tagline,
-  logo: toImageView(options.mediaBaseUrl, logo, 'logo'),
-  shareImage: toImageView(options.mediaBaseUrl, shareImage, 'share'),
-  icon: toSiteIcon(icon, options),
-  defaultColorScheme,
-  salesEnabled,
-  theme:
-    colors === null
-      ? null
-      : {
-          light: themeTokens(lightPalette(colors.primary, colors.secondary)),
-          dark: themeTokens(darkPalette(colors.primary, colors.secondary)),
-        },
-})
+    theme:
+      colors === null
+        ? null
+        : {
+            light: themeTokens(lightPalette(colors.primary, colors.secondary)),
+            dark: themeTokens(darkPalette(colors.primary, colors.secondary)),
+          },
+    locales: [...locales],
+  }
+}
 
 export const siteIdentityRoutes = (
   dependencies: Pick<SiteDependencies, 'siteIdentities'>,
@@ -90,7 +89,9 @@ export const siteIdentityRoutes = (
       // X-Scenario: empty sert l'identité par défaut (celle des fixtures), comme l'API Platform
       middleware: [
         negotiateFormat(),
-        scenario(options.scenarios, () => toView(DEFAULT_SITE_IDENTITY, options)),
+        scenario(options.scenarios, () =>
+          toView(DEFAULT_SITE_IDENTITY, options, null, DEFAULT_SITE_IDENTITY.locales),
+        ),
       ],
       responses: {
         200: {
@@ -100,5 +101,8 @@ export const siteIdentityRoutes = (
         404: { description: 'Not found', content: problemContent(errorSchema) },
       },
     }),
-    async (c) => c.json(toView(await getSiteIdentity(dependencies), options), 200),
+    async (c) => {
+      const { current, locales } = await options.contentLocale(c.req.raw)
+      return c.json(toView(await getSiteIdentity(dependencies), options, current, locales), 200)
+    },
   )

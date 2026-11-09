@@ -1,6 +1,7 @@
 import { Price } from '#/catalog/domain/price.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
+import type { Translations } from '#/shared/domain/translations.ts'
 
 type CategoryRow = readonly [slug: string, name: string, parent: string | null]
 
@@ -146,12 +147,33 @@ const PRODUCTS: readonly ProductRow[] = [
   ['lotus-sacre', 'Lotus sacré (Nelumbo nucifera)', 'nenuphars', 3990, 'soleil', 'L', false],
 ]
 
+/**
+ * Traductions anglaises (ADR 0014), dormantes tant que le site n'active que le français :
+ * X-Scenario: bilingual les réveille pour les tests et make contract. Partielles, pour exercer le
+ * repli champ par champ ; les mêmes que CatalogFixtures de l'API Platform.
+ */
+export const CATEGORY_TRANSLATIONS: Readonly<Record<string, Translations>> = {
+  'plantes-interieur': { en: { name: 'Indoor plants', slug: 'indoor-plants' } },
+  feuillages: { en: { name: 'Foliage plants', slug: 'foliage-plants' } },
+}
+
+export const PRODUCT_TRANSLATIONS: Readonly<Record<string, Translations>> = {
+  'monstera-deliciosa': {
+    en: {
+      name: 'Swiss cheese plant',
+      slug: 'swiss-cheese-plant',
+      metaTitle: 'Swiss cheese plant (Monstera deliciosa)',
+    },
+  },
+}
+
 export const categoryFixtures: Catalog.Category[] = CATEGORIES.map(
   ([slug, name, parent], index) => ({
     slug,
     name,
     parent,
     position: index + 1,
+    translations: CATEGORY_TRANSLATIONS[slug] ?? {},
   }),
 )
 
@@ -177,6 +199,9 @@ export const productAttributeFixtures: Catalog.ProductAttribute[] = [
       { value: 'persistant', label: 'Persistant' },
       { value: 'caduc', label: 'Caduc' },
     ],
+    translations: {
+      en: { label: 'Foliage', 'choice.persistant': 'Evergreen', 'choice.caduc': 'Deciduous' },
+    },
   },
   {
     code: 'hauteur-adulte',
@@ -186,6 +211,7 @@ export const productAttributeFixtures: Catalog.ProductAttribute[] = [
     filterable: false,
     position: 2,
     choices: [],
+    translations: { en: { label: 'Mature height' } },
   },
 ]
 
@@ -285,6 +311,7 @@ export const productFixtures: ProductFixture[] = PRODUCTS.map(
     attributeValues: ATTRIBUTE_VALUES[slug] ?? {},
     metaTitle: '',
     metaDescription: '',
+    translations: PRODUCT_TRANSLATIONS[slug] ?? {},
     demoImage: `product-${(index % 12) + 1}`,
     galleryImages: GALLERIES[slug] ?? [],
   }),

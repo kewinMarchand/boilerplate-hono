@@ -67,5 +67,7 @@ export const updateSiteIdentity = async (
     icon,
     salesEnabled: input.salesEnabled,
     contactRecipient: input.contactRecipient,
+    locales: current.locales,
+    translations: current.translations,
   })
 }

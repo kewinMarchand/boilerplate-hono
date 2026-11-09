@@ -1,3 +1,5 @@
+import { RuleViolation } from '#/shared/domain/ruleViolation.ts'
+
 import type { Media } from './Media.ts'
 
 /** Règles des images, mêmes valeurs et mêmes messages que l'API Platform (ADR 0002, 0008, 0010, 0011). */
@@ -31,10 +33,10 @@ const ICON_FORMATS: readonly [Media.Format, ...Media.Format[]] = ['png']
 
 const KEY_PATTERN = /^[0-9a-f]{32}$/
 
-/** Règle des images refusée : le message est montré tel quel dans l'admin. */
-export class MediaRuleViolation extends Error {
-  constructor(message: string) {
-    super(message)
+/** Règle des images refusée : le message s'affiche dans l'admin, traduit dans la langue de son interface. */
+export class MediaRuleViolation extends RuleViolation {
+  constructor(template: string, parameters: Readonly<Record<string, string | number>> = {}) {
+    super(template, parameters)
     this.name = 'MediaRuleViolation'
   }
 }
@@ -91,7 +93,7 @@ export const fileName = (key: string, width: number, format: Media.Format): stri
 
 export const image = (key: string, alt: string, height?: number, width?: number): Media.Image => {
   if (!KEY_PATTERN.test(key)) {
-    throw new MediaRuleViolation(`Empreinte d'image invalide : « ${key} ».`)
+    throw new MediaRuleViolation("Empreinte d'image invalide : « %key% ».", { key })
   }
   return {
     key,
@@ -140,7 +142,8 @@ export const checkSource = (
   if (ratio === null) {
     if (source.width < minimum) {
       throw new MediaRuleViolation(
-        `L'image doit faire au moins ${minimum} px de large : elle fait ${source.width} × ${source.height} px.`,
+        "L'image doit faire au moins %min% px de large : elle fait %width% × %height% px.",
+        { min: minimum, width: source.width, height: source.height },
       )
     }
     return source.width
@@ -152,7 +155,15 @@ export const checkSource = (
   )
   if (croppedWidth < minimum) {
     throw new MediaRuleViolation(
-      `Recadrée au format ${ratioWidth}:${ratioHeight}, l'image doit faire au moins ${minimum} × ${heightFor(usage, minimum)} px : elle fait ${source.width} × ${source.height} px.`,
+      "Recadrée au format %ratioWidth%:%ratioHeight%, l'image doit faire au moins %minWidth% × %minHeight% px : elle fait %width% × %height% px.",
+      {
+        ratioWidth,
+        ratioHeight,
+        minWidth: minimum,
+        minHeight: heightFor(usage, minimum),
+        width: source.width,
+        height: source.height,
+      },
     )
   }
   return croppedWidth

@@ -1,3 +1,4 @@
+import { categoryIn } from './catalogTranslations.ts'
 import { CategoryNotFoundError } from './CategoryNotFoundError.ts'
 
 import type { Catalog } from './catalog.ts'
@@ -14,8 +15,9 @@ const childrenOf = (tree: CategoryTree, parent: Catalog.Category | null): Catalo
     .filter((category) => category.parent === (parent?.slug ?? null))
     .toSorted(byPosition)
 
-const find = (tree: CategoryTree, slug: string): Catalog.Category => {
-  const category = tree.categories.find((candidate) => candidate.slug === slug)
+/** `locale` : langue du slug (le sien, ou celui de la langue par défaut s'il n'est pas traduit) ; null : la langue par défaut. */
+const find = (tree: CategoryTree, slug: string, locale: string | null = null): Catalog.Category => {
+  const category = tree.categories.find((candidate) => categoryIn(candidate, locale).slug === slug)
   if (category === undefined) {
     throw new CategoryNotFoundError(slug)
   }
@@ -49,17 +51,6 @@ const branch = (tree: CategoryTree, slug: string): string[] => [
     .flatMap((child) => branch(tree, child.slug)),
 ]
 
-const toNodes = (
-  tree: CategoryTree,
-  parent: Catalog.Category | null = null,
-): Catalog.CategoryNode[] =>
-  childrenOf(tree, parent).map((category) => ({
-    slug: category.slug,
-    name: category.name,
-    parent: category.parent,
-    children: toNodes(tree, category),
-  }))
-
 export const CategoryTree = {
   of: (categories: readonly Catalog.Category[]): CategoryTree => ({
     categories: Object.freeze(categories.toSorted(byPosition)),
@@ -69,5 +60,4 @@ export const CategoryTree = {
   pathTo,
   levelsBelow,
   branch,
-  toNodes,
 }

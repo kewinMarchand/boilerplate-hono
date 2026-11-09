@@ -24,9 +24,16 @@ type Stored = Omit<Article.Entity, 'section' | 'format'> & {
 
 const blog = () => {
   let terms: Article.Term[] = [
-    { id: 1, kind: 'section', slug: 'conseils', name: 'Conseils', position: 1 },
-    { id: 2, kind: 'section', slug: 'actualites', name: 'Actualités', position: 2 },
-    { id: 3, kind: 'format', slug: 'guide', name: 'Guide', position: 1 },
+    { id: 1, kind: 'section', slug: 'conseils', name: 'Conseils', position: 1, translations: {} },
+    {
+      id: 2,
+      kind: 'section',
+      slug: 'actualites',
+      name: 'Actualités',
+      position: 2,
+      translations: {},
+    },
+    { id: 3, kind: 'format', slug: 'guide', name: 'Guide', position: 1, translations: {} },
   ]
   const stored = (fields: Partial<Stored> & Pick<Stored, 'id' | 'slug'>): Stored => ({
     title: 'Titre',
@@ -37,6 +44,7 @@ const blog = () => {
     html: '',
     sectionId: null,
     formatId: null,
+    translations: {},
     audio: null,
     speaker: '',
     metaTitle: '',

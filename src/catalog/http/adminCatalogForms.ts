@@ -40,7 +40,9 @@ export const euroCents = (value: string): number | null => {
 export const centsToEuros = (cents: number): string =>
   `${Math.trunc(cents / 100)},${String(Math.abs(cents) % 100).padStart(2, '0')}`
 
-export const readCategoryForm = (body: Record<string, unknown>): FormResult<Catalog.Category> => {
+export const readCategoryForm = (
+  body: Record<string, unknown>,
+): FormResult<Catalog.CategoryInput> => {
   const values = {
     name: field(body, 'name'),
     slug: field(body, 'slug'),

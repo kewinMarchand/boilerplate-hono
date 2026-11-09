@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { alternatesContract } from '#/shared/http/alternateContract.ts'
+
 import { audioViewContract, imageViewContract } from '#/media/http/imageContract.ts'
 
 export const articleTermLinkContract = z
@@ -60,6 +62,9 @@ export const articleDetailContract = articleContract
       description:
         "Description pour les moteurs de recherche, 160 caractères au plus ; chaîne vide si l'admin n'en a pas saisi.",
     }),
+    alternates: alternatesContract(
+      "L'article dans chaque langue activée, langue demandée comprise, pour les hreflang et le sélecteur de langue ; tableau vide sur un site monolingue.",
+    ),
   })
   .meta({ id: 'ArticleDetail', description: 'Lit un article par son slug.' })
 

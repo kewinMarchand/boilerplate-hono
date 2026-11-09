@@ -56,7 +56,7 @@ const moduleLayers = (module) => [
       NO_DATABASE,
       NO_ZOD,
       onlyInternal(
-        [`${module}/domain`, ...MEDIA.domain],
+        [`${module}/domain`, 'shared/domain', ...MEDIA.domain],
         `Couche domaine de ${module} : n'importe que le domaine de son module.`,
       ),
     ],
@@ -68,7 +68,7 @@ const moduleLayers = (module) => [
       NO_DATABASE,
       NO_ZOD,
       onlyInternal(
-        [`${module}/domain`, `${module}/application`, ...MEDIA.application],
+        [`${module}/domain`, `${module}/application`, 'shared/domain', ...MEDIA.application],
         `Couche application de ${module} : n'importe que le domaine et l'application de son module.`,
       ),
     ],
@@ -82,6 +82,7 @@ const moduleLayers = (module) => [
           `${module}/domain`,
           `${module}/application`,
           `${module}/http`,
+          'shared/domain',
           'shared/http',
           ...MEDIA.http,
         ],
@@ -97,6 +98,7 @@ const moduleLayers = (module) => [
         [
           `${module}/domain`,
           `${module}/infrastructure`,
+          'shared/domain',
           'shared/infrastructure',
           ...MEDIA.infrastructure,
         ],
@@ -110,10 +112,22 @@ export const architecture = [
   layer(['src/**/*.ts', 'tests/**/*.ts', 'contract/**/*.ts', 'tools/**/*.ts'], []),
   ...MODULES.flatMap(moduleLayers),
   layer(
+    ['src/shared/domain/**/*.ts'],
+    [
+      NO_WEB_FRAMEWORK,
+      NO_DATABASE,
+      NO_ZOD,
+      onlyInternal(['shared/domain'], 'shared/domain ne dépend que de lui-même.'),
+    ],
+  ),
+  layer(
     ['src/shared/http/**/*.ts'],
     [
       NO_DATABASE,
-      onlyInternal(['shared/http'], 'shared/http ne dépend d’aucun module ni de l’infrastructure.'),
+      onlyInternal(
+        ['shared/domain', 'shared/http'],
+        'shared/http ne dépend d’aucun module ni de l’infrastructure.',
+      ),
     ],
   ),
   layer(
@@ -121,7 +135,7 @@ export const architecture = [
     [
       NO_WEB_FRAMEWORK,
       onlyInternal(
-        ['shared/infrastructure'],
+        ['shared/domain', 'shared/infrastructure'],
         'shared/infrastructure ne dépend d’aucun module ni de la couche http.',
       ),
     ],

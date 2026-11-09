@@ -1,3 +1,5 @@
+import { keptTranslations, takenSlug } from '#/shared/domain/translations.ts'
+
 import {
   BlogRuleViolation,
   speakerOf,
@@ -11,6 +13,7 @@ import { changeImage } from '#/media/application/storeImage.ts'
 import type { Article } from '#/blog/domain/Article.ts'
 import type { MediaDependencies } from '#/media/application/storeImage.ts'
 import type { Media } from '#/media/domain/Media.ts'
+import type { Translations, TranslationsInput } from '#/shared/domain/translations.ts'
 
 /** Écritures de l'admin sur les articles, leurs rubriques et leurs formats (ADR 0001, 0009), mêmes messages que l'API Platform. */
 export interface BlogAdminDependencies {
@@ -21,14 +24,27 @@ export interface BlogAdminDependencies {
   readonly media: MediaDependencies
 }
 
+/** Traductions à enregistrer : celles de la saisie, ou les actuelles quand la saisie n'en porte pas. */
+const translationsOf = (
+  input: TranslationsInput | undefined,
+  current: Translations | undefined,
+): Translations => (input === undefined ? (current ?? {}) : keptTranslations(input))
+
+/** Slug libre dans chaque langue (ADR 0014) : le sien, et son slug traduit ou à défaut le même. */
 const requireFreeSlug = async (
   { articleWriter }: BlogAdminDependencies,
   slug: string,
+  translations: TranslationsInput,
   id?: number,
 ): Promise<void> => {
-  const sameSlug = await articleWriter.findBySlug(slug)
-  if (sameSlug !== null && sameSlug.id !== id) {
-    throw new BlogRuleViolation(`Le slug « ${slug} » est déjà pris par un autre article.`)
+  const taken = await takenSlug(slug, translations, async (candidate, locale) => {
+    const owner = await articleWriter.findBySlug(candidate, locale)
+    return owner !== null && owner.id !== id
+  })
+  if (taken !== null) {
+    throw new BlogRuleViolation('Le slug « %slug% » est déjà pris par un autre article.', {
+      slug: taken,
+    })
   }
 }
 
@@ -51,7 +67,7 @@ const chosenTerm = async (
   }
   const term = await articleTerms.findById(id)
   if (term === null || term.kind !== kind) {
-    throw new BlogRuleViolation(termMissing(kind))
+    throw termMissing(kind)
   }
   return term.id
 }
@@ -76,6 +92,7 @@ const saved = async (
   dependencies: BlogAdminDependencies,
   input: Article.Input,
   current: Article.Entity | null,
+  translations: Translations,
 ): Promise<Article.Saved> => {
   const { media, articleRenderer } = dependencies
   const { slug, title, excerpt, publishedAt, imageContent, imageAlt, imageDecorative, body } = input
@@ -108,6 +125,7 @@ const saved = async (
     speaker: speakerOf(input.speaker),
     metaTitle: input.metaTitle.trim(),
     metaDescription: input.metaDescription.trim(),
+    translations,
   }
 }
 
@@ -115,8 +133,9 @@ export const createArticle = async (
   dependencies: BlogAdminDependencies,
   input: Article.Input,
 ): Promise<Article.Entity> => {
-  await requireFreeSlug(dependencies, input.slug)
-  return dependencies.articleWriter.create(await saved(dependencies, input, null))
+  const translations = translationsOf(input.translations, undefined)
+  await requireFreeSlug(dependencies, input.slug, input.translations ?? {})
+  return dependencies.articleWriter.create(await saved(dependencies, input, null, translations))
 }
 
 export const updateArticle = async (
@@ -125,8 +144,12 @@ export const updateArticle = async (
   input: Article.Input,
 ): Promise<void> => {
   const current = await requireArticle(dependencies, id)
-  await requireFreeSlug(dependencies, input.slug, id)
-  await dependencies.articleWriter.update(id, await saved(dependencies, input, current))
+  const translations = translationsOf(input.translations, current.translations)
+  await requireFreeSlug(dependencies, input.slug, input.translations ?? translations, id)
+  await dependencies.articleWriter.update(
+    id,
+    await saved(dependencies, input, current, translations),
+  )
 }
 
 export const deleteArticle = async (
@@ -144,9 +167,26 @@ const requireTerm = async (
 ): Promise<Article.Term> => {
   const term = await articleTerms.findById(id)
   if (term === null || term.kind !== kind) {
-    throw new BlogRuleViolation(termMissing(kind))
+    throw termMissing(kind)
   }
   return term
+}
+
+/** Slug libre dans sa liste et dans chaque langue (ADR 0014). */
+const requireFreeTermSlug = async (
+  { articleTerms }: BlogAdminDependencies,
+  kind: Article.TermKind,
+  slug: string,
+  translations: TranslationsInput,
+  id?: number,
+): Promise<void> => {
+  const taken = await takenSlug(slug, translations, async (candidate, locale) => {
+    const owner = await articleTerms.findBySlug(kind, candidate, locale)
+    return owner !== null && owner.id !== id
+  })
+  if (taken !== null) {
+    throw termSlugTaken(kind, taken)
+  }
 }
 
 export const createArticleTerm = async (
@@ -154,10 +194,9 @@ export const createArticleTerm = async (
   kind: Article.TermKind,
   input: Article.TermInput,
 ): Promise<Article.Term> => {
-  if ((await dependencies.articleTerms.findBySlug(kind, input.slug)) !== null) {
-    throw new BlogRuleViolation(termSlugTaken(kind, input.slug))
-  }
-  return dependencies.articleTerms.create(kind, input)
+  const translations = translationsOf(input.translations, undefined)
+  await requireFreeTermSlug(dependencies, kind, input.slug, input.translations ?? {})
+  return dependencies.articleTerms.create(kind, { ...input, translations })
 }
 
 export const updateArticleTerm = async (
@@ -166,12 +205,10 @@ export const updateArticleTerm = async (
   kind: Article.TermKind,
   input: Article.TermInput,
 ): Promise<void> => {
-  await requireTerm(dependencies, id, kind)
-  const sameSlug = await dependencies.articleTerms.findBySlug(kind, input.slug)
-  if (sameSlug !== null && sameSlug.id !== id) {
-    throw new BlogRuleViolation(termSlugTaken(kind, input.slug))
-  }
-  await dependencies.articleTerms.update(id, input)
+  const current = await requireTerm(dependencies, id, kind)
+  const translations = translationsOf(input.translations, current.translations)
+  await requireFreeTermSlug(dependencies, kind, input.slug, input.translations ?? translations, id)
+  await dependencies.articleTerms.update(id, { ...input, translations })
 }
 
 /** Refuse de supprimer un terme porté par un article ; compte fait sur la liste des articles, comme en PHP. */
@@ -185,7 +222,7 @@ export const deleteArticleTerm = async (
     ({ section, format }) => section?.id === id || format?.id === id,
   ).length
   if (used > 0) {
-    throw new BlogRuleViolation(termUsedBy(kind, term.name, used))
+    throw termUsedBy(kind, term.name, used)
   }
   await dependencies.articleTerms.remove(id)
 }

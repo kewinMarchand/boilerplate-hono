@@ -99,6 +99,7 @@ export const contactMessageRoutes = (
         saved = await receiveContactMessage(
           dependencies,
           toDraft(c.req.valid('json'), new Date()),
+          (await options.contentLocale(c.req.raw)).current,
           onMailFailure,
         )
       } catch (error) {

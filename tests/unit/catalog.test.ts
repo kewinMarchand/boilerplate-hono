@@ -11,16 +11,18 @@ const tree = CategoryTree.of(categoryFixtures)
 
 describe('arbre des catégories', () => {
   it('construit 3 racines et 14 catégories', () => {
-    const nodes = CategoryTree.toNodes(tree)
-    expect(nodes.map((node) => node.slug)).toEqual([
+    expect(CategoryTree.childrenOf(tree, null).map((category) => category.slug)).toEqual([
       'plantes-interieur',
       'plantes-exterieur',
       'plantes-aquatiques',
     ])
-    expect(nodes[0]?.children[0]?.children.map((node) => node.slug)).toEqual([
-      'monstera',
-      'fougeres',
-    ])
+    expect(tree.categories).toHaveLength(14)
+  })
+
+  it('trouve une catégorie par son slug dans une langue, avec repli sur la langue par défaut', () => {
+    expect(CategoryTree.find(tree, 'foliage-plants', 'en').slug).toBe('feuillages')
+    expect(CategoryTree.find(tree, 'monstera', 'en').slug).toBe('monstera')
+    expect(() => CategoryTree.find(tree, 'feuillages', 'en')).toThrow(CategoryNotFoundError)
   })
 
   it('liste les enfants directs triés par position', () => {
@@ -76,7 +78,11 @@ describe('liste de produits', () => {
 
   it('traduit la pagination en décalage', () => {
     const criteria = parseCriteria(rawCriteriaFromQuery('page=3&itemsPerPage=5'))
-    expect(toSearchQuery(criteria, [], [])).toMatchObject({ skip: 10, limit: 5, branch: null })
+    expect(toSearchQuery(criteria, [], [], 'fr')).toMatchObject({
+      skip: 10,
+      limit: 5,
+      branch: null,
+    })
   })
 
   it('a une forme vide pour X-Scenario: empty', () => {
@@ -94,6 +100,7 @@ describe('attributs dans la recherche', () => {
     filterable,
     position,
     choices: values.map((value) => ({ value, label: value.toUpperCase() })),
+    translations: {},
   })
   const attributes = [
     choice('feuillage', true, ['persistant', 'caduc'], 1),
@@ -109,7 +116,7 @@ describe('attributs dans la recherche', () => {
       ),
     )
 
-    expect(toSearchQuery(criteria, [], attributes)).toMatchObject({
+    expect(toSearchQuery(criteria, [], attributes, 'fr')).toMatchObject({
       attributeFilters: new Map([['port', ['buissonnant']]]),
       attributeFacets: ['feuillage', 'port'],
     })

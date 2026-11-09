@@ -27,6 +27,7 @@ const DEFAULT = {
   icon: null,
   defaultColorScheme: 'auto',
   salesEnabled: true,
+  locales: ['fr'],
   theme: null,
 }
 
@@ -169,6 +170,7 @@ describe('Identité du site', () => {
       tagline: 'Plantes rares et tropicales, livrées chez vous.',
       defaultColorScheme: 'dark',
       salesEnabled: true,
+      locales: ['fr'],
       logo: { alt: 'Oraki', width: 400, height: 120 },
       theme: {
         light: { primary: '#c2410c', 'on-primary': '#ffffff' },
@@ -274,6 +276,7 @@ describe('Identité du site', () => {
     await submit(FIELDS)
     expect((await getJson(context, '/api/site-identity')).body).toMatchObject({
       salesEnabled: true,
+      locales: ['fr'],
     })
   })
 

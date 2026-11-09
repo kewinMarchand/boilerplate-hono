@@ -2,11 +2,13 @@ import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 
+import { alternates } from '#/shared/http/contentLocale.ts'
 import { negotiateFormat } from '#/shared/http/contentNegotiation.ts'
 import { parsePhpQuery } from '#/shared/http/phpQuery.ts'
 import { errorSchema, problemContent } from '#/shared/http/problemSchemas.ts'
 import { scenario } from '#/shared/http/scenario.ts'
 
+import { articleIn, hasTranslatedBody, termIn } from '#/blog/domain/Article.ts'
 import { toAudioView, toImageView } from '#/media/http/imageContract.ts'
 
 import {
@@ -45,7 +47,7 @@ const filterSlug = (search: string, name: string): string | null => {
   return typeof value === 'string' && value !== '' ? value : null
 }
 
-/** Un slug que ne porte aucun article (inconnu compris) donne une liste vide. */
+/** Un slug que ne porte aucun article (inconnu compris) donne une liste vide. Termes déjà dans la langue servie. */
 const matches = (term: Article.Term | null, slug: string | null): boolean =>
   slug === null || term?.slug === slug
 
@@ -71,16 +73,26 @@ const termRoute = (
         },
       },
     }),
-    async (c) =>
-      c.json(
-        (await terms.findByKind(kind)).map(({ slug, name }) => ({ slug, name })),
+    async (c) => {
+      const { current } = await options.contentLocale(c.req.raw)
+      return c.json(
+        (await terms.findByKind(kind)).map((term) => {
+          const { slug, name } = termIn(term, current)
+          return { slug, name }
+        }),
         200,
-      ),
+      )
+    },
   )
 
+/**
+ * Lectures du blog dans la langue demandée (ADR 0014). `renderer` rend le Markdown d'un texte
+ * traduit ; un texte non traduit garde le HTML enregistré.
+ */
 export const articleRoutes = (
   repository: Article.Repository,
   terms: Pick<Article.TermRepository, 'findByKind'>,
+  renderer: Article.Renderer,
   options: RouteOptions,
 ) =>
   new OpenAPIHono()
@@ -105,9 +117,10 @@ export const articleRoutes = (
         const search = new URL(c.req.url).search
         const section = filterSlug(search, 'section')
         const format = filterSlug(search, 'format')
-        const articles = (await repository.findLatestFirst()).filter(
-          (article) => matches(article.section, section) && matches(article.format, format),
-        )
+        const { current } = await options.contentLocale(c.req.raw)
+        const articles = (await repository.findLatestFirst())
+          .map((article) => articleIn(article, current))
+          .filter((article) => matches(article.section, section) && matches(article.format, format))
         return c.json(
           articles.map((article) => toListItem(article, options)),
           200,
@@ -136,17 +149,22 @@ export const articleRoutes = (
         },
       }),
       async (c) => {
-        const article = await repository.findBySlug(c.req.valid('param').slug)
+        const locale = await options.contentLocale(c.req.raw)
+        const article = await repository.findBySlug(c.req.valid('param').slug, locale.current)
         if (article === null) {
           throw new HTTPException(404, { message: 'Not Found' })
         }
+        const translated = articleIn(article, locale.current)
 
         return c.json(
           {
-            ...toListItem(article, options),
-            html: article.html,
-            metaTitle: article.metaTitle,
-            metaDescription: article.metaDescription,
+            ...toListItem(translated, options),
+            html: hasTranslatedBody(article, locale.current)
+              ? renderer.render(translated.body)
+              : article.html,
+            metaTitle: translated.metaTitle,
+            metaDescription: translated.metaDescription,
+            alternates: alternates(locale, (other) => articleIn(article, other).slug),
           },
           200,
         )

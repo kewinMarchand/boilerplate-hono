@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { alternatesContract } from '#/shared/http/alternateContract.ts'
+
 import { ATTRIBUTE_TYPES, EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
 import { imageViewContract } from '#/media/http/imageContract.ts'
 
@@ -14,12 +16,17 @@ export const categoryNodeContract = z
     get children(): z.ZodArray<typeof categoryNodeContract> {
       return z.array(categoryNodeContract)
     },
+    alternates: alternatesContract(
+      'La catégorie dans chaque langue activée, langue demandée comprise ; tableau vide sur un site monolingue.',
+    ),
   })
   .meta({
     id: 'Category',
     description:
       "Renvoie l'arbre des catégories : les catégories racines, chacune avec ses enfants, triées par position.",
   })
+
+export type CategoryNode = z.infer<typeof categoryNodeContract>
 
 export const attributeValueContract = z
   .object({
@@ -87,6 +94,9 @@ export const productDetailContract = z
       description:
         "Description pour les moteurs de recherche, 160 caractères au plus ; chaîne vide si l'admin n'en a pas saisi.",
     }),
+    alternates: alternatesContract(
+      'Le produit dans chaque langue activée, langue demandée comprise, pour les hreflang et le sélecteur de langue ; tableau vide sur un site monolingue.',
+    ),
   })
   .meta({ id: 'ProductDetail', description: 'Lit un produit par son slug.' })
 

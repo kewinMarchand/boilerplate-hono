@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { translationsSchema } from '#/shared/infrastructure/translations.ts'
+
 import type { LegalPage } from '#/content/domain/LegalPage.ts'
 import type { CollectionDefinition } from '#/shared/infrastructure/mongo.ts'
 import type { Collection } from 'mongodb'
@@ -11,6 +13,8 @@ const legalPageDocumentSchema = z.object({
   body: z.string().min(1),
   introduction: z.string(),
   sections: z.array(z.object({ title: z.string(), html: z.string() })),
+  /** Titre et Markdown dans les autres langues (ADR 0014), rendus à la lecture. */
+  translations: translationsSchema(),
 })
 
 type LegalPageDocument = z.infer<typeof legalPageDocumentSchema>
@@ -27,6 +31,8 @@ export const legalPageFixtures: LegalPageDocument[] = [
   {
     _id: 'mentions-legales',
     title: 'Mentions légales',
+    // Titre anglais dormant (ADR 0014), le texte reste en repli sur le français
+    translations: { en: { title: 'Legal notice' } },
     body: "Les informations ci-dessous sont des valeurs d'exemple, fictives, à remplacer depuis l'administration.\n\n## Éditeur\n\nExemple SAS (société fictive), 1 rue de l’Exemple, 13000 Marseille. SIRET : 000 000 000 00000.\n\nContact : [contact@example.com](mailto:contact@example.com)\n\n## Directeur de la publication\n\nCamille Exemple\n\n## Hébergeur\n\nHébergeur Exemple, 2 avenue de l’Exemple, 75000 Paris.\n\n## Propriété intellectuelle\n\nL'ensemble des contenus de ce site (textes, images, code) est la propriété de Exemple SAS (société fictive), sauf mention contraire. Toute reproduction ou représentation, totale ou partielle, sans autorisation écrite préalable est interdite.",
     introduction:
       "<p>Les informations ci-dessous sont des valeurs d'exemple, fictives, à remplacer depuis l'administration.</p>",
@@ -46,6 +52,7 @@ export const legalPageFixtures: LegalPageDocument[] = [
   {
     _id: 'donnees-personnelles',
     title: 'Données personnelles',
+    translations: {},
     body: "## Responsable de traitement\n\nExemple SAS (société fictive), 1 rue de l’Exemple, 13000 Marseille, représentée par Camille Exemple. Contact : [contact@example.com](mailto:contact@example.com).\n\n## Finalité\n\nLe formulaire de contact collecte votre nom, votre adresse e-mail et votre message, dans le seul but de vous répondre. Ces données ne sont ni cédées ni utilisées à des fins commerciales.\n\n## Base légale\n\nLe traitement repose sur l'intérêt légitime de l'éditeur à répondre aux demandes qui lui sont adressées (article 6.1.f du RGPD).\n\n## Durée de conservation\n\nLes messages sont conservés trois ans au plus à compter du dernier échange, puis supprimés.\n\n## Vos droits\n\nVous disposez sur vos données des droits suivants :\n\n- accès ;\n- rectification ;\n- effacement ;\n- opposition ;\n- limitation du traitement.\n\nPour les exercer, écrivez à [contact@example.com](mailto:contact@example.com). Nous répondons dans un délai d'un mois.\n\n## Réclamation\n\nSi vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la [Commission nationale de l'informatique et des libertés (CNIL)](https://www.cnil.fr/fr/plaintes).\n\n## Cookies et stockage local\n\nCe site ne dépose aucun cookie de mesure d'audience ni de publicité. Vos préférences d'affichage (mode accessibilité renforcée, thème clair ou sombre) sont enregistrées dans votre navigateur, sans jamais nous être transmises, jusqu'à ce que vous les changiez. Un cookie technique de session, exempté de consentement, peut être posé après l'envoi du formulaire de contact sans JavaScript, pour afficher la confirmation.",
     introduction: '',
     sections: [
@@ -82,6 +89,7 @@ export const legalPageFixtures: LegalPageDocument[] = [
   {
     _id: 'accessibilite',
     title: "Déclaration d'accessibilité",
+    translations: {},
     body: "Exemple SAS (société fictive) s'engage à rendre ce site accessible conformément à l'article 47 de la loi n° 2005-102 du 11 février 2005. Cette déclaration s'applique à ce site.\n\n## État de conformité\n\nCe site est **non conforme** avec le référentiel général d'amélioration de l'accessibilité (RGAA), version 4.1.2.\n\nAucun audit n'a encore été réalisé.\n\n## Résultats des tests\n\nSeuls des tests automatisés ont été réalisés, avec axe-core (règles WCAG 2.1 niveaux A et AA), sur toutes les pages, en affichage ordinateur et mobile, en mode standard et en mode accessibilité renforcée. Ces tests ne valent pas audit : ils ne couvrent qu'une partie des critères du RGAA.\n\n## Contenus non accessibles\n\nÀ compléter après audit.\n\n## Mode accessibilité renforcée\n\nLe bouton « Accessibilité renforcée » de l'en-tête agrandit le texte, augmente les espacements et le contraste, souligne les liens, épaissit l'indicateur de focus et coupe les animations. Le choix est mémorisé dans votre navigateur.\n\n## Établissement de cette déclaration\n\nDate : à compléter après audit.\n\nTechnologies utilisées : HTML, CSS, JavaScript.\n\n## Environnement de test\n\n- Chromium piloté par Playwright, affichage ordinateur (1280 × 720) ;\n- Chromium piloté par Playwright, émulation mobile (Pixel 7) ;\n- outils : axe-core (via @axe-core/playwright) et Lighthouse CI.\n\nPages testées :\n\n- [Accueil](/) ;\n- [Tâches](/taches) ;\n- [Contact](/contact) ;\n- [Catalogue](/catalogue) ;\n- [Mentions légales](/mentions-legales) ;\n- [Données personnelles](/donnees-personnelles) ;\n- [Déclaration d'accessibilité](/accessibilite) ;\n- [Plan du site](/plan-du-site).\n\n## Retour d'information et contact\n\nSi vous ne parvenez pas à accéder à un contenu ou à un service, écrivez à [contact@example.com](mailto:contact@example.com) ou passez par le [formulaire de contact](/contact) pour être orienté vers une alternative accessible ou obtenir le contenu sous une autre forme.\n\n## Voies de recours\n\nSi vous avez signalé un défaut d'accessibilité qui vous empêche d'accéder à un contenu ou à un service sans obtenir de réponse satisfaisante, vous pouvez :\n\n- écrire un message au [Défenseur des droits](https://formulaire.defenseurdesdroits.fr/) ;\n- contacter le délégué du Défenseur des droits dans votre région ;\n- envoyer un courrier par la poste, sans affranchissement : Défenseur des droits, Libre réponse 71120, 75342 Paris CEDEX 07.",
     introduction:
       "<p>Exemple SAS (société fictive) s'engage à rendre ce site accessible conformément à l'article 47 de la loi n° 2005-102 du 11 février 2005. Cette déclaration s'applique à ce site.</p>",
@@ -138,23 +146,30 @@ export class MongoLegalPageRepository implements LegalPage.Repository, LegalPage
 
   async findAll(): Promise<LegalPage.Editable[]> {
     const documents = await this.collection
-      .find({}, { projection: { title: 1, body: 1 }, sort: { title: 1 } })
+      .find({}, { projection: { title: 1, body: 1, translations: 1 }, sort: { title: 1 } })
       .toArray()
 
-    return documents.map(({ _id, title, body }) => ({ slug: _id, title, body }))
+    return documents.map(({ _id, title, body, translations }) => ({
+      slug: _id,
+      title,
+      body,
+      translations,
+    }))
   }
 
   async findEditable(slug: string): Promise<LegalPage.Editable | null> {
     const document = await this.collection.findOne({ _id: slug })
     return document === null
       ? null
-      : { slug: document._id, title: document.title, body: document.body }
+      : {
+          slug: document._id,
+          title: document.title,
+          body: document.body,
+          translations: document.translations,
+        }
   }
 
-  async update(
-    slug: string,
-    page: LegalPage.Input & ReturnType<LegalPage.Renderer['split']>,
-  ): Promise<void> {
+  async update(slug: string, page: LegalPage.Saved): Promise<void> {
     await this.collection.updateOne({ _id: slug }, { $set: page })
   }
 }

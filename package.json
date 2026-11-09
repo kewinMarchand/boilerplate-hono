@@ -12,6 +12,7 @@
     "dev": "node --watch src/server.ts",
     "start": "node src/server.ts",
     "db:reset": "node src/scripts/dbReset.ts",
+    "db:translations": "node src/scripts/addFixtureTranslations.ts",
     "admin:create": "node src/scripts/createAdmin.ts",
     "openapi": "node src/scripts/exportOpenapi.ts openapi.json",
     "contract": "node contract/compare.ts",

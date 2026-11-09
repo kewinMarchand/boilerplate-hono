@@ -1,6 +1,7 @@
 import { CatalogRuleViolation } from './catalogRules.ts'
 
 import type { Catalog } from './catalog.ts'
+import type { Translations } from '#/shared/domain/translations.ts'
 
 /**
  * Règles d'un attribut configurable (ADR 0006), mêmes messages que ProductAttribute de
@@ -18,6 +19,7 @@ const NUMBER = /^-?\d+(\.\d+)?$/
 export const productAttribute = (
   code: string,
   { label, type, unit, filterable, position, choices }: Omit<Catalog.ProductAttributeInput, 'code'>,
+  translations: Translations,
 ): Catalog.ProductAttribute => {
   if (type !== 'choice' && choices.length > 0) {
     throw new CatalogRuleViolation('Seul un attribut de type liste a des valeurs.')
@@ -30,7 +32,7 @@ export const productAttribute = (
   const seen = new Set<string>()
   for (const { value } of choices) {
     if (seen.has(value)) {
-      throw new CatalogRuleViolation(`La valeur « ${value} » est en double.`)
+      throw new CatalogRuleViolation('La valeur « %value% » est en double.', { value })
     }
     seen.add(value)
   }
@@ -43,6 +45,7 @@ export const productAttribute = (
     filterable,
     position,
     choices: choices.map((choice) => ({ value: choice.value, label: choice.label })),
+    translations,
   }
 }
 
@@ -62,17 +65,21 @@ export const attributeValueFor = (
     return null
   }
   if (attribute.type === 'choice' && choiceLabel(attribute, value) === undefined) {
-    throw new CatalogRuleViolation(
-      `« ${value} » n'est pas une valeur de l'attribut « ${attribute.label} ».`,
-    )
+    throw new CatalogRuleViolation("« %value% » n'est pas une valeur de l'attribut « %label% ».", {
+      value,
+      label: attribute.label,
+    })
   }
   if (attribute.type === 'number' && !NUMBER.test(value)) {
-    throw new CatalogRuleViolation(`L'attribut « ${attribute.label} » attend un nombre.`)
+    throw new CatalogRuleViolation("L'attribut « %label% » attend un nombre.", {
+      label: attribute.label,
+    })
   }
   if (attribute.type === 'text' && Array.from(value).length > ATTRIBUTE_TEXT_MAX_LENGTH) {
-    throw new CatalogRuleViolation(
-      `L'attribut « ${attribute.label} » a ${ATTRIBUTE_TEXT_MAX_LENGTH} caractères au plus.`,
-    )
+    throw new CatalogRuleViolation("L'attribut « %label% » a %max% caractères au plus.", {
+      label: attribute.label,
+      max: ATTRIBUTE_TEXT_MAX_LENGTH,
+    })
   }
 
   return value

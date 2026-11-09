@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { nextSequence } from '#/shared/infrastructure/counters.ts'
+import { slugFilter, translationsSchema } from '#/shared/infrastructure/translations.ts'
 
 import { ATTRIBUTE_TYPES, EXPOSURES, MAX_GALLERY_IMAGES, SIZES } from '#/catalog/domain/catalog.ts'
 import { Price } from '#/catalog/domain/price.ts'
@@ -16,6 +17,8 @@ const categoryDocumentSchema = z.object({
   name: z.string().min(1),
   parent: z.string().nullable(),
   position: z.int().min(0),
+  /** Nom et slug dans les autres langues (ADR 0014). */
+  translations: translationsSchema(),
 })
 
 const productDocumentSchema = z.object({
@@ -53,6 +56,8 @@ const productDocumentSchema = z.object({
   /** Référencement de la fiche (SPEC-COMMUNE, section 26). */
   metaTitle: z.string(),
   metaDescription: z.string(),
+  /** Textes dans les autres langues (ADR 0014), slug compris. */
+  translations: translationsSchema(),
 })
 
 /** Attribut configurable : le code, fixé à la création, sert d'identifiant. */
@@ -64,6 +69,8 @@ const productAttributeDocumentSchema = z.object({
   filterable: z.boolean(),
   position: z.int().min(0),
   choices: z.array(z.object({ value: z.string().min(1), label: z.string().min(1) })),
+  /** Libellé, unité et libellés des valeurs dans les autres langues (ADR 0014). */
+  translations: translationsSchema(),
 })
 
 export type CategoryDocument = z.infer<typeof categoryDocumentSchema>
@@ -175,13 +182,20 @@ export class MongoCategoryRepository implements Catalog.CategoryRepository, Cata
   }
 }
 
-const SORTS: Record<Catalog.Sort | 'relevance', Sort> = {
+const SORTS: Record<'relevance' | 'price-asc' | 'price-desc', Sort> = {
   relevance: { _id: 1 },
   'price-asc': { price: 1, _id: 1 },
   'price-desc': { price: -1, _id: 1 },
-  'name-asc': { name: 1, _id: 1 },
-  'name-desc': { name: -1, _id: 1 },
 }
+
+/** Tri stable par `_id` en second critère ; par nom, le nom dans la langue demandée ou celui de la langue par défaut. */
+const sortStages = ({ sort, locale }: Catalog.SearchQuery): Document[] =>
+  sort === 'name-asc' || sort === 'name-desc'
+    ? [
+        { $addFields: { sortName: { $ifNull: [`$translations.${locale}.name`, '$name'] } } },
+        { $sort: { sortName: sort === 'name-asc' ? 1 : -1, _id: 1 } },
+      ]
+    : [{ $sort: SORTS[sort ?? 'relevance'] }]
 
 const FRENCH_COLLATION = { locale: 'fr' }
 
@@ -270,8 +284,8 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
     return document === null ? null : toProduct(document)
   }
 
-  async findBySlug(slug: string): Promise<Catalog.Product | null> {
-    const document = await this.collection.findOne({ slug })
+  async findBySlug(slug: string, locale?: string | null): Promise<Catalog.Product | null> {
+    const document = await this.collection.findOne(slugFilter(slug, locale), { sort: { _id: 1 } })
     return document === null ? null : toProduct(document)
   }
 
@@ -394,7 +408,7 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
         $facet: {
           items: [
             { $match: all },
-            { $sort: SORTS[query.sort ?? 'relevance'] },
+            ...sortStages(query),
             { $skip: query.skip },
             { $limit: query.limit },
           ],
@@ -413,8 +427,9 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
     ]
 
     const isNameSort = query.sort === 'name-asc' || query.sort === 'name-desc'
+    // Collation de la langue seulement pour le tri par nom : les autres requêtes gardent leurs index
     const [raw] = await this.collection
-      .aggregate(pipeline, isNameSort ? { collation: FRENCH_COLLATION } : {})
+      .aggregate(pipeline, isNameSort ? { collation: { locale: query.locale } } : {})
       .toArray()
     const result = facetResultSchema.parse(raw)
 

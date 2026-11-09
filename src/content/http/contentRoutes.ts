@@ -2,11 +2,13 @@ import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import { HTTPException } from 'hono/http-exception'
 import { z } from 'zod'
 
+import { alternates } from '#/shared/http/contentLocale.ts'
 import { negotiateFormat } from '#/shared/http/contentNegotiation.ts'
 import { errorSchema, problemContent } from '#/shared/http/problemSchemas.ts'
 import { scenario } from '#/shared/http/scenario.ts'
 
-import { META_PAGES } from '#/content/domain/PageMeta.ts'
+import { legalPageTitleIn, translatedLegalBody } from '#/content/domain/LegalPage.ts'
+import { META_PAGES, pageMetaIn } from '#/content/domain/PageMeta.ts'
 
 import { legalPageContract, pageMetaContract } from './contract.ts'
 
@@ -17,11 +19,15 @@ import type { RouteOptions } from '#/shared/http/routeOptions.ts'
 export interface ContentRepositories {
   readonly legalPages: LegalPage.Repository
   readonly pageMetas: PageMeta.Repository
+  /** Rend le Markdown traduit d'une page légale (ADR 0014) ; un texte non traduit garde son rendu enregistré. */
+  readonly legalPageRenderer: LegalPage.Renderer
 }
 
-/** Toutes les pages fixes, dans l'ordre du contrat ; une page sans document sort avec des chaînes vides. */
-const allPageMetas = async ({ pageMetas }: ContentRepositories) => {
-  const saved = new Map((await pageMetas.findAll()).map((meta) => [meta.page, meta]))
+/** Toutes les pages fixes, dans l'ordre du contrat, dans la langue `locale` ; une page sans document sort avec des chaînes vides. */
+const allPageMetas = async ({ pageMetas }: ContentRepositories, locale: string) => {
+  const saved = new Map(
+    (await pageMetas.findAll()).map((meta) => [meta.page, pageMetaIn(meta, locale)]),
+  )
   return META_PAGES.map(([page]) => ({
     page,
     title: saved.get(page)?.title ?? '',
@@ -47,7 +53,10 @@ export const contentRoutes = (repositories: ContentRepositories, options: RouteO
           },
         },
       }),
-      async (c) => c.json(await allPageMetas(repositories), 200),
+      async (c) => {
+        const { current } = await options.contentLocale(c.req.raw)
+        return c.json(await allPageMetas(repositories, current), 200)
+      },
     )
     .openapi(
       createRoute({
@@ -75,7 +84,20 @@ export const contentRoutes = (repositories: ContentRepositories, options: RouteO
         if (page === null) {
           throw new HTTPException(404, { message: 'Not Found' })
         }
+        const locale = await options.contentLocale(c.req.raw)
+        const body = translatedLegalBody(page, locale.current)
+        const { introduction, sections } =
+          body === null ? page : repositories.legalPageRenderer.split(body)
 
-        return c.json(page, 200)
+        return c.json(
+          {
+            slug: page.slug,
+            title: legalPageTitleIn(page, locale.current),
+            introduction,
+            sections,
+            alternates: alternates(locale, () => page.slug),
+          },
+          200,
+        )
       },
     )

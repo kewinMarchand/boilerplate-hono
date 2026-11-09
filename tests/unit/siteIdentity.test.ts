@@ -30,6 +30,8 @@ const withLogo: SiteIdentity.Entity = {
   icon: null,
   salesEnabled: true,
   contactRecipient: 'contact@example.com',
+  locales: ['fr'],
+  translations: {},
 }
 
 const input = (overrides: Partial<SiteIdentity.Input> = {}): SiteIdentity.Input => ({

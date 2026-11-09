@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { alternatesContract } from '#/shared/http/alternateContract.ts'
+
 import { META_PAGES } from '#/content/domain/PageMeta.ts'
 
 export const legalSectionContract = z
@@ -15,6 +17,9 @@ export const legalPageContract = z
     title: z.string(),
     introduction: z.string(),
     sections: z.array(legalSectionContract),
+    alternates: alternatesContract(
+      'La page dans chaque langue activée, langue demandée comprise (même slug : il est fixé par les routes des fronts) ; tableau vide sur un site monolingue.',
+    ),
   })
   .meta({
     id: 'LegalPage',

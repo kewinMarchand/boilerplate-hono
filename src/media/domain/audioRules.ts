@@ -17,7 +17,7 @@ export const audio = (
   durationSeconds: number,
 ): Media.Audio => {
   if (!KEY_PATTERN.test(key)) {
-    throw new MediaRuleViolation(`Empreinte de fichier audio invalide : « ${key} ».`)
+    throw new MediaRuleViolation('Empreinte de fichier audio invalide : « %key% ».', { key })
   }
   if (durationSeconds < 0) {
     throw new MediaRuleViolation("La durée d'un fichier audio ne peut pas être négative.")

@@ -1,4 +1,8 @@
+import { RuleViolation } from '#/shared/domain/ruleViolation.ts'
+import { translated } from '#/shared/domain/translations.ts'
+
 import type { Media } from '#/media/domain/Media.ts'
+import type { Translations } from '#/shared/domain/translations.ts'
 
 /** Identité du site, une seule par API (section 22 de SPEC-COMMUNE, ADR 0005), même vocabulaire que l'API Platform. */
 export declare namespace SiteIdentity {
@@ -28,6 +32,13 @@ export declare namespace SiteIdentity {
     readonly salesEnabled: boolean
     /** Adresse qui reçoit les messages du formulaire de contact. Privée : absente du contrat. */
     readonly contactRecipient: string
+    /**
+     * Langues du site (SPEC-COMMUNE, section 29, ADR 0014) : la première est la langue par défaut,
+     * celle des champs des éléments traduisibles.
+     */
+    readonly locales: readonly [string, ...string[]]
+    /** Nom et accroche dans les autres langues. */
+    readonly translations: Translations
   }
 
   interface Repository {
@@ -79,12 +90,24 @@ export const DEFAULT_SITE_IDENTITY: SiteIdentity.Entity = {
   icon: null,
   salesEnabled: true,
   contactRecipient: 'contact@example.com',
+  locales: ['fr'],
+  translations: {},
 }
 
-/** Une modification de l'identité du site enfreint une de ses règles. Le message s'affiche tel quel dans l'admin. */
-export class SiteRuleViolation extends Error {
-  constructor(message: string) {
-    super(message)
+/** Nom et accroche dans la langue demandée, ou ceux de la langue par défaut. */
+export const siteIdentityIn = (
+  identity: SiteIdentity.Entity,
+  locale: string | null,
+): SiteIdentity.Entity => ({
+  ...identity,
+  name: translated(identity.translations, 'name', identity.name, locale),
+  tagline: translated(identity.translations, 'tagline', identity.tagline, locale),
+})
+
+/** Une modification de l'identité du site enfreint une de ses règles. Le message s'affiche dans l'admin, traduit dans la langue de son interface. */
+export class SiteRuleViolation extends RuleViolation {
+  constructor(template: string, parameters: Readonly<Record<string, string | number>> = {}) {
+    super(template, parameters)
     this.name = 'SiteRuleViolation'
   }
 }

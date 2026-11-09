@@ -17,15 +17,19 @@ const input = (
   filterable = false,
 ) => ({ label: 'Attribut', type, unit: '', filterable, position: 1, choices })
 
-const foliage = productAttribute('feuillage', {
-  ...input('choice', [
-    { value: 'persistant', label: 'Persistant' },
-    { value: 'caduc', label: 'Caduc' },
-  ]),
-  label: 'Feuillage',
-  filterable: true,
-})
-const height = productAttribute('hauteur', { ...input('number'), unit: 'cm' })
+const foliage = productAttribute(
+  'feuillage',
+  {
+    ...input('choice', [
+      { value: 'persistant', label: 'Persistant' },
+      { value: 'caduc', label: 'Caduc' },
+    ]),
+    label: 'Feuillage',
+    filterable: true,
+  },
+  {},
+)
+const height = productAttribute('hauteur', { ...input('number'), unit: 'cm' }, {})
 
 describe('attribut configurable (règles de ProductAttribute)', () => {
   it('garde ses valeurs dans l’ordre et sert de facette', () => {
@@ -48,11 +52,11 @@ describe('attribut configurable (règles de ProductAttribute)', () => {
     ],
     [input('text', [], true), 'Seul un attribut de type liste peut servir de filtre au catalogue.'],
   ])('refuse une définition incohérente', (definition, message) => {
-    expect(() => productAttribute('x', definition)).toThrow(new CatalogRuleViolation(message))
+    expect(() => productAttribute('x', definition, {})).toThrow(new CatalogRuleViolation(message))
   })
 
   it('ramène une unité vide à null', () => {
-    expect(productAttribute('origine', input('text')).unit).toBeNull()
+    expect(productAttribute('origine', input('text'), {}).unit).toBeNull()
     expect(height.unit).toBe('cm')
   })
 

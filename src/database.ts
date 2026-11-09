@@ -67,6 +67,7 @@ import {
 import type { AppDependencies } from '#/app.ts'
 import type { MediaDependencies } from '#/media/application/storeImage.ts'
 import type { Media } from '#/media/domain/Media.ts'
+import type { Translations } from '#/shared/domain/translations.ts'
 import type { Db } from 'mongodb'
 
 const COLLECTIONS = [
@@ -84,7 +85,74 @@ const COLLECTIONS = [
   siteIdentityCollection,
 ] as const
 
-export const ensureSchema = (db: Db): Promise<void> => ensureCollections(db, COLLECTIONS)
+/** Collections dont les documents portent des traductions (ADR 0014). */
+const TRANSLATABLE = [
+  categoryCollection,
+  productCollection,
+  productAttributeCollection,
+  articleCollection,
+  articleTermCollection,
+  legalPageCollection,
+  pageMetaCollection,
+] as const
+
+/**
+ * Reprise d'une base d'avant le contenu multilingue (ADR 0014), idempotente : chaque document reçoit
+ * des traductions vides, l'identité la seule langue `fr`. Le texte actuel reste celui de la langue
+ * par défaut, sans copie ni transformation. Le validateur, plus strict, est posé par ensureCollections.
+ */
+const migrateTranslations = async (db: Db): Promise<void> => {
+  // L'identité reçoit ses deux champs dans la même écriture : le validateur exige les deux
+  await db
+    .collection(siteIdentityCollection.name)
+    .updateMany({ locales: { $exists: false } }, { $set: { locales: ['fr'], translations: {} } })
+  for (const { name } of TRANSLATABLE) {
+    await db
+      .collection(name)
+      .updateMany({ translations: { $exists: false } }, { $set: { translations: {} } })
+  }
+}
+
+/** Collections validées et index, puis reprise des documents existants. Lancé au démarrage de l'API. */
+export const ensureSchema = async (db: Db): Promise<void> => {
+  await ensureCollections(db, COLLECTIONS)
+  await migrateTranslations(db)
+}
+
+/**
+ * Traductions anglaises dormantes des fixtures (ADR 0014) posées sur une base de dev existante, sans
+ * la recréer : seulement sur les documents des fixtures encore sans traduction (une saisie de
+ * l'admin n'est jamais écrasée). Rend le nombre de documents complétés.
+ */
+export const addFixtureTranslations = async (db: Db): Promise<number> => {
+  const fixtures: readonly (readonly [string, string | number, Translations])[] = [
+    ...categoryFixtures.map(
+      ({ slug, translations }) => ['categories', slug, translations] as const,
+    ),
+    ...productFixtures.map(({ id, translations }) => ['products', id, translations] as const),
+    ...productAttributeFixtures.map(
+      ({ code, translations }) => ['productAttributes', code, translations] as const,
+    ),
+    ...articleFixtures.map(({ _id, translations }) => ['articles', _id, translations] as const),
+    ...articleTermFixtures.map(
+      ({ _id, translations }) => ['articleTerms', _id, translations] as const,
+    ),
+    ...legalPageFixtures.map(({ _id, translations }) => ['legalPages', _id, translations] as const),
+    ...pageMetaFixtures.map(({ _id, translations }) => ['pageMetas', _id, translations] as const),
+    ['siteIdentity', siteIdentityFixture._id, siteIdentityFixture.translations],
+  ]
+  let completed = 0
+  for (const [collection, id, translations] of fixtures) {
+    if (Object.keys(translations).length === 0) {
+      continue
+    }
+    const { modifiedCount } = await db
+      .collection<{ _id: string | number }>(collection)
+      .updateOne({ _id: id, translations: {} }, { $set: { translations } })
+    completed += modifiedCount
+  }
+  return completed
+}
 
 export const mediaDependencies = (directory: string): MediaDependencies => ({
   encoder: sharpImageEncoder,
@@ -130,8 +198,8 @@ export const createRepositories = (
     ),
     // Le contact lit le catalogue et l'identité du site par ses propres ports, branchés ici
     contactProducts: {
-      find: async (slug) => {
-        const product = await products.findBySlug(slug)
+      find: async (slug, locale) => {
+        const product = await products.findBySlug(slug, locale)
         return product === null ? null : { slug: product.slug, name: product.name }
       },
     },

@@ -52,7 +52,11 @@ describe('searchProducts (cas d’utilisation)', () => {
   it('résout la branche et passe ses enfants directs au dépôt', async () => {
     const { queries, repositories: deps } = repositories()
 
-    const list = await searchProducts(criteria('category=feuillages&itemsPerPage=2&page=2'), deps)
+    const list = await searchProducts(
+      criteria('category=feuillages&itemsPerPage=2&page=2'),
+      deps,
+      'fr',
+    )
 
     expect(queries).toEqual([
       expect.objectContaining({
@@ -72,7 +76,7 @@ describe('searchProducts (cas d’utilisation)', () => {
   it('compte les catégories racines sans filtre de catégorie', async () => {
     const { queries, repositories: deps } = repositories()
 
-    await searchProducts(criteria(''), deps)
+    await searchProducts(criteria(''), deps, 'fr')
 
     expect(queries[0]).toMatchObject({
       branch: null,
@@ -86,6 +90,7 @@ describe('searchProducts (cas d’utilisation)', () => {
     await searchProducts(
       criteria('attributes[feuillage][]=caduc&attributes[hauteur-adulte][]=300'),
       deps,
+      'fr',
     )
 
     expect(queries[0]).toMatchObject({
@@ -97,7 +102,7 @@ describe('searchProducts (cas d’utilisation)', () => {
   it('lève CategoryNotFoundError sans interroger le dépôt de produits', async () => {
     const { queries, repositories: deps } = repositories()
 
-    await expect(searchProducts(criteria('category=cactus'), deps)).rejects.toThrow(
+    await expect(searchProducts(criteria('category=cactus'), deps, 'fr')).rejects.toThrow(
       CategoryNotFoundError,
     )
     expect(queries).toEqual([])

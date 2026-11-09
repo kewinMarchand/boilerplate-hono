@@ -24,10 +24,10 @@ type Stored = Catalog.Product & { categoryPath: string[] }
 /** Catalogue en mémoire : deux niveaux sous « plantes », un produit dans « monstera ». */
 const catalogue = () => {
   let categories: Catalog.Category[] = [
-    { slug: 'plantes', name: 'Plantes', parent: null, position: 1 },
-    { slug: 'feuillages', name: 'Feuillages', parent: 'plantes', position: 1 },
-    { slug: 'monstera', name: 'Monstera', parent: 'feuillages', position: 1 },
-    { slug: 'jardin', name: 'Jardin', parent: null, position: 2 },
+    { slug: 'plantes', name: 'Plantes', parent: null, position: 1, translations: {} },
+    { slug: 'feuillages', name: 'Feuillages', parent: 'plantes', position: 1, translations: {} },
+    { slug: 'monstera', name: 'Monstera', parent: 'feuillages', position: 1, translations: {} },
+    { slug: 'jardin', name: 'Jardin', parent: null, position: 2, translations: {} },
   ]
   let products: Stored[] = [
     {
@@ -47,6 +47,7 @@ const catalogue = () => {
       gallery: [],
       metaTitle: '',
       metaDescription: '',
+      translations: {},
     },
   ]
   let attributes: Catalog.ProductAttribute[] = [
@@ -61,6 +62,7 @@ const catalogue = () => {
         { value: 'persistant', label: 'Persistant' },
         { value: 'caduc', label: 'Caduc' },
       ],
+      translations: {},
     },
     {
       code: 'hauteur-adulte',
@@ -70,6 +72,7 @@ const catalogue = () => {
       filterable: false,
       position: 2,
       choices: [],
+      translations: {},
     },
     {
       code: 'origine',
@@ -79,6 +82,7 @@ const catalogue = () => {
       filterable: false,
       position: 3,
       choices: [],
+      translations: {},
     },
   ]
   const strip = ({ categoryPath, ...product }: Stored): Catalog.Product => product
@@ -173,6 +177,7 @@ const category = (slug: string, parent: string | null): Catalog.Category => ({
   name: slug,
   parent,
   position: 0,
+  translations: {},
 })
 
 const product = (
@@ -473,6 +478,7 @@ describe('attributs', () => {
       filterable: true,
       position: 0,
       choices: [{ value: 'buissonnant', label: 'Buissonnant' }],
+      translations: {},
     })
   })
 

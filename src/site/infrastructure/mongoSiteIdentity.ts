@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { translationsSchema } from '#/shared/infrastructure/translations.ts'
+
 import { COLOR_SCHEMES, DEFAULT_SITE_IDENTITY } from '#/site/domain/SiteIdentity.ts'
 
 import type { CollectionDefinition } from '#/shared/infrastructure/mongo.ts'
@@ -41,6 +43,10 @@ const siteIdentityDocumentSchema = z.object({
   salesEnabled: z.boolean(),
   /** Adresse qui reçoit les messages du contact, privée. */
   contactRecipient: z.string().min(1),
+  /** Langues du site (ADR 0014), la langue par défaut en premier. */
+  locales: z.array(z.string().regex(/^[a-z]{2}$/)).min(1),
+  /** Nom et accroche dans les autres langues. */
+  translations: translationsSchema(),
 })
 
 type SiteIdentityDocument = z.infer<typeof siteIdentityDocumentSchema>
@@ -61,6 +67,8 @@ const toDocument = ({
   icon,
   salesEnabled,
   contactRecipient,
+  locales,
+  translations,
 }: SiteIdentity.Entity): SiteIdentityDocument => ({
   _id: ID,
   name,
@@ -76,11 +84,14 @@ const toDocument = ({
   iconKey: icon?.key ?? null,
   salesEnabled,
   contactRecipient,
+  locales: [...locales],
+  translations,
 })
 
 const toEntity = (document: SiteIdentityDocument): SiteIdentity.Entity => {
   const { logoKey, logoAlt, logoHeight, primaryColor, secondaryColor, shareImageKey, iconKey } =
     document
+  const [defaultLocale = DEFAULT_SITE_IDENTITY.locales[0], ...otherLocales] = document.locales
   return {
     name: document.name,
     tagline: document.tagline,
@@ -99,11 +110,20 @@ const toEntity = (document: SiteIdentityDocument): SiteIdentity.Entity => {
     icon: iconKey === null ? null : { key: iconKey, alt: '' },
     salesEnabled: document.salesEnabled,
     contactRecipient: document.contactRecipient,
+    locales: [defaultLocale, ...otherLocales],
+    translations: document.translations,
   }
 }
 
-/** Fixture : les valeurs du modèle, sans logo, image de partage, icône ni couleurs, vente en ligne active, comme SiteIdentityFixtures. */
-export const siteIdentityFixture: SiteIdentityDocument = toDocument(DEFAULT_SITE_IDENTITY)
+/** Accroche anglaise dormante (ADR 0014) : servie seulement avec X-Scenario: bilingual, comme SiteIdentityFixtures::TAGLINE_EN. */
+export const TAGLINE_EN =
+  'Website template with boilerplates-ui, equipped for QA and end-to-end testing.'
+
+/** Fixture : les valeurs du modèle, sans logo, image de partage, icône ni couleurs, vente en ligne active, une seule langue, comme SiteIdentityFixtures. */
+export const siteIdentityFixture: SiteIdentityDocument = toDocument({
+  ...DEFAULT_SITE_IDENTITY,
+  translations: { en: { tagline: TAGLINE_EN } },
+})
 
 export class MongoSiteIdentityRepository implements SiteIdentity.Repository {
   private readonly collection: Collection<SiteIdentityDocument>

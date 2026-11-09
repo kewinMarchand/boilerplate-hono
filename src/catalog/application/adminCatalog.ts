@@ -1,8 +1,11 @@
+import { keptTranslations, takenSlug } from '#/shared/domain/translations.ts'
+
 import {
   CatalogRuleViolation,
   checkGallerySize,
   checkPlacement,
 } from '#/catalog/domain/catalogRules.ts'
+import { categoryIn } from '#/catalog/domain/catalogTranslations.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
 import { checkAttributeValues, productAttribute } from '#/catalog/domain/productAttribute.ts'
 import { changeImage } from '#/media/application/storeImage.ts'
@@ -10,6 +13,7 @@ import { changeImage } from '#/media/application/storeImage.ts'
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { MediaDependencies } from '#/media/application/storeImage.ts'
 import type { Media } from '#/media/domain/Media.ts'
+import type { Translations, TranslationsInput } from '#/shared/domain/translations.ts'
 
 /**
  * Écritures de l'admin sur le catalogue (ADR 0001) : chaque cas d'usage vérifie les règles qui
@@ -37,21 +41,45 @@ const requireParent = (tree: CategoryTree, parent: string | null): void => {
   }
 }
 
-const requireFreeCategorySlug = (tree: CategoryTree, slug: string, except?: string): void => {
-  if (slug !== except && findIn(tree, slug) !== undefined) {
-    throw new CatalogRuleViolation(`Le slug « ${slug} » est déjà pris par une autre catégorie.`)
+/** Traductions à enregistrer : celles de la saisie, ou les actuelles quand la saisie n'en porte pas. */
+const translationsOf = (
+  input: TranslationsInput | undefined,
+  current: Translations | undefined,
+): Translations => (input === undefined ? (current ?? {}) : keptTranslations(input))
+
+/** Slug libre dans chaque langue (ADR 0014) ; `except` : la catégorie modifiée. */
+const requireFreeCategorySlug = async (
+  tree: CategoryTree,
+  slug: string,
+  translations: TranslationsInput,
+  except?: string,
+): Promise<void> => {
+  const taken = await takenSlug(slug, translations, (candidate, locale) =>
+    Promise.resolve(
+      tree.categories.some(
+        (category) => category.slug !== except && categoryIn(category, locale).slug === candidate,
+      ),
+    ),
+  )
+  if (taken !== null) {
+    throw new CatalogRuleViolation('Le slug « %slug% » est déjà pris par une autre catégorie.', {
+      slug: taken,
+    })
   }
 }
 
 export const createCategory = async (
   dependencies: CatalogAdminDependencies,
-  category: Catalog.Category,
+  { translations: input, ...category }: Catalog.CategoryInput,
 ): Promise<void> => {
   const tree = await loadTree(dependencies)
-  requireFreeCategorySlug(tree, category.slug)
+  await requireFreeCategorySlug(tree, category.slug, input ?? {})
   requireParent(tree, category.parent)
   checkPlacement(tree, null, category.parent)
-  await dependencies.categoryWriter.create(category)
+  await dependencies.categoryWriter.create({
+    ...category,
+    translations: translationsOf(input, undefined),
+  })
 }
 
 /**
@@ -61,13 +89,15 @@ export const createCategory = async (
 export const updateCategory = async (
   dependencies: CatalogAdminDependencies,
   slug: string,
-  category: Catalog.Category,
+  { translations: input, ...fields }: Catalog.CategoryInput,
 ): Promise<void> => {
   const tree = await loadTree(dependencies)
-  if (findIn(tree, slug) === undefined) {
+  const current = findIn(tree, slug)
+  if (current === undefined) {
     throw new CatalogRuleViolation("Cette catégorie n'existe plus.")
   }
-  requireFreeCategorySlug(tree, category.slug, slug)
+  const category = { ...fields, translations: translationsOf(input, current.translations) }
+  await requireFreeCategorySlug(tree, category.slug, input ?? current.translations, slug)
   requireParent(tree, category.parent)
   checkPlacement(tree, slug, category.parent)
 
@@ -95,13 +125,15 @@ export const deleteCategory = async (
   }
   if (CategoryTree.levelsBelow(tree, slug) > 0) {
     throw new CatalogRuleViolation(
-      `« ${category.name} » contient des sous-catégories : les déplacer ou les supprimer d'abord.`,
+      "« %name% » contient des sous-catégories : les déplacer ou les supprimer d'abord.",
+      { name: category.name },
     )
   }
   const count = await dependencies.productWriter.countInCategory(slug)
   if (count > 0) {
     throw new CatalogRuleViolation(
-      `« ${category.name} » contient ${count} produit(s) : les déplacer ou les supprimer d'abord.`,
+      "« %name% » contient %count% produit(s) : les déplacer ou les supprimer d'abord.",
+      { name: category.name, count },
     )
   }
   await dependencies.categoryWriter.remove(slug)
@@ -110,11 +142,17 @@ export const deleteCategory = async (
 const productPlacement = async (
   dependencies: CatalogAdminDependencies,
   input: Catalog.ProductInput,
+  translations: TranslationsInput,
   id?: number,
 ): Promise<string[]> => {
-  const sameSlug = await dependencies.productWriter.findBySlug(input.slug)
-  if (sameSlug !== null && sameSlug.id !== id) {
-    throw new CatalogRuleViolation(`Le slug « ${input.slug} » est déjà pris par un autre produit.`)
+  const taken = await takenSlug(input.slug, translations, async (candidate, locale) => {
+    const owner = await dependencies.productWriter.findBySlug(candidate, locale)
+    return owner !== null && owner.id !== id
+  })
+  if (taken !== null) {
+    throw new CatalogRuleViolation('Le slug « %slug% » est déjà pris par un autre produit.', {
+      slug: taken,
+    })
   }
   const tree = await loadTree(dependencies)
   if (findIn(tree, input.categorySlug) === undefined) {
@@ -172,7 +210,15 @@ const savedProduct = async (
 ): Promise<Catalog.ProductSaved> => {
   const attributeValues = checkAttributeValues(await attributes.findAll(), input.attributeValues)
   const gallery = await productGallery(media, current?.gallery ?? [], input.gallery, input.name)
-  const { imageContent, imageAlt, imageDecorative, metaTitle, metaDescription, ...product } = input
+  const {
+    imageContent,
+    imageAlt,
+    imageDecorative,
+    metaTitle,
+    metaDescription,
+    translations,
+    ...product
+  } = input
   const alt = imageAlt.trim() === '' ? input.name : imageAlt
   const image = await changeImage(
     media,
@@ -192,6 +238,7 @@ const savedProduct = async (
     gallery,
     metaTitle: metaTitle.trim(),
     metaDescription: metaDescription.trim(),
+    translations: translationsOf(translations, current?.translations),
   }
 }
 
@@ -199,7 +246,7 @@ export const createProduct = async (
   dependencies: CatalogAdminDependencies,
   input: Catalog.ProductInput,
 ): Promise<Catalog.Product> => {
-  const categoryPath = await productPlacement(dependencies, input)
+  const categoryPath = await productPlacement(dependencies, input, input.translations ?? {})
   return dependencies.productWriter.create(
     await savedProduct(dependencies, input, null),
     categoryPath,
@@ -215,7 +262,12 @@ export const updateProduct = async (
   if (current === null) {
     throw new CatalogRuleViolation("Ce produit n'existe plus.")
   }
-  const categoryPath = await productPlacement(dependencies, input, id)
+  const categoryPath = await productPlacement(
+    dependencies,
+    input,
+    input.translations ?? current.translations,
+    id,
+  )
   await dependencies.productWriter.update(
     id,
     await savedProduct(dependencies, input, current),
@@ -247,8 +299,6 @@ const attributeChoices = (rows: readonly Catalog.AttributeChoice[]): Catalog.Att
     return [{ value, label }]
   })
 
-const productCount = (count: number): string => `${count} ${count === 1 ? 'produit' : 'produits'}`
-
 const requireAttribute = async (
   { attributeWriter }: CatalogAdminDependencies,
   code: string,
@@ -265,10 +315,18 @@ export const createProductAttribute = async (
   input: Catalog.ProductAttributeInput,
 ): Promise<void> => {
   if ((await dependencies.attributeWriter.findByCode(input.code)) !== null) {
-    throw new CatalogRuleViolation(`Le code « ${input.code} » est déjà pris par un autre attribut.`)
+    throw new CatalogRuleViolation('Le code « %code% » est déjà pris par un autre attribut.', {
+      code: input.code,
+    })
   }
   const choices = attributeChoices(input.choices)
-  await dependencies.attributeWriter.create(productAttribute(input.code, { ...input, choices }))
+  await dependencies.attributeWriter.create(
+    productAttribute(
+      input.code,
+      { ...input, choices },
+      translationsOf(input.translations, undefined),
+    ),
+  )
 }
 
 /**
@@ -286,7 +344,10 @@ export const updateProductAttribute = async (
   )
   if (input.type !== attribute.type && carried.length > 0) {
     throw new CatalogRuleViolation(
-      `Le type de « ${attribute.label} » ne peut plus changer : il est renseigné sur ${productCount(carried.length)}.`,
+      carried.length === 1
+        ? 'Le type de « %label% » ne peut plus changer : il est renseigné sur 1 produit.'
+        : 'Le type de « %label% » ne peut plus changer : il est renseigné sur %count% produits.',
+      { label: attribute.label, count: carried.length },
     )
   }
   const choices = attributeChoices(input.choices)
@@ -297,11 +358,20 @@ export const updateProductAttribute = async (
     const count = carried.filter((product) => product.attributeValues[code] === choice.value).length
     if (count > 0) {
       throw new CatalogRuleViolation(
-        `La valeur « ${choice.label} » est utilisée par ${productCount(count)}.`,
+        count === 1
+          ? 'La valeur « %label% » est utilisée par 1 produit.'
+          : 'La valeur « %label% » est utilisée par %count% produits.',
+        { label: choice.label, count },
       )
     }
   }
-  await dependencies.attributeWriter.update(productAttribute(code, { ...input, choices }))
+  await dependencies.attributeWriter.update(
+    productAttribute(
+      code,
+      { ...input, choices },
+      translationsOf(input.translations, attribute.translations),
+    ),
+  )
 }
 
 /** Supprimer un attribut retire sa valeur des produits qui le renseignent. */

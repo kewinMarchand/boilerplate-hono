@@ -228,6 +228,7 @@ describe('GET /api/products/{slug}', () => {
       ],
       metaTitle: '',
       metaDescription: '',
+      alternates: [],
     })
   })
 
@@ -313,8 +314,15 @@ describe('GET /api/categories', () => {
         name: 'Plantes aquatiques',
         parent: null,
         children: [
-          { slug: 'nenuphars', name: 'Nénuphars', parent: 'plantes-aquatiques', children: [] },
+          {
+            slug: 'nenuphars',
+            name: 'Nénuphars',
+            parent: 'plantes-aquatiques',
+            children: [],
+            alternates: [],
+          },
         ],
+        alternates: [],
       },
     ])
   })

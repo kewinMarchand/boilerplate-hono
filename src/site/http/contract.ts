@@ -66,5 +66,9 @@ export const siteIdentityContract = z
       description:
         'Jetons de couleur de marque calculés, null sans couleurs saisies : le front garde alors ceux de boilerplates-ui.',
     }),
+    locales: z.array(z.string()).meta({
+      description:
+        'Langues du site, codes BCP 47 courts, la langue par défaut en premier ; ["fr"] tant qu\'aucune autre n\'est activée.',
+    }),
   })
   .meta({ id: 'SiteIdentity', description: "Lit l'identité du site." })

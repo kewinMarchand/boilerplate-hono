@@ -2,6 +2,7 @@ import { swaggerUI } from '@hono/swagger-ui'
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { HTTPException } from 'hono/http-exception'
 
+import { contentLanguage, contentLocaleResolver } from '#/shared/http/contentLocale.ts'
 import { negotiateFormat } from '#/shared/http/contentNegotiation.ts'
 import { contentSecurityPolicy } from '#/shared/http/contentSecurityPolicy.ts'
 import { cors } from '#/shared/http/cors.ts'
@@ -20,6 +21,7 @@ import { scenario, SimulatedServerError } from '#/shared/http/scenario.ts'
 import { NO_ERROR_REPORTING } from '#/shared/infrastructure/errorReporting.ts'
 
 import { CategoryNotFoundError } from '#/catalog/domain/CategoryNotFoundError.ts'
+import { getSiteIdentity } from '#/site/application/siteIdentity.ts'
 import { adminRoutes } from '#/admin/http/adminRoutes.ts'
 import { adminBlogRoutes } from '#/blog/http/adminBlog.ts'
 import { articleRoutes } from '#/blog/http/articleRoutes.ts'
@@ -113,7 +115,12 @@ export const createApp = (
   config: AppConfig,
   reporter: ErrorReporter = NO_ERROR_REPORTING,
 ) => {
-  const options = { scenarios: config.APP_ENV !== 'prod', mediaBaseUrl: config.MEDIA_BASE_URL }
+  const scenarios = config.APP_ENV !== 'prod'
+  const contentLocale = contentLocaleResolver(
+    async () => (await getSiteIdentity(dependencies)).locales,
+    scenarios,
+  )
+  const options = { scenarios, mediaBaseUrl: config.MEDIA_BASE_URL, contentLocale }
   const app = new OpenAPIHono()
   const reportMailFailure = (error: unknown): void => {
     console.error('Envoi du mail du message de contact en échec', error)
@@ -121,12 +128,21 @@ export const createApp = (
   }
 
   app.use('*', contentSecurityPolicy())
+  app.use('/api/*', contentLanguage(contentLocale))
   app.use('/api/*', cors(config.CORS_ALLOW_ORIGIN))
   app.route('/', mediaRoutes(config.MEDIA_DIR))
 
   const routes = app
     .route('/', taskRoutes(dependencies.tasks, options))
-    .route('/', articleRoutes(dependencies.articles, dependencies.articleTerms, options))
+    .route(
+      '/',
+      articleRoutes(
+        dependencies.articles,
+        dependencies.articleTerms,
+        dependencies.articleRenderer,
+        options,
+      ),
+    )
     .route('/', contactMessageRoutes(dependencies, options, reportMailFailure))
     .route('/', catalogRoutes(dependencies, options))
     .route('/', contentRoutes(dependencies, options))

@@ -9,14 +9,20 @@ import type { PageMeta } from '#/content/domain/PageMeta.ts'
 
 const content = () => {
   let pages: (LegalPage.Editable & { introduction: string })[] = [
-    { slug: 'mentions-legales', title: 'Mentions légales', body: 'Avant.', introduction: '' },
+    {
+      slug: 'mentions-legales',
+      title: 'Mentions légales',
+      body: 'Avant.',
+      introduction: '',
+      translations: {},
+    },
   ]
-  let metas: PageMeta.Entity[] = [{ page: 'home', title: '', description: '' }]
+  let metas: PageMeta.Entity[] = [{ page: 'home', title: '', description: '', translations: {} }]
   const dependencies = {
     pageMetaWriter: {
       findAll: () => Promise.resolve(metas),
       find: (page: PageMeta.Page) => Promise.resolve(metas.find((m) => m.page === page) ?? null),
-      update: (page: PageMeta.Page, meta: PageMeta.Input) => {
+      update: (page: PageMeta.Page, meta: Omit<PageMeta.Entity, 'page'>) => {
         metas = metas.map((m) => (m.page === page ? { page, ...meta } : m))
         return Promise.resolve()
       },
@@ -24,7 +30,7 @@ const content = () => {
     legalPageWriter: {
       findAll: () => Promise.resolve(pages),
       findEditable: (slug: string) => Promise.resolve(pages.find((p) => p.slug === slug) ?? null),
-      update: (slug: string, page: LegalPage.Input & { introduction: string }) => {
+      update: (slug: string, page: LegalPage.Saved) => {
         pages = pages.map((p) => (p.slug === slug ? { slug, ...page } : p))
         return Promise.resolve()
       },
@@ -62,7 +68,9 @@ describe('Admin : contenus', () => {
 
     await updatePageMeta(dependencies, 'home', { title: ' Oraki ', description: 'Plantes. ' })
 
-    expect(metas()).toEqual([{ page: 'home', title: 'Oraki', description: 'Plantes.' }])
+    expect(metas()).toEqual([
+      { page: 'home', title: 'Oraki', description: 'Plantes.', translations: {} },
+    ])
     await expect(
       updatePageMeta(dependencies, 'blog', { title: '', description: '' }),
     ).rejects.toThrow("Cette page n'existe plus.")

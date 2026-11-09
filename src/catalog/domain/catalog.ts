@@ -1,5 +1,6 @@
 import type { Price } from './price.ts'
 import type { Media } from '#/media/domain/Media.ts'
+import type { Translations, TranslationsInput } from '#/shared/domain/translations.ts'
 
 export const EXPOSURES = ['soleil', 'mi-ombre', 'ombre'] as const
 export const SIZES = ['S', 'M', 'L'] as const
@@ -48,6 +49,8 @@ export declare namespace Catalog {
     readonly position: number
     /** Dans l'ordre d'affichage. */
     readonly choices: readonly AttributeChoice[]
+    /** Libellé, unité et libellés des valeurs (clés `choice.<valeur>`) dans les autres langues (ADR 0014). */
+    readonly translations: Translations
   }
 
   /** Attribut renseigné sur un produit, avec ce qu'il faut pour l'afficher. */
@@ -67,18 +70,19 @@ export declare namespace Catalog {
     readonly values: { readonly value: string; readonly label: string; readonly count: number }[]
   }
 
+  /** Le slug et le parent sont ceux de la langue par défaut : ils relient l'arbre et les produits. */
   interface Category {
     readonly slug: string
     readonly name: string
     readonly parent: string | null
     readonly position: number
+    /** Nom et slug dans les autres langues (ADR 0014). */
+    readonly translations: Translations
   }
 
-  interface CategoryNode {
-    readonly slug: string
-    readonly name: string
-    readonly parent: string | null
-    readonly children: CategoryNode[]
+  /** Saisie d'une catégorie dans l'admin ; `translations` absent : les traductions actuelles sont gardées. */
+  interface CategoryInput extends Omit<Category, 'translations'> {
+    readonly translations?: TranslationsInput
   }
 
   interface Product {
@@ -103,6 +107,11 @@ export declare namespace Catalog {
     /** Référencement de la fiche (SPEC-COMMUNE, section 26), vide tant que l'admin n'en a pas saisi. */
     readonly metaTitle: string
     readonly metaDescription: string
+    /**
+     * Nom, slug, description, métadonnées et textes de remplacement de l'image et de la galerie
+     * (clés `galleryAlt.<empreinte>`) dans les autres langues (ADR 0014).
+     */
+    readonly translations: Translations
   }
 
   /**
@@ -193,6 +202,8 @@ export declare namespace Catalog {
     readonly attributeFilters: ReadonlyMap<string, readonly string[]>
     /** Codes des attributs filtrables à compter. */
     readonly attributeFacets: readonly string[]
+    /** Langue du tri par nom (nom traduit, collation de la langue). */
+    readonly locale: string
   }
 
   interface SearchResult {
@@ -230,6 +241,8 @@ export declare namespace Catalog {
     readonly filterable: boolean
     readonly position: number
     readonly choices: readonly AttributeChoice[]
+    /** Absent : les traductions actuelles sont gardées. */
+    readonly translations?: TranslationsInput
   }
 
   interface CategoryRepository {
@@ -239,7 +252,11 @@ export declare namespace Catalog {
 
   interface ProductRepository {
     search(query: SearchQuery): Promise<SearchResult>
-    findBySlug(slug: string): Promise<Product | null>
+    /**
+     * `locale` : langue du slug (le sien, ou celui de la langue par défaut s'il n'est pas traduit) ;
+     * null ou absent : la langue par défaut.
+     */
+    findBySlug(slug: string, locale?: string | null): Promise<Product | null>
     /** Produits à la une, par nom. */
     findFeatured(): Promise<Product[]>
   }
@@ -266,6 +283,8 @@ export declare namespace Catalog {
     readonly gallery: readonly GalleryRowInput[]
     readonly metaTitle: string
     readonly metaDescription: string
+    /** Absent : les traductions actuelles sont gardées. */
+    readonly translations?: TranslationsInput
   }
 
   /** Produit enregistré par l'admin, image résolue. */
@@ -284,6 +303,7 @@ export declare namespace Catalog {
     readonly gallery: readonly Media.Image[]
     readonly metaTitle: string
     readonly metaDescription: string
+    readonly translations: Translations
   }
 
   /** Écritures de l'admin sur les catégories. */
@@ -297,7 +317,8 @@ export declare namespace Catalog {
   /** Lectures et écritures de l'admin sur les produits. */
   interface ProductWriter {
     findById(id: number): Promise<Product | null>
-    findBySlug(slug: string): Promise<Product | null>
+    /** `locale` : langue du slug ; null ou absent : la langue par défaut. */
+    findBySlug(slug: string, locale?: string | null): Promise<Product | null>
     /** Tous les produits, par catégorie puis par nom : liste de l'admin. */
     findAll(): Promise<Product[]>
     countInCategory(slug: string): Promise<number>

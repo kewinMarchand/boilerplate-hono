@@ -1,13 +1,15 @@
+import { RuleViolation } from '#/shared/domain/ruleViolation.ts'
+
 import { MAX_GALLERY_IMAGES } from './catalog.ts'
 import { CategoryTree } from './categoryTree.ts'
 
 /** Règles d'écriture du catalogue, mêmes messages que l'API Platform (ADR 0001 des deux dépôts). */
 export const MAX_DEPTH = 3
 
-/** Règle du catalogue refusée : le message est montré tel quel dans l'admin. */
-export class CatalogRuleViolation extends Error {
-  constructor(message: string) {
-    super(message)
+/** Règle du catalogue refusée : le message s'affiche dans l'admin, traduit dans la langue de son interface. */
+export class CatalogRuleViolation extends RuleViolation {
+  constructor(template: string, parameters: Readonly<Record<string, string | number>> = {}) {
+    super(template, parameters)
     this.name = 'CatalogRuleViolation'
   }
 }
@@ -31,7 +33,8 @@ export const checkPlacement = (
     parentPath.length + 1 + (category === null ? 0 : CategoryTree.levelsBelow(tree, category))
   if (depth > MAX_DEPTH) {
     throw new CatalogRuleViolation(
-      `Le catalogue a ${MAX_DEPTH} niveaux au plus : cette place en donnerait ${depth}.`,
+      'Le catalogue a %max% niveaux au plus : cette place en donnerait %depth%.',
+      { max: MAX_DEPTH, depth },
     )
   }
 }
@@ -39,8 +42,9 @@ export const checkPlacement = (
 /** Galerie d'un produit : 8 images au plus (ADR 0008), comptées avant tout encodage. */
 export const checkGallerySize = (count: number): void => {
   if (count > MAX_GALLERY_IMAGES) {
-    throw new CatalogRuleViolation(
-      `La galerie compte ${MAX_GALLERY_IMAGES} images au plus (${count} demandées).`,
-    )
+    throw new CatalogRuleViolation('La galerie compte %max% images au plus (%count% demandées).', {
+      max: MAX_GALLERY_IMAGES,
+      count,
+    })
   }
 }

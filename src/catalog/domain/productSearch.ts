@@ -1,4 +1,5 @@
 import { EXPOSURES, SIZES } from './catalog.ts'
+import { attributeIn, categoryIn } from './catalogTranslations.ts'
 import { isFacet } from './productAttribute.ts'
 
 import type { Catalog } from './catalog.ts'
@@ -31,22 +32,26 @@ const attributeFacets = (
         ]
   })
 
+/** Facettes de catégorie et d'attribut dans la langue `locale` ; les compteurs restent par slug de la langue par défaut. */
 export const toProductList = (
   children: readonly Catalog.Category[],
   attributes: readonly Catalog.ProductAttribute[],
   result: Catalog.SearchResult,
+  locale: string | null = null,
 ): Catalog.ProductList => ({
   items: result.items,
   totalItems: result.totalItems,
   facets: {
     exposure: facetValues(EXPOSURES, result.exposureCounts),
     size: facetValues(SIZES, result.sizeCounts),
-    category: children.map((child) => ({
-      slug: child.slug,
-      name: child.name,
-      count: result.categoryCounts[child.slug] ?? 0,
-    })),
-    attributes: attributeFacets(attributes, result.attributeCounts),
+    category: children.map((child) => {
+      const { slug, name } = categoryIn(child, locale)
+      return { slug, name, count: result.categoryCounts[child.slug] ?? 0 }
+    }),
+    attributes: attributeFacets(
+      attributes.map((attribute) => attributeIn(attribute, locale)),
+      result.attributeCounts,
+    ),
   },
 })
 
@@ -82,6 +87,7 @@ export const toSearchQuery = (
   criteria: Catalog.Criteria,
   children: readonly Catalog.Category[],
   attributes: readonly Catalog.ProductAttribute[],
+  locale: string,
 ): Catalog.SearchQuery => {
   const facets = attributes.filter(isFacet)
 
@@ -98,5 +104,6 @@ export const toSearchQuery = (
     limit: criteria.itemsPerPage,
     attributeFilters: attributeFilters(facets, criteria.attributes),
     attributeFacets: facets.map(({ code }) => code),
+    locale,
   }
 }

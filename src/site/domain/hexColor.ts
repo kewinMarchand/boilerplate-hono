@@ -11,7 +11,9 @@ const PATTERN = /^#[0-9a-f]{6}$/
 export const hexColor = (value: string): string => {
   const color = value.trim().toLowerCase()
   if (!PATTERN.test(color)) {
-    throw new SiteRuleViolation(`Couleur invalide : « ${color} ». Format attendu : #rrggbb.`)
+    throw new SiteRuleViolation('Couleur invalide : « %value% ». Format attendu : #rrggbb.', {
+      value: color,
+    })
   }
   return color
 }
