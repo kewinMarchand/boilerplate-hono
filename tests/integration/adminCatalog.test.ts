@@ -189,6 +189,34 @@ describe('Admin : catalogue', () => {
     expect(body).toContain('aria-invalid="true"')
   })
 
+  it('refuse une position ou un prix vides avec le message de NotBlank, comme l’API Platform', async () => {
+    const blank = '<p class="erreur-champ" id="erreur-%s">Cette valeur ne doit pas être vide.</p>'
+    const category = await post('/admin/categories/nouvelle', {
+      name: 'Vide',
+      slug: 'vide',
+      position: '',
+    })
+    expect(category.status).toBe(422)
+    expect(await category.text()).toContain(blank.replace('%s', 'position'))
+
+    const product = await post('/admin/produits/nouveau', {
+      name: 'Vide',
+      slug: 'vide',
+      price: ' ',
+    })
+    expect(product.status).toBe(422)
+    expect(await product.text()).toContain(blank.replace('%s', 'price'))
+
+    const attribute = await post('/admin/attributs/nouveau', {
+      code: 'vide',
+      label: 'Vide',
+      type: 'text',
+      position: '',
+    })
+    expect(attribute.status).toBe(422)
+    expect(await attribute.text()).toContain(blank.replace('%s', 'position'))
+  })
+
   it('annonce une règle du catalogue enfreinte', async () => {
     const response = await post('/admin/categories/nouvelle', {
       name: 'Doublon',

@@ -141,7 +141,9 @@ export const readAttributeForm = (
     errors.unit = tooLong(UNIT_MAX_LENGTH)
   }
   const position = integer(values.position ?? '')
-  if (position === null) {
+  if ((values.position ?? '') === '') {
+    errors.position = t('validator.not_blank')
+  } else if (position === null) {
     errors.position = t('validator.integer')
   } else if (position < 0) {
     errors.position = t('validator.positive_or_zero')

@@ -78,7 +78,9 @@ export const readCategoryForm = (
   requiredText(errors, 'name', values.name)
   slugField(errors, values.slug)
   const position = integer(values.position)
-  if (position === null) {
+  if (values.position === '') {
+    errors.position = t('validator.not_blank')
+  } else if (position === null) {
     errors.position = t('validator.integer')
   } else if (position < 0) {
     errors.position = t('validator.positive_or_zero')
@@ -121,7 +123,9 @@ export const readProductForm = async (
     errors.categorySlug = t('constraint.category')
   }
   const cents = euroCents(values.price)
-  if (cents === null) {
+  if (values.price === '') {
+    errors.price = t('validator.not_blank')
+  } else if (cents === null) {
     errors.price = t('validator.money')
   } else if (cents < 0) {
     errors.price = t('constraint.price')

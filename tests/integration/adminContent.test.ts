@@ -175,6 +175,25 @@ describe('Admin : contenus', () => {
     expect(body).toContain('aria-invalid="true"')
   })
 
+  it('refuse une date ou une position vides avec le message de NotBlank, comme l’API Platform', async () => {
+    const blank = '<p class="erreur-champ" id="erreur-%s">Cette valeur ne doit pas être vide.</p>'
+    const article = await post('/admin/articles/nouveau', {
+      title: 'Vide',
+      slug: 'vide',
+      publishedAt: '',
+    })
+    expect(article.status).toBe(422)
+    expect(await article.text()).toContain(blank.replace('%s', 'publishedAt'))
+
+    const section = await post('/admin/rubriques/nouveau', {
+      name: 'Vide',
+      slug: 'vide',
+      position: '',
+    })
+    expect(section.status).toBe(422)
+    expect(await section.text()).toContain(blank.replace('%s', 'position'))
+  })
+
   it('annonce une règle des contenus enfreinte', async () => {
     const response = await post('/admin/pages-legales/cgv/modifier', {
       title: 'CGV',

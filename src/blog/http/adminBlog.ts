@@ -122,7 +122,9 @@ export const readArticleForm = async (
   const errors: Errors = {}
   requiredText(errors, 'title', title)
   slugField(errors, slug)
-  if (!isDate(publishedAt)) {
+  if (publishedAt === '') {
+    errors.publishedAt = t('validator.not_blank')
+  } else if (!isDate(publishedAt)) {
     errors.publishedAt = t('validator.date')
   }
   const image = await readImageFields(body, values, errors)
