@@ -83,7 +83,7 @@ API_URL=http://localhost:8091      # Hono + MongoDB
 API_SCHEMA_URL=http://localhost:8091/api/docs.jsonopenapi
 ```
 
-Les origines CORS autorisées sont les mêmes (`CORS_ALLOW_ORIGIN`, surchargeable dans `.env`, voir `.env.example`).
+Les origines CORS autorisées sont les mêmes (`CORS_ALLOW_ORIGIN`, surchargeable dans `.env`, voir `.env.example`) : l'expression de la section 7 de la spec commune (`~/Applications/boilerplates-commun/SPEC-COMMUNE.md`, registre unique des ports), soit `http://localhost` ou `http://127.0.0.1` sur les ports de développement des fronts (3000, 3010, 4321, 5173, 8095 et son repli 18095) et sur les blocs de tests et d'outils 4000 à 4199.
 
 ## Client typé `hc`
 

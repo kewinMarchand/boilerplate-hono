@@ -123,6 +123,23 @@ describe('CORS', () => {
     expect(response.headers.get('access-control-allow-origin')).toBe('http://localhost:5173')
   })
 
+  it.each(['http://localhost:4002', 'http://127.0.0.1:4002', 'http://127.0.0.1:3010'])(
+    'autorise %s (bloc des tests ou boucle locale, registre des ports)',
+    async (origin) => {
+      const response = await dev.app.request('/api/tasks', { headers: { Origin: origin } })
+
+      expect(response.headers.get('access-control-allow-origin')).toBe(origin)
+    },
+  )
+
+  it('refuse un port hors du registre', async () => {
+    const response = await dev.app.request('/api/tasks', {
+      headers: { Origin: 'http://localhost:3130' },
+    })
+
+    expect(response.headers.get('access-control-allow-origin')).toBeNull()
+  })
+
   it('refuse une origine inconnue', async () => {
     const response = await dev.app.request('/api/tasks', {
       method: 'OPTIONS',
