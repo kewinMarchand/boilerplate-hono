@@ -61,6 +61,7 @@ Le projet Compose s'appelle `boilerplate-hono` : ses conteneurs, son réseau et 
 | `make lint-staged`                                           | Lint et format des fichiers indexés, dans le conteneur (appelé par le hook pre-commit, qui s'arrête avec un message clair si Docker est absent ou arrêté) |
 | `make up` / `make down`                                      | Lance ou arrête les conteneurs (la base est conservée)                                                                                                    |
 | `make db-reset`                                              | Recrée la base : validateurs `$jsonSchema`, index, mêmes fixtures que Doctrine                                                                            |
+| `make db-translations`                                       | Base de dev existante : ajoute les traductions anglaises dormantes des fixtures, sans recréer la base                                                     |
 | `make qa`                                                    | Lint (dont règles d'architecture), auto-test des règles, format, types, contrôle de `openapi.json`, tests                                                 |
 | `make arch-selftest`                                         | Écrit six violations volontaires des règles d'architecture, exige l'échec d'ESLint, puis les retire                                                       |
 | `make lint` / `make format` / `make typecheck` / `make test` | Chaque étape seule                                                                                                                                        |
@@ -149,7 +150,7 @@ Le catalogue calcule filtre, tri, pagination et compteurs disjonctifs en **une a
 make contract   # API Platform sur 8090 et cette API sur 8091, lancées et avec leurs fixtures
 ```
 
-`contract/cases.ts` liste 383 requêtes représentatives (tous les scénarios des tests fonctionnels de l'API Platform, paramètres invalides, négociation, erreurs, CORS). Chacune part vers les deux API, puis le script compare statut, `Content-Type`, en-têtes utiles (`Allow`, `Location`, `Access-Control-*`) et corps JSON normalisé : clés triées, clés de débogage Symfony (`trace`, `class`) retirées, origine des URL et dates-heures masquées, `id` d'un message de contact créé masqué. Les fichiers de `/media/` (fichier audio de démonstration, plages comprises) sont comparés octet par octet, avec `Content-Range` et `Content-Length`. Il compare ensuite les deux documents OpenAPI : opérations, paramètres, codes de réponse et schémas consommés par les fronts (seule la réponse 413 du contact, documentée ici, est écartée). Toute différence est listée et fait échouer la commande.
+`contract/cases.ts` liste 431 requêtes représentatives (tous les scénarios des tests fonctionnels de l'API Platform, paramètres invalides, négociation, erreurs, CORS, cas bilingues avec `X-Scenario: bilingual`). Chacune part vers les deux API, puis le script compare statut, `Content-Type`, en-têtes utiles (`Allow`, `Location`, `Access-Control-*`, `Content-Language`, et `Vary` réduit à `Accept-Language`) et corps JSON normalisé : clés triées, clés de débogage Symfony (`trace`, `class`) retirées, origine des URL et dates-heures masquées, `id` d'un message de contact créé masqué. Les fichiers de `/media/` (fichier audio de démonstration, plages comprises) sont comparés octet par octet, avec `Content-Range` et `Content-Length`. Il compare ensuite les deux documents OpenAPI : opérations, paramètres, codes de réponse et schémas consommés par les fronts (seule la réponse 413 du contact, documentée ici, est écartée). Toute différence est listée et fait échouer la commande.
 
 Les variables `CONTRACT_REFERENCE_URL` et `CONTRACT_CANDIDATE_URL` changent les deux origines. Les requêtes `POST` créent des messages de contact dans les deux bases.
 
@@ -168,7 +169,7 @@ Signalés par le script sans le faire échouer :
 Non comparés, mais à connaître :
 
 - **Échappement** : l'API Platform échappe les accents (`é`) et les barres obliques (`\/`), ici le JSON est en UTF-8 brut. Les deux sont équivalents une fois décodés.
-- **En-têtes** : `Link`, `ETag`, `Vary`, `X-Debug-*` ne sont pas reproduits.
+- **En-têtes** : `Link`, `ETag`, `X-Debug-*` ne sont pas reproduits ; de `Vary`, seul `Accept-Language` l'est (les autres valeurs viennent des bundles de l'API Platform).
 - **OpenAPI** : 3.1.0 ici, 3.2.0 côté API Platform. Pas de variantes `.jsonld` ni de schémas Hydra. Le corps du `POST` contact est un schéma en ligne, la réponse 201 référence `ContactMessage` comme côté API Platform. Vérifié avec `openapi-typescript` 7.13 (la version des boilerplates) : les types générés pour les 11 schémas comparés et pour les paramètres de `/api/products` sont identiques.
 - **Nombres JSON** : `1.0` est vu comme un entier (JavaScript ne distingue pas `1.0` de `1`), PHP y voit un flottant. Seul le libellé d'une erreur de type change.
 - **Requêtes partielles sur `/media/`** : une seule plage (`bytes=début-fin`, `bytes=début-`, `bytes=-suffixe`) ; Caddy accepte aussi plusieurs plages (réponse `multipart/byteranges`), ici elles donnent le fichier entier. Les lecteurs audio ne demandent qu'une plage.
@@ -196,6 +197,14 @@ Comme dans l'API Platform ([ADR 0006](doc/adr/0006-attributs-de-produit-configur
 ## Identité du site
 
 `GET /api/site-identity` sert l'identité saisie dans l'admin (`/admin/identite-du-site`, une seule fiche en modification seule), ou les valeurs du modèle tant que rien n'est enregistré (fixtures : nom et accroche du modèle, sans logo ni couleurs, `theme: null`, `auto`). Quand les deux couleurs de marque sont saisies, l'API calcule les douze jetons clair et sombre, avec les mêmes règles, les mêmes arrondis et les mêmes messages de validation que l'API Platform ([ADR 0005](doc/adr/0005-identite-du-site-administree-dans-l-api.md) ; en sombre, couleur éclaircie jusqu'à 4,5:1, [ADR 0007](doc/adr/0007-couleur-de-marque-sombre-a-4-5.md)). Dans l'admin, les couleurs sont des sélecteurs natifs (`<input type="color">`) derrière la case « Utiliser les couleurs de la bibliothèque » (cochée : `theme: null`, couleurs ignorées) ; le logo, l'icône et l'image de partage montrent leur aperçu et leur texte de remplacement au-dessus du champ d'envoi, chacun avec sa case « Retirer ». `X-Scenario: empty` sert l'identité par défaut, `error` une 500.
+
+## Contenu multilingue et admin en deux langues
+
+Comme dans l'API Platform ([ADR 0014](doc/adr/0014-contenu-multilingue-et-admin-bilingue.md) de ce dépôt, qui adopte son ADR 0015 ; section 29 de `SPEC-COMMUNE.md`) : un site n'a qu'une langue, le français, tant que l'admin n'en active pas d'autre (identité du site : langue par défaut et autres langues). `GET /api/site-identity` expose `locales`. La langue servie est celle du paramètre `locale` s'il désigne une langue activée, sinon la première langue activée d'`Accept-Language`, sinon la langue par défaut ; chaque réponse de l'API porte `Content-Language` et `Vary: Accept-Language`. Un champ non traduit prend la valeur de la langue par défaut ; un slug appartient à sa langue (slug d'une autre langue : 404). Fiches de produit et d'article, pages légales et nœuds de l'arbre des catégories exposent `alternates` (`[]` à une seule langue).
+
+Les documents gardent leurs champs dans la langue par défaut et un sous-document `translations` (`{ en: { name, slug, … } }`). Les bases existantes sont complétées au démarrage (traductions vides, `locales: ["fr"]`), sans perte. Les fixtures portent quelques traductions anglaises, dormantes : `X-Scenario: bilingual` (dev et test) active l'anglais pour la requête, c'est le cas bilingue des tests et de `make contract`. Sur une base de dev d'avant ces traductions, `make db-translations` les ajoute sans `db-reset`.
+
+L'admin est en français et en anglais (sélecteur dans l'en-tête et sur la page de connexion, choix mémorisé, français par défaut) ; ses libellés sont dans `src/shared/http/adminMessages/`. Les fiches traduisibles ont un onglet par langue activée, la langue par défaut en premier ; un site d'une seule langue n'en a pas.
 
 ## Suivi des erreurs (GlitchTip)
 
