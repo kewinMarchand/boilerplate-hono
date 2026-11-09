@@ -35,7 +35,7 @@ const STYLE = `
   h1 { font-size: 1.5rem; margin-top: 0; }
   a { color: #1d4ed8; }
   label { display: block; margin-top: 1rem; font-weight: 600; }
-  input, select { display: block; width: 100%; box-sizing: border-box; margin-top: .25rem; padding: .6rem; font: inherit;
+  input, select, textarea { display: block; width: 100%; box-sizing: border-box; margin-top: .25rem; padding: .6rem; font: inherit;
     border: 1px solid #6b6b6b; border-radius: .25rem; }
   input[type="checkbox"] { display: inline; width: auto; margin-right: .5rem; }
   button { margin-top: 1.5rem; padding: .6rem 1.2rem; font: inherit; color: #fff; background: #1d4ed8; border: 0;
