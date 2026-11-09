@@ -7,6 +7,8 @@ import {
   field,
   integer,
   maxLength,
+  META_DESCRIPTION_MAX_LENGTH,
+  META_TITLE_MAX_LENGTH,
   metaFieldsHtml,
   readMetaFields,
   requiredText,
@@ -15,10 +17,17 @@ import {
   textareaField,
   textField,
 } from '#/shared/http/adminForms.ts'
+import { refusalMessage, t } from '#/shared/http/adminI18n.ts'
 import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLayout.ts'
+import {
+  inLocale,
+  languageTabs,
+  otherLocales,
+  readTranslations,
+  translationValues,
+} from '#/shared/http/adminTranslations.ts'
 
-import { BlogRuleViolation, SPEAKER_MAX_LENGTH } from '#/blog/domain/Article.ts'
-import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
+import { SPEAKER_MAX_LENGTH } from '#/blog/domain/Article.ts'
 import { createArticle, deleteArticle, updateArticle } from '#/blog/application/adminBlog.ts'
 import {
   audioPreviewHtml,
@@ -35,24 +44,43 @@ import { adminArticleTermRoutes } from './adminArticleTerms.ts'
 import type { BlogAdminDependencies } from '#/blog/application/adminBlog.ts'
 import type { Article } from '#/blog/domain/Article.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
+import type { MessageKey } from '#/shared/http/adminI18n.ts'
 
 /**
  * Admin des articles du blog (ADR 0001) : liste, création, modification, suppression, montées par
  * l'admin derrière sa session. La forme est vérifiée ici, les règles par les cas d'usage : la
  * rubrique, le format et le fichier audio (ADR 0009) comme l'image.
  */
-const DONE: Record<string, string> = {
-  cree: 'Article créé.',
-  modifie: 'Article modifié.',
-  supprime: 'Article supprimé.',
+const DONE: Readonly<Record<string, MessageKey>> = {
+  cree: 'flash.article_created',
+  modifie: 'flash.article_updated',
+  supprime: 'flash.article_deleted',
+}
+
+/** Champs traduisibles d'un article (ADR 0014), dans l'ordre des onglets de langue. */
+const ARTICLE_TRANSLATED = [
+  'title',
+  'slug',
+  'excerpt',
+  'body',
+  'speaker',
+  'imageAlt',
+  'metaTitle',
+  'metaDescription',
+] as const
+
+/** Longueurs maximales des champs traduits, celles des champs de la langue par défaut. */
+const TRANSLATED_MAX_LENGTHS: Readonly<Record<string, number>> = {
+  title: 255,
+  speaker: SPEAKER_MAX_LENGTH,
+  imageAlt: 255,
+  metaTitle: META_TITLE_MAX_LENGTH,
+  metaDescription: META_DESCRIPTION_MAX_LENGTH,
 }
 
 const isDate = (value: string): boolean =>
   /^\d{4}-\d{2}-\d{2}$/.test(value) &&
   new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value
-
-const ALT_HELP =
-  "Ce que montre l'image, si elle apporte une information. Une illustration d'ambiance est décorative."
 
 const AUDIO_ACCEPT = 'audio/mpeg,audio/mp4,audio/x-m4a,audio/ogg,.mp3,.m4a,.ogg'
 
@@ -63,7 +91,7 @@ const termChoice = (errors: Errors, name: string, value: string): number | null 
   }
   const id = integer(value)
   if (id === null) {
-    errors[name] = 'Le choix sélectionné est invalide.'
+    errors[name] = t('validator.choice')
   }
   return id
 }
@@ -95,7 +123,7 @@ export const readArticleForm = async (
   requiredText(errors, 'title', title)
   slugField(errors, slug)
   if (!isDate(publishedAt)) {
-    errors.publishedAt = 'Veuillez entrer une date valide.'
+    errors.publishedAt = t('validator.date')
   }
   const image = await readImageFields(body, values, errors)
   const section = termChoice(errors, 'sectionId', sectionId)
@@ -103,6 +131,13 @@ export const readArticleForm = async (
   maxLength(errors, 'speaker', speaker, SPEAKER_MAX_LENGTH)
   const meta = readMetaFields(body, values, errors)
   const audioContent = await fileContent(body, 'audioContent')
+  const translations = readTranslations(body, ARTICLE_TRANSLATED, values, errors)
+  for (const locale of otherLocales()) {
+    for (const [name, max] of Object.entries(TRANSLATED_MAX_LENGTHS)) {
+      const key = inLocale(locale, name)
+      maxLength(errors, key, values[key] ?? '', max)
+    }
+  }
 
   return {
     values,
@@ -125,6 +160,7 @@ export const readArticleForm = async (
             speaker,
             metaTitle: meta.title,
             metaDescription: meta.description,
+            ...(translations === undefined ? {} : { translations }),
           }
         : null,
   }
@@ -132,19 +168,19 @@ export const readArticleForm = async (
 
 const listPage = (articles: readonly Article.Entity[], message?: string, error?: string) =>
   adminPage(
-    'Articles',
+    t('entity.articles'),
     '/admin/articles',
-    html`<h1>Articles</h1>
+    html`<h1>${t('entity.articles')}</h1>
       ${flash(message)} ${formError(error)}
-      <p><a href="/admin/articles/nouveau">Nouvel article</a></p>
+      <p><a href="/admin/articles/nouveau">${t('title.new_article')}</a></p>
       <table>
         <thead>
           <tr>
-            <th scope="col">Image</th>
-            <th scope="col">Titre</th>
-            <th scope="col">Publié le</th>
-            <th scope="col">Rubrique</th>
-            <th scope="col">Actions</th>
+            <th scope="col">${t('field.image')}</th>
+            <th scope="col">${t('field.title')}</th>
+            <th scope="col">${t('field.published_at')}</th>
+            <th scope="col">${t('field.section')}</th>
+            <th scope="col">${t('field.actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -157,11 +193,11 @@ const listPage = (articles: readonly Article.Entity[], message?: string, error?:
                 <td>${article.section?.name ?? '—'}</td>
                 <td>
                   <a href="/admin/articles/${article.id}/modifier"
-                    >Modifier<span class="sr"> ${article.title}</span></a
+                    >${t('action.edit')}<span class="sr"> ${article.title}</span></a
                   >
                   ·
                   <a href="/admin/articles/${article.id}/supprimer"
-                    >Supprimer<span class="sr"> ${article.title}</span></a
+                    >${t('action.delete')}<span class="sr"> ${article.title}</span></a
                   >
                 </td>
               </tr>`,
@@ -196,22 +232,35 @@ const formPage = (
     html`<h1>${title}</h1>
       ${formError(error)}
       <form method="post" action="${action}" enctype="multipart/form-data" novalidate>
-        ${textField('Titre', 'title', values, errors)} ${textField('Slug', 'slug', values, errors)}
-        ${textareaField('Résumé', 'excerpt', values, errors)}
-        ${textareaField('Texte', 'body', values, errors, 16)}
-        <p>
-          Markdown : paragraphes séparés par une ligne vide, ## pour un intertitre, - pour une
-          liste, [texte](adresse) pour un lien. Le HTML saisi est affiché tel quel, sans être
-          interprété.
-        </p>
-        ${textField('Date de publication', 'publishedAt', values, errors, 'date')}
-        ${imageFieldsHtml('article', ALT_HELP, values, errors, context.current?.image ?? null)}
-        ${selectField('Rubrique', 'sectionId', termOptions('Aucune', context.sections), values, errors)}
-        <p>Liste de la section « Rubriques ».</p>
-        ${selectField('Format', 'formatId', termOptions('Aucun', context.formats), values, errors)}
-        <p>Liste de la section « Formats ».</p>
+        ${languageTabs('article', ARTICLE_TRANSLATED, errors, (locale) =>
+          articleTexts(locale, values, errors),
+        )}
+        ${textField(t('field.published_at'), 'publishedAt', values, errors, 'date')}
+        ${imageFieldsHtml(
+          'article',
+          t('help.article_alt'),
+          values,
+          errors,
+          context.current?.image ?? null,
+        )}
+        ${selectField(
+          t('field.section'),
+          'sectionId',
+          termOptions(t('article.no_section'), context.sections),
+          values,
+          errors,
+        )}
+        <p>${t('help.article_section')}</p>
+        ${selectField(
+          t('field.format'),
+          'formatId',
+          termOptions(t('article.no_format'), context.formats),
+          values,
+          errors,
+        )}
+        <p>${t('help.article_format')}</p>
         ${audioPreviewHtml(context.current?.audio ?? null)}
-        <label for="audioContent">Fichier audio</label>
+        <label for="audioContent">${t('field.audio')}</label>
         <input
           id="audioContent"
           name="audioContent"
@@ -219,35 +268,42 @@ const formPage = (
           accept="${AUDIO_ACCEPT}"
           aria-describedby="aide-audioContent"
         />
-        <p id="aide-audioContent">
-          MP3, M4A ou OGG, 100 Mo au plus. La durée est lue dans le fichier. Sans fichier, l'audio
-          actuel est gardé.
-        </p>
+        <p id="aide-audioContent">${t('help.audio')}</p>
         ${checkboxField(
-          'Retirer le fichier audio',
+          t('field.remove_audio'),
           'removeAudio',
           values,
-          'Un fichier envoyé en même temps est ignoré.',
+          t('help.remove_ignores_upload'),
         )}
-        ${textField('Intervenant', 'speaker', values, errors)}
-        <p>Affiché avec le lecteur audio, ${SPEAKER_MAX_LENGTH} caractères au plus.</p>
-        ${metaFieldsHtml(values, errors)}
-        <button type="submit">Enregistrer</button>
+        <button type="submit">${t('form.save')}</button>
       </form>
       ${imagePreviewScript}
-      <p><a href="/admin/articles">Retour aux articles</a></p>`,
+      <p><a href="/admin/articles">${t('article.back')}</a></p>`,
   )
+
+/** Textes traduisibles d'un article dans une langue (null : la langue par défaut). */
+const articleTexts = (locale: string | null, values: Values, errors: Errors) =>
+  html`${textField(t('field.title'), inLocale(locale, 'title'), values, errors)}
+    ${textField(t('field.slug'), inLocale(locale, 'slug'), values, errors)}
+    ${locale === null ? '' : html`<p>${t('help.translated_slug')}</p>`}
+    ${textareaField(t('field.excerpt'), inLocale(locale, 'excerpt'), values, errors)}
+    ${textareaField(t('field.body'), inLocale(locale, 'body'), values, errors, 16)}
+    <p>${t('help.article_body')}</p>
+    ${textField(t('field.speaker'), inLocale(locale, 'speaker'), values, errors)}
+    <p>${t('help.speaker', { max: SPEAKER_MAX_LENGTH })}</p>
+    ${locale === null ? '' : textField(t('field.alt'), inLocale(locale, 'imageAlt'), values, errors)}
+    ${metaFieldsHtml(values, errors, inLocale(locale, 'metaTitle'), inLocale(locale, 'metaDescription'))}`
 
 const confirmPage = (article: Article.Entity, action: string) =>
   adminPage(
-    `Supprimer « ${article.title} »`,
+    t('title.delete', { name: article.title }),
     '/admin/articles',
-    html`<h1>Supprimer « ${article.title} »</h1>
-      <p>L'article « ${article.title} » sera supprimé du blog.</p>
+    html`<h1>${t('title.delete', { name: article.title })}</h1>
+      <p>${t('confirm.delete_article', { name: article.title })}</p>
       <form method="post" action="${action}">
-        <button type="submit" class="danger">Supprimer</button>
+        <button type="submit" class="danger">${t('action.delete')}</button>
       </form>
-      <p><a href="/admin/articles">Annuler</a></p>`,
+      <p><a href="/admin/articles">${t('form.cancel')}</a></p>`,
   )
 
 const valuesOf = (article: Article.Entity): Values => ({
@@ -263,14 +319,10 @@ const valuesOf = (article: Article.Entity): Values => ({
   removeAudio: '',
   metaTitle: article.metaTitle,
   metaDescription: article.metaDescription,
+  ...translationValues(article.translations, ARTICLE_TRANSLATED),
 })
 
-const refusal = (error: unknown): string => {
-  if (error instanceof BlogRuleViolation || error instanceof MediaRuleViolation) {
-    return error.message
-  }
-  throw error
-}
+const refusal = refusalMessage
 
 const articleId = (value: string): number | null => (/^\d+$/.test(value) ? Number(value) : null)
 
@@ -289,12 +341,13 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
 
   app.get('/admin/articles', async (c) => {
     const ok = c.req.query('ok')
-    return c.html(listPage(await list(), ok === undefined ? undefined : DONE[ok]))
+    const done = ok === undefined ? undefined : DONE[ok]
+    return c.html(listPage(await list(), done === undefined ? undefined : t(done)))
   })
 
   app.get('/admin/articles/nouveau', async (c) =>
     c.html(
-      formPage('Nouvel article', c.req.path, await context(null), {
+      formPage(t('title.new_article'), c.req.path, await context(null), {
         publishedAt: new Date().toISOString().slice(0, 10),
       }),
     ),
@@ -304,7 +357,7 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
     const form = await readArticleForm(await c.req.parseBody())
     if (form.data === null) {
       return c.html(
-        formPage('Nouvel article', c.req.path, await context(null), form.values, form.errors),
+        formPage(t('title.new_article'), c.req.path, await context(null), form.values, form.errors),
         422,
       )
     }
@@ -313,7 +366,7 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
     } catch (error) {
       return c.html(
         formPage(
-          'Nouvel article',
+          t('title.new_article'),
           c.req.path,
           await context(null),
           form.values,
@@ -332,7 +385,7 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
       ? c.html(notFoundPage(), 404)
       : c.html(
           formPage(
-            `Modifier « ${article.title} »`,
+            t('title.edit', { name: article.title }),
             c.req.path,
             await context(article),
             valuesOf(article),
@@ -349,7 +402,7 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
     const current = async () => context(await dependencies.articleWriter.findById(id))
     if (form.data === null) {
       return c.html(
-        formPage("Modifier l'article", c.req.path, await current(), form.values, form.errors),
+        formPage(t('title.edit_article'), c.req.path, await current(), form.values, form.errors),
         422,
       )
     }
@@ -358,7 +411,7 @@ export const adminBlogRoutes = (dependencies: BlogAdminDependencies) => {
     } catch (error) {
       return c.html(
         formPage(
-          "Modifier l'article",
+          t('title.edit_article'),
           c.req.path,
           await current(),
           form.values,

@@ -51,8 +51,12 @@ const input = (overrides: Partial<SiteIdentity.Input> = {}): SiteIdentity.Input 
   removeIcon: false,
   salesEnabled: false,
   contactRecipient: 'ventes@oraki.fr',
+  defaultLocale: 'fr',
+  otherLocales: [],
   ...overrides,
 })
+
+const noSwitch = () => Promise.resolve()
 
 /** Mêmes cas que SiteIdentityWritesTest de l’API Platform. */
 describe('identité du site', () => {
@@ -67,7 +71,7 @@ describe('identité du site', () => {
     const { repository, saved } = identities()
 
     await updateSiteIdentity(
-      { siteIdentities: repository, media: fakeMedia().media },
+      { siteIdentities: repository, media: fakeMedia().media, switchContentLocale: noSwitch },
       input({ imageContent: photo('image/png 800x240') }),
     )
 
@@ -86,7 +90,7 @@ describe('identité du site', () => {
     const { repository, saved } = identities()
 
     await updateSiteIdentity(
-      { siteIdentities: repository, media: fakeMedia().media },
+      { siteIdentities: repository, media: fakeMedia().media, switchContentLocale: noSwitch },
       input({ primaryColor: '', secondaryColor: '' }),
     )
 
@@ -97,7 +101,7 @@ describe('identité du site', () => {
     const { repository, saved } = identities(withLogo)
 
     await updateSiteIdentity(
-      { siteIdentities: repository, media: fakeMedia().media },
+      { siteIdentities: repository, media: fakeMedia().media, switchContentLocale: noSwitch },
       input({ imageAlt: 'Oraki, plantes rares' }),
     )
 
@@ -109,7 +113,7 @@ describe('identité du site', () => {
     const { media, files } = fakeMedia()
 
     await updateSiteIdentity(
-      { siteIdentities: repository, media },
+      { siteIdentities: repository, media, switchContentLocale: noSwitch },
       input({ removeLogo: true, imageContent: photo('image/png 800x240') }),
     )
 
@@ -123,7 +127,7 @@ describe('identité du site', () => {
 
     await expect(
       updateSiteIdentity(
-        { siteIdentities: repository, media },
+        { siteIdentities: repository, media, switchContentLocale: noSwitch },
         input({ secondaryColor: '', imageContent: photo('image/png 800x240') }),
       ),
     ).rejects.toThrow(new SiteRuleViolation('Saisir les deux couleurs, ou aucune.'))
@@ -135,7 +139,7 @@ describe('identité du site', () => {
     const { repository, saved } = identities()
 
     await updateSiteIdentity(
-      { siteIdentities: repository, media: fakeMedia().media },
+      { siteIdentities: repository, media: fakeMedia().media, switchContentLocale: noSwitch },
       input({ useLibraryColors: true, primaryColor: '#ffff00' }),
     )
 
@@ -147,7 +151,7 @@ describe('identité du site', () => {
     const { media, files } = fakeMedia()
 
     await updateSiteIdentity(
-      { siteIdentities: repository, media },
+      { siteIdentities: repository, media, switchContentLocale: noSwitch },
       input({
         iconContent: photo('image/png 512x512'),
         shareImageContent: photo('image/jpeg 1200x630'),
@@ -168,7 +172,7 @@ describe('identité du site', () => {
     const { media, files } = fakeMedia()
 
     await updateSiteIdentity(
-      { siteIdentities: repository, media },
+      { siteIdentities: repository, media, switchContentLocale: noSwitch },
       input({
         removeIcon: true,
         iconContent: photo('image/png 512x512'),
@@ -184,7 +188,11 @@ describe('identité du site', () => {
   it('refuse une icône de moins de 512 px', async () => {
     await expect(
       updateSiteIdentity(
-        { siteIdentities: identities().repository, media: fakeMedia().media },
+        {
+          siteIdentities: identities().repository,
+          media: fakeMedia().media,
+          switchContentLocale: noSwitch,
+        },
         input({ iconContent: photo('image/png 256x256') }),
       ),
     ).rejects.toThrow(
@@ -192,5 +200,45 @@ describe('identité du site', () => {
         "Recadrée au format 1:1, l'image doit faire au moins 512 × 512 px : elle fait 256 × 256 px.",
       ),
     )
+  })
+
+  it('active une langue et échange les textes quand la langue par défaut change (ADR 0014)', async () => {
+    const { repository, saved } = identities()
+    const switches: string[] = []
+    const dependencies = {
+      siteIdentities: repository,
+      media: fakeMedia().media,
+      switchContentLocale: (from: string, to: string) => {
+        switches.push(`${from}→${to}`)
+        return Promise.resolve()
+      },
+    }
+
+    await updateSiteIdentity(
+      dependencies,
+      input({ otherLocales: ['en', 'en'], translations: { en: { tagline: 'Rare plants.' } } }),
+    )
+    expect(saved()).toMatchObject({
+      tagline: 'Plantes rares.',
+      locales: ['fr', 'en'],
+      translations: { en: { tagline: 'Rare plants.' } },
+    })
+    expect(switches).toEqual([])
+
+    await updateSiteIdentity(
+      dependencies,
+      input({
+        defaultLocale: 'en',
+        otherLocales: ['fr'],
+        translations: { en: { tagline: 'Rare plants.' } },
+      }),
+    )
+    expect(saved()).toMatchObject({
+      name: 'Oraki',
+      tagline: 'Rare plants.',
+      locales: ['en', 'fr'],
+      translations: { fr: { name: 'Oraki', tagline: 'Plantes rares.' } },
+    })
+    expect(switches).toEqual(['fr→en'])
   })
 })

@@ -2,9 +2,16 @@ import { Hono } from 'hono'
 import { html } from 'hono/html'
 
 import { field, requiredText, textareaField, textField } from '#/shared/http/adminForms.ts'
+import { refusalMessage, t } from '#/shared/http/adminI18n.ts'
 import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLayout.ts'
+import {
+  inLocale,
+  languageTabs,
+  otherLocales,
+  readTranslations,
+  translationValues,
+} from '#/shared/http/adminTranslations.ts'
 
-import { ContentRuleViolation } from '#/content/domain/contentRules.ts'
 import { updateLegalPage } from '#/content/application/adminContent.ts'
 
 import { adminPageMetaRoutes } from './adminPageMeta.ts'
@@ -18,34 +25,48 @@ import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
  * session de l'admin (ADR 0001).
  * La forme est vérifiée ici, les règles par les cas d'usage.
  */
-const LEGAL_PAGE_DONE: Record<string, string> = { modifie: 'Page légale modifiée.' }
-
-const LEGAL_PAGE_HELP =
-  'Chaque titre « ## » ouvre une section. Liens : [texte](https://…). Listes : une ligne par élément, commençant par « - ». Le HTML est affiché tel quel, sans être interprété.'
+/** Champs traduisibles d'une page légale (ADR 0014) ; le slug, fixé par les routes des fronts, est commun aux langues. */
+const LEGAL_PAGE_TRANSLATED = ['title', 'body'] as const
 
 export const readLegalPageForm = (body: Record<string, unknown>): FormResult<LegalPage.Input> => {
-  const values = { title: field(body, 'title'), body: field(body, 'body') }
+  const title = field(body, 'title')
+  const text = field(body, 'body')
+  const values: Values = { title, body: text }
   const errors: Errors = {}
-  requiredText(errors, 'title', values.title)
-  if (values.body === '') {
-    errors.body = 'Cette valeur ne doit pas être vide.'
+  requiredText(errors, 'title', title)
+  if (text === '') {
+    errors.body = t('validator.not_blank')
+  }
+  const translations = readTranslations(body, LEGAL_PAGE_TRANSLATED, values, errors)
+  for (const locale of otherLocales()) {
+    const key = inLocale(locale, 'title')
+    if (Array.from(values[key] ?? '').length > 255) {
+      errors[key] = t('validator.too_long', { max: 255 })
+    }
   }
 
-  return { values, errors, data: Object.keys(errors).length === 0 ? values : null }
+  return {
+    values,
+    errors,
+    data:
+      Object.keys(errors).length === 0
+        ? { title, body: text, ...(translations === undefined ? {} : { translations }) }
+        : null,
+  }
 }
 
 const legalPageListPage = (pages: readonly LegalPage.Editable[], message?: string) =>
   adminPage(
-    'Pages légales',
+    t('entity.legal_pages'),
     '/admin/pages-legales',
-    html`<h1>Pages légales</h1>
+    html`<h1>${t('entity.legal_pages')}</h1>
       ${flash(message)}
       <table>
         <thead>
           <tr>
-            <th scope="col">Titre</th>
-            <th scope="col">Slug</th>
-            <th scope="col">Actions</th>
+            <th scope="col">${t('field.title')}</th>
+            <th scope="col">${t('field.slug')}</th>
+            <th scope="col">${t('field.actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -56,7 +77,7 @@ const legalPageListPage = (pages: readonly LegalPage.Editable[], message?: strin
                 <td>${page.slug}</td>
                 <td>
                   <a href="/admin/pages-legales/${page.slug}/modifier"
-                    >Modifier<span class="sr"> ${page.title}</span></a
+                    >${t('action.edit')}<span class="sr"> ${page.title}</span></a
                   >
                 </td>
               </tr>`,
@@ -78,20 +99,21 @@ const legalPageFormPage = (
     html`<h1>${title}</h1>
       ${formError(error)}
       <form method="post" action="${action}" novalidate>
-        ${textField('Titre', 'title', values, errors)}
-        <p>${LEGAL_PAGE_HELP}</p>
-        ${textareaField('Contenu (Markdown)', 'body', values, errors, 24)}
-        <button type="submit">Enregistrer</button>
+        ${languageTabs(
+          'page',
+          LEGAL_PAGE_TRANSLATED,
+          errors,
+          (locale) =>
+            html`${textField(t('field.title'), inLocale(locale, 'title'), values, errors)}
+              <p>${t('help.legal_body')}</p>
+              ${textareaField(t('field.markdown_body'), inLocale(locale, 'body'), values, errors, 24)}`,
+        )}
+        <button type="submit">${t('form.save')}</button>
       </form>
-      <p><a href="/admin/pages-legales">Retour aux pages légales</a></p>`,
+      <p><a href="/admin/pages-legales">${t('legal_page.back')}</a></p>`,
   )
 
-const refusal = (error: unknown): string => {
-  if (error instanceof ContentRuleViolation) {
-    return error.message
-  }
-  throw error
-}
+const refusal = refusalMessage
 
 export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
   const app = new Hono()
@@ -100,7 +122,7 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
     return c.html(
       legalPageListPage(
         await dependencies.legalPageWriter.findAll(),
-        ok === undefined ? undefined : LEGAL_PAGE_DONE[ok],
+        ok === 'modifie' ? t('flash.legal_page_updated') : undefined,
       ),
     )
   })
@@ -110,9 +132,10 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
     return page === null
       ? c.html(notFoundPage(), 404)
       : c.html(
-          legalPageFormPage(`Modifier « ${page.title} »`, c.req.path, {
+          legalPageFormPage(t('title.edit', { name: page.title }), c.req.path, {
             title: page.title,
             body: page.body,
+            ...translationValues(page.translations, LEGAL_PAGE_TRANSLATED),
           }),
         )
   })
@@ -121,7 +144,7 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
     const form = readLegalPageForm(await c.req.parseBody())
     if (form.data === null) {
       return c.html(
-        legalPageFormPage('Modifier la page légale', c.req.path, form.values, form.errors),
+        legalPageFormPage(t('title.edit_legal_page'), c.req.path, form.values, form.errors),
         422,
       )
     }
@@ -129,7 +152,7 @@ export const adminContentRoutes = (dependencies: ContentAdminDependencies) => {
       await updateLegalPage(dependencies, c.req.param('slug'), form.data)
     } catch (error) {
       return c.html(
-        legalPageFormPage('Modifier la page légale', c.req.path, form.values, {}, refusal(error)),
+        legalPageFormPage(t('title.edit_legal_page'), c.req.path, form.values, {}, refusal(error)),
         422,
       )
     }

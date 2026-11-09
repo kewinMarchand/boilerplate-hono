@@ -2,9 +2,16 @@ import { Hono } from 'hono'
 import { html } from 'hono/html'
 
 import { field, integer, maxLength, textField } from '#/shared/http/adminForms.ts'
+import { refusalMessage, t } from '#/shared/http/adminI18n.ts'
 import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLayout.ts'
+import {
+  inLocale,
+  languageTabs,
+  otherLocales,
+  readTranslations,
+  translationValues,
+} from '#/shared/http/adminTranslations.ts'
 
-import { BlogRuleViolation } from '#/blog/domain/Article.ts'
 import {
   createArticleTerm,
   deleteArticleTerm,
@@ -14,6 +21,7 @@ import {
 import type { BlogAdminDependencies } from '#/blog/application/adminBlog.ts'
 import type { Article } from '#/blog/domain/Article.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
+import type { MessageKey } from '#/shared/http/adminI18n.ts'
 
 /**
  * Rubriques et formats des articles (ADR 0009) : deux sections de l'admin, une par liste, mêmes
@@ -23,40 +31,45 @@ import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,59}$/
 const NAME_MAX_LENGTH = 60
 
+/** Champs traduisibles d'une rubrique ou d'un format (ADR 0014). */
+const TERM_TRANSLATED = ['name', 'slug'] as const
+
+/** Clés des libellés propres à chaque liste, accordés à la sorte. */
 interface Wording {
   readonly path: string
-  readonly plural: string
-  readonly created: string
-  readonly modified: string
-  readonly deleted: string
-  readonly newTitle: string
-  readonly newLink: string
-  readonly editTitle: string
-  readonly deleteQuestion: (name: string) => string
+  readonly plural: MessageKey
+  readonly created: MessageKey
+  readonly modified: MessageKey
+  readonly deleted: MessageKey
+  readonly newTitle: MessageKey
+  readonly editTitle: MessageKey
+  readonly back: MessageKey
+  /** Paramètre `%name%`. */
+  readonly deleteQuestion: MessageKey
 }
 
 const WORDING: Record<Article.TermKind, Wording> = {
   section: {
     path: '/admin/rubriques',
-    plural: 'Rubriques',
-    created: 'Rubrique créée.',
-    modified: 'Rubrique modifiée.',
-    deleted: 'Rubrique supprimée.',
-    newTitle: 'Nouvelle rubrique',
-    newLink: 'Nouvelle rubrique',
-    editTitle: 'Modifier la rubrique',
-    deleteQuestion: (name) => `La rubrique « ${name} » sera supprimée.`,
+    plural: 'entity.sections',
+    created: 'flash.section_created',
+    modified: 'flash.section_updated',
+    deleted: 'flash.section_deleted',
+    newTitle: 'title.new_section',
+    editTitle: 'title.edit_section',
+    back: 'section.back',
+    deleteQuestion: 'confirm.delete_section',
   },
   format: {
     path: '/admin/formats',
-    plural: 'Formats',
-    created: 'Format créé.',
-    modified: 'Format modifié.',
-    deleted: 'Format supprimé.',
-    newTitle: 'Nouveau format',
-    newLink: 'Nouveau format',
-    editTitle: 'Modifier le format',
-    deleteQuestion: (name) => `Le format « ${name} » sera supprimé.`,
+    plural: 'entity.formats',
+    created: 'flash.format_created',
+    modified: 'flash.format_updated',
+    deleted: 'flash.format_deleted',
+    newTitle: 'title.new_format',
+    editTitle: 'title.edit_format',
+    back: 'format.back',
+    deleteQuestion: 'confirm.delete_format',
   },
 }
 
@@ -70,23 +83,37 @@ export const readArticleTermForm = (
   }
   const errors: Errors = {}
   if (values.name === '') {
-    errors.name = 'Cette valeur ne doit pas être vide.'
+    errors.name = t('validator.not_blank')
   }
   maxLength(errors, 'name', values.name ?? '', NAME_MAX_LENGTH)
   if (values.slug === '') {
-    errors.slug = 'Cette valeur ne doit pas être vide.'
+    errors.slug = t('validator.not_blank')
   } else if (!SLUG_PATTERN.test(values.slug ?? '')) {
-    errors.slug = 'Minuscules, chiffres et tirets, 60 caractères au plus, sans tiret au début.'
+    errors.slug = t('constraint.term_slug')
   }
   const position = integer(values.position ?? '')
   if (position === null) {
-    errors.position = 'Cette valeur doit être un nombre entier.'
+    errors.position = t('validator.integer')
   } else if (position < 0) {
-    errors.position = 'Cette valeur doit être positive ou nulle.'
+    errors.position = t('validator.positive_or_zero')
+  }
+  const translations = readTranslations(body, TERM_TRANSLATED, values, errors)
+  for (const locale of otherLocales()) {
+    const name = inLocale(locale, 'name')
+    const slug = inLocale(locale, 'slug')
+    maxLength(errors, name, values[name] ?? '', NAME_MAX_LENGTH)
+    if ((values[slug] ?? '') !== '' && !SLUG_PATTERN.test(values[slug] ?? '')) {
+      errors[slug] = t('constraint.term_slug')
+    }
   }
   const data =
     Object.keys(errors).length === 0 && position !== null
-      ? { name: values.name ?? '', slug: values.slug ?? '', position }
+      ? {
+          name: values.name ?? '',
+          slug: values.slug ?? '',
+          position,
+          ...(translations === undefined ? {} : { translations }),
+        }
       : null
 
   return { values, errors, data }
@@ -99,18 +126,18 @@ const listPage = (
   error?: string,
 ) =>
   adminPage(
-    wording.plural,
+    t(wording.plural),
     wording.path,
-    html`<h1>${wording.plural}</h1>
+    html`<h1>${t(wording.plural)}</h1>
       ${flash(message)} ${formError(error)}
-      <p><a href="${wording.path}/nouveau">${wording.newLink}</a></p>
+      <p><a href="${wording.path}/nouveau">${t(wording.newTitle)}</a></p>
       <table>
         <thead>
           <tr>
-            <th scope="col">Nom</th>
-            <th scope="col">Slug</th>
-            <th scope="col">Position</th>
-            <th scope="col">Actions</th>
+            <th scope="col">${t('field.name')}</th>
+            <th scope="col">${t('field.slug')}</th>
+            <th scope="col">${t('field.position')}</th>
+            <th scope="col">${t('field.actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -122,11 +149,11 @@ const listPage = (
                 <td>${term.position}</td>
                 <td>
                   <a href="${wording.path}/${term.id}/modifier"
-                    >Modifier<span class="sr"> ${term.name}</span></a
+                    >${t('action.edit')}<span class="sr"> ${term.name}</span></a
                   >
                   ·
                   <a href="${wording.path}/${term.id}/supprimer"
-                    >Supprimer<span class="sr"> ${term.name}</span></a
+                    >${t('action.delete')}<span class="sr"> ${term.name}</span></a
                   >
                 </td>
               </tr>`,
@@ -149,35 +176,34 @@ const formPage = (
     html`<h1>${title}</h1>
       ${formError(error)}
       <form method="post" action="${action}" novalidate>
-        ${textField('Nom', 'name', values, errors)} ${textField('Slug', 'slug', values, errors)}
-        <p>
-          Minuscules, chiffres et tirets, 60 caractères au plus : il apparaît dans les adresses du
-          blog.
-        </p>
-        ${textField('Position', 'position', values, errors, 'number')}
-        <button type="submit">Enregistrer</button>
+        ${languageTabs(
+          'terme',
+          TERM_TRANSLATED,
+          errors,
+          (locale) =>
+            html`${textField(t('field.name'), inLocale(locale, 'name'), values, errors)}
+              ${textField(t('field.slug'), inLocale(locale, 'slug'), values, errors)}
+              <p>${locale === null ? t('help.term_slug') : t('help.translated_slug')}</p>`,
+        )}
+        ${textField(t('field.position'), 'position', values, errors, 'number')}
+        <button type="submit">${t('form.save')}</button>
       </form>
-      <p><a href="${wording.path}">Retour aux ${wording.plural.toLowerCase()}</a></p>`,
+      <p><a href="${wording.path}">${t(wording.back)}</a></p>`,
   )
 
 const confirmPage = (wording: Wording, term: Article.Term, action: string) =>
   adminPage(
-    `Supprimer « ${term.name} »`,
+    t('title.delete', { name: term.name }),
     wording.path,
-    html`<h1>Supprimer « ${term.name} »</h1>
-      <p>${wording.deleteQuestion(term.name)}</p>
+    html`<h1>${t('title.delete', { name: term.name })}</h1>
+      <p>${t(wording.deleteQuestion, { name: term.name })}</p>
       <form method="post" action="${action}">
-        <button type="submit" class="danger">Supprimer</button>
+        <button type="submit" class="danger">${t('action.delete')}</button>
       </form>
-      <p><a href="${wording.path}">Annuler</a></p>`,
+      <p><a href="${wording.path}">${t('form.cancel')}</a></p>`,
   )
 
-const refusal = (error: unknown): string => {
-  if (error instanceof BlogRuleViolation) {
-    return error.message
-  }
-  throw error
-}
+const refusal = refusalMessage
 
 const termId = (value: string): number | null => (/^\d+$/.test(value) ? Number(value) : null)
 
@@ -187,7 +213,7 @@ export const adminArticleTermRoutes = (
 ) => {
   const app = new Hono()
   const wording = WORDING[kind]
-  const done: Record<string, string> = {
+  const done: Readonly<Record<string, MessageKey>> = {
     cree: wording.created,
     modifie: wording.modified,
     supprime: wording.deleted,
@@ -201,23 +227,27 @@ export const adminArticleTermRoutes = (
 
   app.get(wording.path, async (c) => {
     const ok = c.req.query('ok')
-    return c.html(listPage(wording, await list(), ok === undefined ? undefined : done[ok]))
+    const message = ok === undefined ? undefined : done[ok]
+    return c.html(listPage(wording, await list(), message === undefined ? undefined : t(message)))
   })
 
   app.get(`${wording.path}/nouveau`, (c) =>
-    c.html(formPage(wording, wording.newTitle, c.req.path, { position: '0' })),
+    c.html(formPage(wording, t(wording.newTitle), c.req.path, { position: '0' })),
   )
 
   app.post(`${wording.path}/nouveau`, async (c) => {
     const form = readArticleTermForm(await c.req.parseBody())
     if (form.data === null) {
-      return c.html(formPage(wording, wording.newTitle, c.req.path, form.values, form.errors), 422)
+      return c.html(
+        formPage(wording, t(wording.newTitle), c.req.path, form.values, form.errors),
+        422,
+      )
     }
     try {
       await createArticleTerm(dependencies, kind, form.data)
     } catch (error) {
       return c.html(
-        formPage(wording, wording.newTitle, c.req.path, form.values, {}, refusal(error)),
+        formPage(wording, t(wording.newTitle), c.req.path, form.values, {}, refusal(error)),
         422,
       )
     }
@@ -229,10 +259,11 @@ export const adminArticleTermRoutes = (
     return term === null
       ? c.html(notFoundPage(), 404)
       : c.html(
-          formPage(wording, `Modifier « ${term.name} »`, c.req.path, {
+          formPage(wording, t('title.edit', { name: term.name }), c.req.path, {
             name: term.name,
             slug: term.slug,
             position: String(term.position),
+            ...translationValues(term.translations, TERM_TRANSLATED),
           }),
         )
   })
@@ -242,7 +273,7 @@ export const adminArticleTermRoutes = (
     if (id === null) {
       return c.html(notFoundPage(), 404)
     }
-    const title = wording.editTitle
+    const title = t(wording.editTitle)
     const form = readArticleTermForm(await c.req.parseBody())
     if (form.data === null) {
       return c.html(formPage(wording, title, c.req.path, form.values, form.errors), 422)

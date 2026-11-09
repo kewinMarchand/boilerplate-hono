@@ -1,6 +1,14 @@
 import { field, integer } from '#/shared/http/adminForms.ts'
+import { t } from '#/shared/http/adminI18n.ts'
+import {
+  inLocale,
+  otherLocales,
+  readTranslations,
+  translationValues,
+} from '#/shared/http/adminTranslations.ts'
 
 import { isAttributeType } from '#/catalog/domain/catalog.ts'
+import { CHOICE_LABEL } from '#/catalog/domain/catalogTranslations.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
@@ -17,13 +25,18 @@ const UNIT_MAX_LENGTH = 10
 /** Lignes vides proposées sous les valeurs existantes : pas de JavaScript à maintenir. */
 export const EMPTY_CHOICE_ROWS = 3
 
-const NOT_BLANK = 'Cette valeur ne doit pas être vide.'
-const tooLong = (max: number) =>
-  `Cette chaîne est trop longue. Elle doit avoir au maximum ${max} caractères.`
+const tooLong = (max: number) => t('validator.too_long', { max })
+
+/** Champs traduisibles de l'attribut dans les onglets de langue ; les libellés des valeurs se traduisent dans leur ligne. */
+export const ATTRIBUTE_TRANSLATED = ['label', 'unit'] as const
 
 /** Clé d'un champ de ligne de valeur : `choices[0][value]`, comme les noms du formulaire. */
 export const choiceKey = (index: number, part: 'value' | 'label'): string =>
   `choices[${index}][${part}]`
+
+/** Libellé d'une valeur dans une langue traduite, dans sa ligne : `choices[0][translations][en]`. */
+export const choiceTranslationKey = (index: number, locale: string): string =>
+  `choices[${index}][translations][${locale}]`
 
 const CHOICE_KEY = /^choices\[(\d+)\]\[(?:value|label)\]$/
 
@@ -62,10 +75,15 @@ export const attributeValues = (attribute: Catalog.ProductAttribute): Values =>
     unit: attribute.unit ?? '',
     filterable: attribute.filterable ? 'on' : '',
     position: String(attribute.position),
+    ...translationValues(attribute.translations, ATTRIBUTE_TRANSLATED),
     ...Object.fromEntries(
-      attribute.choices.flatMap(({ value, label }, index) => [
+      attribute.choices.flatMap(({ value, label }, index): [string, string][] => [
         [choiceKey(index, 'value'), value],
         [choiceKey(index, 'label'), label],
+        ...otherLocales().map((locale): [string, string] => [
+          choiceTranslationKey(index, locale),
+          attribute.translations[locale]?.[`${CHOICE_LABEL}${value}`] ?? '',
+        ]),
       ]),
     ),
   })
@@ -84,34 +102,39 @@ export const readAttributeForm = (
     position: field(body, 'position'),
   }
   // Lignes renumérotées dans l'ordre envoyé : seuls les indices présents sont lus
-  const choices = choiceIndices(body).map((sent, index) => {
+  const rows = choiceIndices(body).map((sent, index) => {
     const choice = {
       value: field(body, choiceKey(sent, 'value')),
       label: field(body, choiceKey(sent, 'label')),
     }
     values[choiceKey(index, 'value')] = choice.value
     values[choiceKey(index, 'label')] = choice.label
-    return choice
+    const labels = otherLocales().map((locale) => {
+      const translated = field(body, choiceTranslationKey(sent, locale))
+      values[choiceTranslationKey(index, locale)] = translated
+      return [locale, translated] as const
+    })
+    return { choice, labels }
   })
+  const choices = rows.map(({ choice }) => choice)
 
   const errors: Errors = {}
   if (lockedCode === null) {
     if (values.code === '') {
-      errors.code = NOT_BLANK
+      errors.code = t('validator.not_blank')
     } else if (!CODE_PATTERN.test(values.code ?? '')) {
-      errors.code =
-        'Minuscules, chiffres et tirets, 40 caractères au plus, commence par une lettre.'
+      errors.code = t('constraint.attribute_code')
     }
   }
   const label = values.label ?? ''
   if (label === '') {
-    errors.label = NOT_BLANK
+    errors.label = t('validator.not_blank')
   } else if (length(label) > LABEL_MAX_LENGTH) {
     errors.label = tooLong(LABEL_MAX_LENGTH)
   }
   const type = values.type ?? ''
   if (!isAttributeType(type)) {
-    errors.type = "Le choix sélectionné n'est pas valide."
+    errors.type = t('validator.choice')
   }
   const unit = values.unit ?? ''
   if (length(unit) > UNIT_MAX_LENGTH) {
@@ -119,19 +142,53 @@ export const readAttributeForm = (
   }
   const position = integer(values.position ?? '')
   if (position === null) {
-    errors.position = 'Cette valeur doit être un nombre entier.'
+    errors.position = t('validator.integer')
   } else if (position < 0) {
-    errors.position = 'Cette valeur doit être positive ou nulle.'
+    errors.position = t('validator.positive_or_zero')
   }
-  choices.forEach((choice, index) => {
+  rows.forEach(({ choice, labels }, index) => {
     if (choice.value !== '' && !VALUE_PATTERN.test(choice.value)) {
-      errors[choiceKey(index, 'value')] =
-        'Minuscules, chiffres et tirets, 40 caractères au plus, sans tiret au début.'
+      errors[choiceKey(index, 'value')] = t('constraint.choice_value')
     }
     if (length(choice.label) > LABEL_MAX_LENGTH) {
       errors[choiceKey(index, 'label')] = tooLong(LABEL_MAX_LENGTH)
     }
+    for (const [locale, translated] of labels) {
+      if (length(translated) > LABEL_MAX_LENGTH) {
+        errors[choiceTranslationKey(index, locale)] = tooLong(LABEL_MAX_LENGTH)
+      }
+    }
   })
+  const fields = readTranslations(body, ATTRIBUTE_TRANSLATED, values, errors)
+  for (const locale of otherLocales()) {
+    if (length(values[inLocale(locale, 'label')] ?? '') > LABEL_MAX_LENGTH) {
+      errors[inLocale(locale, 'label')] = tooLong(LABEL_MAX_LENGTH)
+    }
+    if (length(values[inLocale(locale, 'unit')] ?? '') > UNIT_MAX_LENGTH) {
+      errors[inLocale(locale, 'unit')] = tooLong(UNIT_MAX_LENGTH)
+    }
+  }
+  // Libellés traduits des valeurs, par code de valeur (`choice.<valeur>`)
+  const translations =
+    fields === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(fields).map(([locale, texts]) => [
+            locale,
+            {
+              ...texts,
+              ...Object.fromEntries(
+                rows.flatMap(({ choice, labels }) =>
+                  choice.value === ''
+                    ? []
+                    : labels
+                        .filter(([labelLocale]) => labelLocale === locale)
+                        .map(([, translated]) => [`${CHOICE_LABEL}${choice.value}`, translated]),
+                ),
+              ),
+            },
+          ]),
+        )
 
   const data =
     Object.keys(errors).length === 0 && position !== null && isAttributeType(type)
@@ -143,6 +200,7 @@ export const readAttributeForm = (
           filterable: values.filterable === 'on',
           position,
           choices,
+          ...(translations === undefined ? {} : { translations }),
         }
       : null
 

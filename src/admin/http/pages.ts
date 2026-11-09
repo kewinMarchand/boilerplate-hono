@@ -1,14 +1,18 @@
 import { html } from 'hono/html'
 
-import { adminPage, publicPage } from '#/shared/http/adminLayout.ts'
+import { t } from '#/shared/http/adminI18n.ts'
+import { adminPage, languageSwitcher, publicPage } from '#/shared/http/adminLayout.ts'
+
+import type { MessageKey } from '#/shared/http/adminI18n.ts'
 
 export const loginPage = ({ error, email = '' }: { error?: string; email?: string } = {}) =>
   publicPage(
-    'Connexion',
-    html`<h1>Administration</h1>
+    t('login.title'),
+    html`${languageSwitcher()}
+      <h1>${t('dashboard.title')}</h1>
       ${error === undefined ? '' : html`<p role="alert" id="erreur-connexion">${error}</p>`}
       <form method="post" action="/admin/login">
-        <label for="email">Adresse e-mail</label>
+        <label for="email">${t('login.email')}</label>
         <input
           id="email"
           name="email"
@@ -18,7 +22,7 @@ export const loginPage = ({ error, email = '' }: { error?: string; email?: strin
           value="${email}"
           ${error === undefined ? '' : html`aria-describedby="erreur-connexion"`}
         />
-        <label for="password">Mot de passe</label>
+        <label for="password">${t('login.password')}</label>
         <input
           id="password"
           name="password"
@@ -26,26 +30,31 @@ export const loginPage = ({ error, email = '' }: { error?: string; email?: strin
           autocomplete="current-password"
           required
         />
-        <button type="submit">Se connecter</button>
+        <button type="submit">${t('login.sign_in')}</button>
       </form>`,
   )
 
+/** Sections du tableau de bord : adresse et clé du libellé. */
+const SECTIONS: readonly (readonly [string, MessageKey])[] = [
+  ['/admin/categories', 'dashboard.categories'],
+  ['/admin/produits', 'dashboard.products'],
+  ['/admin/attributs', 'dashboard.attributes'],
+  ['/admin/articles', 'dashboard.articles'],
+  ['/admin/rubriques', 'dashboard.sections'],
+  ['/admin/formats', 'dashboard.formats'],
+  ['/admin/pages-legales', 'menu.legal_pages'],
+  ['/admin/identite-du-site', 'menu.site_identity'],
+  ['/admin/referencement', 'dashboard.page_metas'],
+  ['/admin/messages', 'dashboard.messages'],
+]
+
 export const dashboardPage = (email: string) =>
   adminPage(
-    'Tableau de bord',
+    t('menu.dashboard'),
     '/admin',
-    html`<h1>Administration</h1>
-      <p>Connecté : ${email}</p>
+    html`<h1>${t('dashboard.title')}</h1>
+      <p>${t('dashboard.signed_in', { email })}</p>
       <ul>
-        <li><a href="/admin/categories">Catégories du catalogue</a></li>
-        <li><a href="/admin/produits">Produits du catalogue</a></li>
-        <li><a href="/admin/attributs">Attributs des produits</a></li>
-        <li><a href="/admin/articles">Articles du blog</a></li>
-        <li><a href="/admin/rubriques">Rubriques des articles</a></li>
-        <li><a href="/admin/formats">Formats des articles</a></li>
-        <li><a href="/admin/pages-legales">Pages légales</a></li>
-        <li><a href="/admin/identite-du-site">Identité du site</a></li>
-        <li><a href="/admin/referencement">Référencement des pages fixes</a></li>
-        <li><a href="/admin/messages">Messages reçus</a></li>
+        ${SECTIONS.map(([path, label]) => html`<li><a href="${path}">${t(label)}</a></li>`)}
       </ul>`,
   )

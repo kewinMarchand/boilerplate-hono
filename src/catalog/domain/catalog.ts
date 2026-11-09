@@ -312,6 +312,8 @@ export declare namespace Catalog {
     /** Remplace la catégorie `previousSlug` ; ses sous-catégories suivent un changement de slug. */
     update(previousSlug: string, category: Category): Promise<void>
     remove(slug: string): Promise<void>
+    /** Remplace toutes les catégories : nouvelle langue par défaut, slugs échangés (ADR 0014). */
+    replaceAll(categories: readonly Category[]): Promise<void>
   }
 
   /** Lectures et écritures de l'admin sur les produits. */
@@ -329,5 +331,12 @@ export declare namespace Catalog {
     moveCategory(previousSlug: string, slug: string, categoryPath: readonly string[]): Promise<void>
     /** Retire la valeur de l'attribut `code` de tous les produits. */
     removeAttributeValue(code: string): Promise<void>
+    /**
+     * Remplace tous les produits, identifiants gardés : nouvelle langue par défaut (ADR 0014), dont
+     * les slugs peuvent s'échanger entre produits.
+     */
+    replaceAll(
+      products: readonly { readonly product: Product; readonly categoryPath: readonly string[] }[],
+    ): Promise<void>
   }
 }

@@ -1,6 +1,8 @@
 import { switchDefaultLocale, translated } from '#/shared/domain/translations.ts'
 
 import type { Catalog } from './catalog.ts'
+import type { Media } from '#/media/domain/Media.ts'
+import type { Translations } from '#/shared/domain/translations.ts'
 
 /** Clé de traduction du texte de remplacement d'une image de la galerie (ADR 0014). */
 export const GALLERY_ALT = 'galleryAlt.'
@@ -50,6 +52,24 @@ export const productIn = (product: Catalog.Product, locale: string | null): Cata
     })),
   }
 }
+
+/** Traductions d'un produit sans celles des images qui ont quitté la galerie. */
+export const withoutStaleGalleryAlts = (
+  translations: Translations,
+  gallery: readonly Media.Image[],
+): Translations =>
+  Object.fromEntries(
+    Object.entries(translations).map(([locale, fields]) => [
+      locale,
+      Object.fromEntries(
+        Object.entries(fields).filter(
+          ([field]) =>
+            !field.startsWith(GALLERY_ALT) ||
+            gallery.some(({ key }) => field === `${GALLERY_ALT}${key}`),
+        ),
+      ),
+    ]),
+  )
 
 export const attributeIn = (
   attribute: Catalog.ProductAttribute,

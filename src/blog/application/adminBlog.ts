@@ -3,6 +3,8 @@ import { keptTranslations, takenSlug } from '#/shared/domain/translations.ts'
 import {
   BlogRuleViolation,
   speakerOf,
+  switchArticleLocale,
+  switchTermLocale,
   termMissing,
   termSlugTaken,
   termUsedBy,
@@ -225,4 +227,28 @@ export const deleteArticleTerm = async (
     throw termUsedBy(kind, term.name, used)
   }
   await dependencies.articleTerms.remove(id)
+}
+
+/**
+ * Nouvelle langue par défaut du site (ADR 0014) : rubriques, formats et articles font passer les
+ * traductions de `to` dans leurs champs ; le HTML des articles est rendu à nouveau.
+ */
+export const switchBlogDefaultLocale = async (
+  dependencies: Pick<
+    BlogAdminDependencies,
+    'articles' | 'articleWriter' | 'articleRenderer' | 'articleTerms'
+  >,
+  from: string,
+  to: string,
+): Promise<void> => {
+  const terms = [
+    ...(await dependencies.articleTerms.findByKind('section')),
+    ...(await dependencies.articleTerms.findByKind('format')),
+  ]
+  await dependencies.articleTerms.replaceAll(terms.map((term) => switchTermLocale(term, from, to)))
+  const articles = (await dependencies.articles.findLatestFirst()).map((article) => {
+    const switched = switchArticleLocale(article, from, to)
+    return { ...switched, html: dependencies.articleRenderer.render(switched.body) }
+  })
+  await dependencies.articleWriter.replaceAll(articles)
 }

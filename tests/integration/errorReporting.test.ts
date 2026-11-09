@@ -38,7 +38,12 @@ const failingDatabase: AppDependencies = {
   legalPages: { findBySlug: unavailable },
   adminUsers: { findByEmail: unavailable, save: unavailable },
   passwordHasher: { hash: unavailable, verify: unavailable },
-  categoryWriter: { create: unavailable, update: unavailable, remove: unavailable },
+  categoryWriter: {
+    create: unavailable,
+    update: unavailable,
+    remove: unavailable,
+    replaceAll: unavailable,
+  },
   productWriter: {
     findById: unavailable,
     findBySlug: unavailable,
@@ -49,6 +54,7 @@ const failingDatabase: AppDependencies = {
     remove: unavailable,
     moveCategory: unavailable,
     removeAttributeValue: unavailable,
+    replaceAll: unavailable,
   },
   attributes: { findAll: unavailable },
   attributeWriter: {
@@ -63,6 +69,7 @@ const failingDatabase: AppDependencies = {
     create: unavailable,
     update: unavailable,
     remove: unavailable,
+    replaceAll: unavailable,
   },
   legalPageWriter: { findAll: unavailable, findEditable: unavailable, update: unavailable },
   legalPageRenderer: { split: () => ({ introduction: '', sections: [] }) },
@@ -76,8 +83,10 @@ const failingDatabase: AppDependencies = {
     create: unavailable,
     update: unavailable,
     remove: unavailable,
+    replaceAll: unavailable,
   },
   siteIdentities: { find: unavailable, save: unavailable },
+  switchContentLocale: unavailable,
   media: {
     encoder: { inspect: unavailable, variants: unavailable },
     audioInspector: { inspect: () => null },

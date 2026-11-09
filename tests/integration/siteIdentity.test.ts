@@ -39,6 +39,7 @@ const FIELDS = {
   defaultColorScheme: 'dark',
   salesEnabled: 'on',
   contactRecipient: 'contact@example.com',
+  defaultLocale: 'fr',
 }
 
 beforeAll(async () => {
@@ -196,13 +197,13 @@ describe('Identité du site', () => {
     await submit({ ...FIELDS, removeLogo: 'on', useLibraryColors: 'on' })
 
     expect(body).toMatch(
-      /<figure data-apercu="imageContent"\s*>\s*<img\s+src="\/media\/[0-9a-f]{32}-200\.webp"/,
+      /<figure\s+data-apercu="imageContent"\s+data-choisie="[^"]+"\s*>\s*<img\s+src="\/media\/[0-9a-f]{32}-200\.webp"/,
     )
     expect(body).toContain('Logo actuel, texte de remplacement : « Oraki, plantes rares »')
     expect(body.indexOf('data-apercu="imageContent"')).toBeLessThan(
       body.indexOf('<label for="imageContent">'),
     )
-    expect(body).toContain('<figure data-apercu="iconContent" hidden>')
+    expect(body).toMatch(/<figure\s+data-apercu="iconContent"\s+data-choisie="[^"]+"\s+hidden\s*>/)
   })
 
   it('montre les couleurs en sélecteur natif derrière la case « couleurs de la bibliothèque », cochée sans couleurs', async () => {

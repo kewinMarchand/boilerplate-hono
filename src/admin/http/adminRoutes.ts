@@ -2,6 +2,9 @@ import { Hono } from 'hono'
 import { csrf } from 'hono/csrf'
 import { createMiddleware } from 'hono/factory'
 
+import { adminLanguage, t } from '#/shared/http/adminI18n.ts'
+import { adminContentLocales } from '#/shared/http/adminTranslations.ts'
+
 import { normalizeEmail } from '#/admin/domain/AdminUser.ts'
 import { authenticate } from '#/admin/application/adminAccounts.ts'
 import { PREVIEW_SCRIPT_HASH } from '#/media/http/adminImageFields.ts'
@@ -15,10 +18,8 @@ import type { AdminDependencies } from '#/admin/application/adminAccounts.ts'
 /** Pages de l'admin : leurs styles en ligne, les images et fichiers audio du même hôte (et l'image choisie avant l'envoi), le script d'aperçu ; formulaires envoyés à l'admin seulement. */
 export const ADMIN_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' blob:; media-src 'self'; script-src ${PREVIEW_SCRIPT_HASH}; form-action 'self'; frame-ancestors 'none'; base-uri 'none'`
 
-const INVALID_CREDENTIALS = 'Identifiants invalides.'
-
 const throttled = (minutes: number) =>
-  `Plusieurs tentatives de connexion ont échoué, veuillez réessayer dans ${minutes} minute${minutes > 1 ? 's' : ''}.`
+  minutes > 1 ? t('login.throttled', { minutes }) : t('login.throttled_one')
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : '')
 
@@ -27,6 +28,8 @@ export interface AdminRouteOptions {
   readonly throttle?: LoginThrottle
   /** Pages des autres modules (catalogue, contenus), montées derrière la même session, le même CSRF et la même CSP. */
   readonly sections?: readonly Hono[]
+  /** Langues du contenu du site (ADR 0014), la langue par défaut en premier : onglets de langue des fiches. */
+  readonly contentLocales?: () => Promise<readonly [string, ...string[]]>
 }
 
 /**
@@ -58,8 +61,13 @@ export const adminRoutes = (dependencies: AdminDependencies, options: AdminRoute
     },
   )
 
-  app.use('/admin', adminCsp, csrf(), requireSession)
-  app.use('/admin/*', adminCsp, csrf(), requireSession)
+  // Langue de l'interface choisie avant tout, page de connexion comprise
+  const language = adminLanguage()
+  const contentLocales = adminContentLocales(
+    options.contentLocales ?? (() => Promise.resolve(['fr'])),
+  )
+  app.use('/admin', adminCsp, language, csrf(), requireSession, contentLocales)
+  app.use('/admin/*', adminCsp, language, csrf(), requireSession, contentLocales)
 
   app.get('/admin/login', async (c) =>
     (await sessionEmail(c, secret)) === null ? c.html(loginPage()) : c.redirect('/admin', 303),
@@ -76,7 +84,7 @@ export const adminRoutes = (dependencies: AdminDependencies, options: AdminRoute
     const user = await authenticate(dependencies, email, text(form.password))
     if (user === null) {
       throttle.fail(key)
-      return c.html(loginPage({ error: INVALID_CREDENTIALS, email }), 401)
+      return c.html(loginPage({ error: t('login.invalid'), email }), 401)
     }
     throttle.reset(key)
     await openSession(c, secret, user.email)

@@ -1,20 +1,24 @@
 import { html } from 'hono/html'
 
 import { selectField, textField } from '#/shared/http/adminForms.ts'
+import { t } from '#/shared/http/adminI18n.ts'
 import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
+import { inLocale, labelIn, languageTabs, otherLocales } from '#/shared/http/adminTranslations.ts'
 
 import { ATTRIBUTE_TYPES } from '#/catalog/domain/catalog.ts'
 
-import { choiceKey, choiceRowCount } from './adminAttributeForms.ts'
+import {
+  ATTRIBUTE_TRANSLATED,
+  choiceKey,
+  choiceRowCount,
+  choiceTranslationKey,
+} from './adminAttributeForms.ts'
+import { rowActions } from './adminCatalogPages.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { Errors, Values } from '#/shared/http/adminForms.ts'
 
-const TYPE_LABELS: Record<Catalog.AttributeType, string> = {
-  choice: 'Liste de valeurs',
-  number: 'Nombre',
-  text: 'Texte',
-}
+const typeLabel = (type: Catalog.AttributeType): string => t(`attribute_type.${type}`)
 
 export const attributesPage = (
   attributes: readonly Catalog.ProductAttribute[],
@@ -22,22 +26,22 @@ export const attributesPage = (
   error?: string,
 ) =>
   adminPage(
-    'Attributs',
+    t('entity.attributes'),
     '/admin/attributs',
-    html`<h1>Attributs</h1>
+    html`<h1>${t('entity.attributes')}</h1>
       ${flash(message)} ${formError(error)}
-      <p><a href="/admin/attributs/nouveau">Nouvel attribut</a></p>
+      <p><a href="/admin/attributs/nouveau">${t('title.new_attribute')}</a></p>
       <table>
         <thead>
           <tr>
-            <th scope="col">Libellé</th>
-            <th scope="col">Code</th>
-            <th scope="col">Type</th>
-            <th scope="col">Unité</th>
-            <th scope="col">Valeurs</th>
-            <th scope="col">Filtre du catalogue</th>
-            <th scope="col">Position</th>
-            <th scope="col">Actions</th>
+            <th scope="col">${t('field.label')}</th>
+            <th scope="col">${t('field.code')}</th>
+            <th scope="col">${t('field.type')}</th>
+            <th scope="col">${t('field.unit')}</th>
+            <th scope="col">${t('field.choices')}</th>
+            <th scope="col">${t('field.filterable')}</th>
+            <th scope="col">${t('field.position')}</th>
+            <th scope="col">${t('field.actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -46,20 +50,12 @@ export const attributesPage = (
               html`<tr>
                 <td>${attribute.label}</td>
                 <td><code>${attribute.code}</code></td>
-                <td>${TYPE_LABELS[attribute.type]}</td>
+                <td>${typeLabel(attribute.type)}</td>
                 <td>${attribute.unit ?? '—'}</td>
                 <td>${attribute.choices.map(({ label }) => label).join(', ') || '—'}</td>
-                <td>${attribute.filterable ? 'Oui' : 'Non'}</td>
+                <td>${attribute.filterable ? t('common.yes') : t('common.no')}</td>
                 <td>${attribute.position}</td>
-                <td>
-                  <a href="/admin/attributs/${attribute.code}/modifier"
-                    >Modifier<span class="sr"> ${attribute.label}</span></a
-                  >
-                  ·
-                  <a href="/admin/attributs/${attribute.code}/supprimer"
-                    >Supprimer<span class="sr"> ${attribute.label}</span></a
-                  >
-                </td>
+                <td>${rowActions(`/admin/attributs/${attribute.code}`, attribute.label)}</td>
               </tr>`,
           )}
         </tbody>
@@ -70,7 +66,7 @@ const codeField = (values: Values, errors: Errors, locked: boolean) => {
   const error = errors.code
   const describedBy = error === undefined ? 'aide-code' : 'aide-code erreur-code'
 
-  return html`<label for="code">Code</label>
+  return html`<label for="code">${t('field.code')}</label>
     <input
       id="code"
       name="code"
@@ -80,10 +76,7 @@ const codeField = (values: Values, errors: Errors, locked: boolean) => {
       ${locked ? 'disabled' : ''}
       ${error === undefined ? '' : html`aria-invalid="true"`}
     />
-    <p id="aide-code">
-      Minuscules, chiffres et tirets, commence par une lettre : il apparaît dans les filtres du
-      catalogue. Il ne change plus après la création.
-    </p>
+    <p id="aide-code">${t('help.attribute_code')}</p>
     ${error === undefined ? '' : html`<p class="erreur-champ" id="erreur-code">${error}</p>`}`
 }
 
@@ -95,9 +88,17 @@ const choiceRows = (values: Values, errors: Errors) =>
     const number = index + 1
 
     return html`<fieldset>
-      <legend>Valeur ${number}</legend>
-      ${textField(`Code de la valeur ${number}`, value, values, errors)}
-      ${textField(`Libellé de la valeur ${number}`, label, values, errors)}
+      <legend>${t('choice.legend', { number })}</legend>
+      ${textField(t('choice.code', { number }), value, values, errors)}
+      ${textField(t('choice.label', { number }), label, values, errors)}
+      ${otherLocales().map((locale) =>
+        textField(
+          labelIn(t('choice.label', { number }), locale),
+          choiceTranslationKey(index, locale),
+          values,
+          errors,
+        ),
+      )}
     </fieldset>`
   })
 
@@ -115,15 +116,23 @@ export const attributeFormPage = (
     html`<h1>${title}</h1>
       ${formError(error)}
       <form method="post" action="${action}" novalidate>
-        ${codeField(values, errors, locked)} ${textField('Libellé', 'label', values, errors)}
+        ${codeField(values, errors, locked)}
+        ${languageTabs(
+          'attribut',
+          ATTRIBUTE_TRANSLATED,
+          errors,
+          (locale) =>
+            html`${textField(t('field.label'), inLocale(locale, 'label'), values, errors)}
+              ${textField(t('field.unit'), inLocale(locale, 'unit'), values, errors)}
+              <p>${t('help.unit')}</p>`,
+        )}
         ${selectField(
-          'Type',
+          t('field.type'),
           'type',
-          ATTRIBUTE_TYPES.map((type) => [type, TYPE_LABELS[type]] as const),
+          ATTRIBUTE_TYPES.map((type) => [type, typeLabel(type)] as const),
           values,
           errors,
         )}
-        ${textField('Unité (facultative : « mm », « km », « cm »)', 'unit', values, errors)}
         <label for="filterable">
           <input
             id="filterable"
@@ -131,17 +140,14 @@ export const attributeFormPage = (
             type="checkbox"
             aria-describedby="aide-filterable"
             ${values.filterable === 'on' ? 'checked' : ''}
-          />Filtre du catalogue
+          />${t('field.filterable')}
         </label>
-        <p id="aide-filterable">Liste de valeurs seulement : une facette du catalogue.</p>
-        ${textField('Position', 'position', values, errors, 'number')}
-        <h2>Valeurs</h2>
-        <p>
-          Liste de valeurs seulement, dans l'ordre d'affichage. Vider une ligne retire la valeur ;
-          enregistrer ajoute de nouvelles lignes vides.
-        </p>
+        <p id="aide-filterable">${t('help.filterable')}</p>
+        ${textField(t('field.position'), 'position', values, errors, 'number')}
+        <h2>${t('field.choices')}</h2>
+        <p>${t('help.choices')}</p>
         ${choiceRows(values, errors)}
-        <button type="submit">Enregistrer</button>
+        <button type="submit">${t('form.save')}</button>
       </form>
-      <p><a href="/admin/attributs">Retour aux attributs</a></p>`,
+      <p><a href="/admin/attributs">${t('attribute.back')}</a></p>`,
   )

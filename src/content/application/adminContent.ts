@@ -1,6 +1,8 @@
 import { keptTranslations } from '#/shared/domain/translations.ts'
 
 import { ContentRuleViolation } from '#/content/domain/contentRules.ts'
+import { switchLegalPageLocale } from '#/content/domain/LegalPage.ts'
+import { switchPageMetaLocale } from '#/content/domain/PageMeta.ts'
 
 import type { LegalPage } from '#/content/domain/LegalPage.ts'
 import type { PageMeta } from '#/content/domain/PageMeta.ts'
@@ -52,4 +54,28 @@ export const updatePageMeta = async (
         ? current.translations
         : keptTranslations(input.translations),
   })
+}
+
+/**
+ * Nouvelle langue par défaut du site (ADR 0014) : pages légales et référencement des pages fixes font
+ * passer les traductions de `to` dans leurs champs ; le Markdown des pages est rendu à nouveau.
+ */
+export const switchContentDefaultLocale = async (
+  { legalPageWriter, legalPageRenderer, pageMetaWriter }: ContentAdminDependencies,
+  from: string,
+  to: string,
+): Promise<void> => {
+  for (const page of await legalPageWriter.findAll()) {
+    const { slug, title, body, translations } = switchLegalPageLocale(page, from, to)
+    await legalPageWriter.update(slug, {
+      title,
+      body,
+      translations,
+      ...legalPageRenderer.split(body),
+    })
+  }
+  for (const meta of await pageMetaWriter.findAll()) {
+    const { page, ...texts } = switchPageMetaLocale(meta, from, to)
+    await pageMetaWriter.update(page, texts)
+  }
 }

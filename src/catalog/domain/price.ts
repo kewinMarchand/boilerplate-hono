@@ -1,3 +1,5 @@
+import { RuleViolation } from '#/shared/domain/ruleViolation.ts'
+
 declare const PRICE: unique symbol
 
 /**
@@ -7,9 +9,9 @@ declare const PRICE: unique symbol
  */
 export type Price = number & { readonly [PRICE]: true }
 
-export class InvalidPriceError extends Error {
+export class InvalidPriceError extends RuleViolation {
   constructor(cents: number) {
-    super(`Un prix ne peut pas être négatif ni fractionnaire : ${cents} centimes.`)
+    super('Un prix ne peut pas être négatif ni fractionnaire : %cents% centimes.', { cents })
     this.name = 'InvalidPriceError'
   }
 }

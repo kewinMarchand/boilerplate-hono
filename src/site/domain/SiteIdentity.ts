@@ -1,8 +1,8 @@
 import { RuleViolation } from '#/shared/domain/ruleViolation.ts'
-import { translated } from '#/shared/domain/translations.ts'
+import { LOCALE_PATTERN, translated } from '#/shared/domain/translations.ts'
 
 import type { Media } from '#/media/domain/Media.ts'
-import type { Translations } from '#/shared/domain/translations.ts'
+import type { Translations, TranslationsInput } from '#/shared/domain/translations.ts'
 
 /** Identité du site, une seule par API (section 22 de SPEC-COMMUNE, ADR 0005), même vocabulaire que l'API Platform. */
 export declare namespace SiteIdentity {
@@ -74,6 +74,15 @@ export declare namespace SiteIdentity {
     readonly removeIcon: boolean
     readonly salesEnabled: boolean
     readonly contactRecipient: string
+    /**
+     * Langue par défaut du contenu (ADR 0014) : nom et accroche ci-dessus sont saisis dans la langue
+     * par défaut actuelle ; si elle change, ils passent en traduction.
+     */
+    readonly defaultLocale: string
+    /** Autres langues activées, dans l'ordre. */
+    readonly otherLocales: readonly string[]
+    /** Absent : les traductions actuelles sont gardées. */
+    readonly translations?: TranslationsInput
   }
 }
 
@@ -110,4 +119,21 @@ export class SiteRuleViolation extends RuleViolation {
     super(template, parameters)
     this.name = 'SiteRuleViolation'
   }
+}
+
+/**
+ * Langues du site (ADR 0014), la langue par défaut en premier, doublons de saisie retirés : au moins
+ * une, chacune un code BCP 47 court. Messages de SiteIdentity::changeLocales de l'API Platform.
+ */
+export const siteLocales = (locales: readonly string[]): readonly [string, ...string[]] => {
+  const [first, ...rest] = [...new Set(locales)]
+  if (first === undefined) {
+    throw new SiteRuleViolation('Activer au moins une langue.')
+  }
+  for (const locale of [first, ...rest]) {
+    if (!LOCALE_PATTERN.test(locale)) {
+      throw new SiteRuleViolation('Code de langue invalide : « %locale% ».', { locale })
+    }
+  }
+  return [first, ...rest]
 }

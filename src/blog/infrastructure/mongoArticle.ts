@@ -7,6 +7,7 @@ import { SPEAKER_MAX_LENGTH, TERM_KINDS } from '#/blog/domain/Article.ts'
 import { AUDIO_FORMATS } from '#/media/domain/audioRules.ts'
 
 import type { Article } from '#/blog/domain/Article.ts'
+import type { Media } from '#/media/domain/Media.ts'
 import type { CounterDocument } from '#/shared/infrastructure/counters.ts'
 import type { CollectionDefinition } from '#/shared/infrastructure/mongo.ts'
 import type { Collection } from 'mongodb'
@@ -224,13 +225,14 @@ const toDocument = ({
   metaTitle,
   metaDescription,
   translations,
-}: Article.Saved) => ({
+}: Omit<Article.Saved, 'image'> & { readonly image: Media.Image | null }) => ({
   slug,
   title,
   excerpt,
   publishedAt: new Date(`${publishedAt}T00:00:00Z`),
-  imageKey: image.key,
-  imageAlt: image.alt,
+  // Un article d'avant l'envoi des images n'en a pas
+  imageKey: image?.key ?? null,
+  imageAlt: image?.alt ?? '',
   body,
   html,
   sectionId,
@@ -298,6 +300,13 @@ export class MongoArticleTermRepository implements Article.TermRepository {
   async remove(id: number): Promise<void> {
     await this.collection.deleteOne({ _id: id })
   }
+
+  async replaceAll(terms: readonly Article.Term[]): Promise<void> {
+    await this.collection.deleteMany({})
+    if (terms.length > 0) {
+      await this.collection.insertMany(terms.map(({ id, ...term }) => ({ _id: id, ...term })))
+    }
+  }
 }
 
 export class MongoArticleRepository implements Article.Repository, Article.Writer {
@@ -340,6 +349,23 @@ export class MongoArticleRepository implements Article.Repository, Article.Write
 
   async remove(id: number): Promise<void> {
     await this.collection.deleteOne({ _id: id })
+  }
+
+  async replaceAll(articles: readonly Article.Entity[]): Promise<void> {
+    await this.collection.deleteMany({})
+    if (articles.length > 0) {
+      await this.collection.insertMany(
+        articles.map(({ id, image, section, format, ...article }) => ({
+          _id: id,
+          ...toDocument({
+            ...article,
+            image,
+            sectionId: section?.id ?? null,
+            formatId: format?.id ?? null,
+          }),
+        })),
+      )
+    }
   }
 
   async findLatestFirst(): Promise<Article.Entity[]> {

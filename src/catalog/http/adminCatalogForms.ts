@@ -1,21 +1,46 @@
 import {
   field,
   integer,
+  maxLength,
+  META_DESCRIPTION_MAX_LENGTH,
+  META_TITLE_MAX_LENGTH,
   readMetaFields,
   requiredText,
   slugField,
 } from '#/shared/http/adminForms.ts'
+import { t } from '#/shared/http/adminI18n.ts'
+import { inLocale, otherLocales, readTranslations } from '#/shared/http/adminTranslations.ts'
 
 import { isExposure, isSize } from '#/catalog/domain/catalog.ts'
 import { Price } from '#/catalog/domain/price.ts'
 import { readImageFields } from '#/media/http/adminImageFields.ts'
 
-import { readGalleryRows } from './adminGalleryFields.ts'
+import { galleryAltField, galleryKeys, readGalleryRows } from './adminGalleryFields.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
 
 const DESCRIPTION_MAX_LENGTH = 2000
+
+/** Champs traduisibles des formulaires (ADR 0014), dans l'ordre des onglets de langue. */
+export const CATEGORY_TRANSLATED = ['name', 'slug'] as const
+export const PRODUCT_TRANSLATED = [
+  'name',
+  'slug',
+  'description',
+  'imageAlt',
+  'metaTitle',
+  'metaDescription',
+] as const
+
+/** Longueurs maximales des champs traduits, celles des champs de la langue par défaut. */
+const PRODUCT_MAX_LENGTHS: Readonly<Record<string, number>> = {
+  name: 255,
+  description: DESCRIPTION_MAX_LENGTH,
+  imageAlt: 255,
+  metaTitle: META_TITLE_MAX_LENGTH,
+  metaDescription: META_DESCRIPTION_MAX_LENGTH,
+}
 /** Champ d'un attribut configurable : `attributes[<code>]` ; la valeur est contrôlée par le cas d'usage. */
 const ATTRIBUTE_FIELD = /^attributes\[([^\]]+)\]$/
 
@@ -54,10 +79,12 @@ export const readCategoryForm = (
   slugField(errors, values.slug)
   const position = integer(values.position)
   if (position === null) {
-    errors.position = 'Cette valeur doit être un nombre entier.'
+    errors.position = t('validator.integer')
   } else if (position < 0) {
-    errors.position = 'Cette valeur doit être positive ou nulle.'
+    errors.position = t('validator.positive_or_zero')
   }
+  const formValues: Values = { ...values }
+  const translations = readTranslations(body, CATEGORY_TRANSLATED, formValues, errors)
   const data =
     Object.keys(errors).length === 0 && position !== null
       ? {
@@ -65,10 +92,11 @@ export const readCategoryForm = (
           name: values.name,
           position,
           parent: values.parent === '' ? null : values.parent,
+          ...(translations === undefined ? {} : { translations }),
         }
       : null
 
-  return { values, errors, data }
+  return { values: formValues, errors, data }
 }
 
 export const readProductForm = async (
@@ -90,23 +118,21 @@ export const readProductForm = async (
   requiredText(errors, 'name', values.name)
   slugField(errors, values.slug)
   if (values.categorySlug === '') {
-    errors.categorySlug = 'Choisir une catégorie.'
+    errors.categorySlug = t('constraint.category')
   }
   const cents = euroCents(values.price)
   if (cents === null) {
-    errors.price = 'Veuillez saisir un montant valide.'
+    errors.price = t('validator.money')
   } else if (cents < 0) {
-    errors.price = 'Le prix ne peut pas être négatif.'
+    errors.price = t('constraint.price')
   }
   if (!isExposure(values.exposure)) {
-    errors.exposure = "Le choix sélectionné n'est pas valide."
+    errors.exposure = t('validator.choice')
   }
   if (!isSize(values.size)) {
-    errors.size = "Le choix sélectionné n'est pas valide."
+    errors.size = t('validator.choice')
   }
-  if (Array.from(values.description).length > DESCRIPTION_MAX_LENGTH) {
-    errors.description = `Cette chaîne est trop longue. Elle doit avoir au maximum ${DESCRIPTION_MAX_LENGTH} caractères.`
-  }
+  maxLength(errors, 'description', values.description, DESCRIPTION_MAX_LENGTH)
   const attributeFields = Object.keys(body).flatMap((key) => {
     const code = ATTRIBUTE_FIELD.exec(key)?.[1]
     return code === undefined ? [] : [{ key, code, value: field(body, key) }]
@@ -121,6 +147,18 @@ export const readProductForm = async (
   const image = await readImageFields(body, formValues, errors)
   const gallery = await readGalleryRows(body, formValues, errors)
   const meta = readMetaFields(body, formValues, errors)
+  const translations = readTranslations(
+    body,
+    [...PRODUCT_TRANSLATED, ...galleryKeys(formValues).map(galleryAltField)],
+    formValues,
+    errors,
+  )
+  for (const locale of otherLocales()) {
+    for (const [name, max] of Object.entries(PRODUCT_MAX_LENGTHS)) {
+      const key = inLocale(locale, name)
+      maxLength(errors, key, formValues[key] ?? '', max)
+    }
+  }
   const { exposure, size } = values
   const data =
     Object.keys(errors).length === 0 && cents !== null && isExposure(exposure) && isSize(size)
@@ -141,6 +179,7 @@ export const readProductForm = async (
           gallery,
           metaTitle: meta.title,
           metaDescription: meta.description,
+          ...(translations === undefined ? {} : { translations }),
         }
       : null
 

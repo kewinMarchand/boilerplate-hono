@@ -133,8 +133,8 @@ describe('Admin : contenus', () => {
     const refused = await post('/admin/articles/1/modifier', { title: '', slug: 'article' })
     expect(refused.status).toBe(422)
     expect(await refused.text()).toMatch(current)
-    expect(await (await page('/admin/articles/nouveau')).text()).toContain(
-      '<figure data-apercu="imageContent" hidden>',
+    expect(await (await page('/admin/articles/nouveau')).text()).toMatch(
+      /<figure\s+data-apercu="imageContent"\s+data-choisie="[^"]+"\s+hidden\s*>/,
     )
   })
 

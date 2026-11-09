@@ -8,8 +8,11 @@ import {
   maxLength,
   textField,
 } from '#/shared/http/adminForms.ts'
+import { t } from '#/shared/http/adminI18n.ts'
+import { inLocale, labelIn, otherLocales } from '#/shared/http/adminTranslations.ts'
 
 import { MAX_GALLERY_IMAGES } from '#/catalog/domain/catalog.ts'
+import { GALLERY_ALT } from '#/catalog/domain/catalogTranslations.ts'
 import { fileContent, imageFileHtml } from '#/media/http/adminImageFields.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
@@ -85,9 +88,9 @@ export const readGalleryRows = async (
     maxLength(errors, galleryKey(index, 'alt'), alt, MAX_ALT_LENGTH)
     const position = positionText === '' ? 0 : integer(positionText)
     if (position === null) {
-      errors[galleryKey(index, 'position')] = 'Cette valeur doit être un nombre entier.'
+      errors[galleryKey(index, 'position')] = t('validator.integer')
     } else if (position < 0) {
-      errors[galleryKey(index, 'position')] = 'Cette valeur doit être positive ou nulle.'
+      errors[galleryKey(index, 'position')] = t('validator.positive_or_zero')
     }
     rows.push({
       key: key === '' ? null : key,
@@ -100,32 +103,58 @@ export const readGalleryRows = async (
   return rows
 }
 
-/** Lignes de la galerie ; `gallery` : images enregistrées, pour les aperçus. */
+/** Clé de traduction du texte de remplacement d'une image enregistrée : `galleryAlt.<empreinte>`. */
+export const galleryAltField = (key: string): string => `${GALLERY_ALT}${key}`
+
+/** Empreintes des images enregistrées dont le formulaire porte une ligne. */
+export const galleryKeys = (values: Values): string[] =>
+  rowIndices(values).flatMap((index) => {
+    const key = values[galleryKey(index, 'key')] ?? ''
+    return key === '' ? [] : [key]
+  })
+
+/**
+ * Lignes de la galerie ; `gallery` : images enregistrées, pour les aperçus. Le texte de
+ * remplacement d'une image enregistrée se traduit dans sa ligne (ADR 0014).
+ */
 export const galleryFieldsHtml = (
   values: Values,
   errors: Errors,
   gallery: readonly Media.Image[],
 ) =>
   html`<fieldset>
-    <legend>Galerie</legend>
-    <p>
-      ${MAX_GALLERY_IMAGES} images au plus, en plus de l'image principale, par position croissante.
-      Enregistrer propose de nouvelles lignes d'ajout.
-    </p>
+    <legend>${t('field.gallery')}</legend>
+    <p>${t('help.gallery', { max: MAX_GALLERY_IMAGES })}</p>
     ${rowIndices(values).map((index) => {
       const current = gallery.find(({ key }) => key === values[galleryKey(index, 'key')]) ?? null
       return html`<fieldset data-galerie>
-        ${current === null ? html`<legend>Nouvelle image</legend>` : html`<legend>Image ${index + 1}</legend>`}
+        ${
+          current === null
+            ? html`<legend>${t('gallery.new_image')}</legend>`
+            : html`<legend>${t('gallery.image', { number: index + 1 })}</legend>`
+        }
         <input
           type="hidden"
           name="${galleryKey(index, 'key')}"
           value="${current === null ? '' : current.key}"
         />
-        ${imageFileHtml('product', galleryKey(index, 'content'), 'Fichier', current)}
-        ${textField('Texte de remplacement', galleryKey(index, 'alt'), values, errors)}
-        <p>Vide : le nom du produit.</p>
-        ${textField('Position', galleryKey(index, 'position'), values, errors, 'number')}
-        ${current === null ? '' : checkboxField('Retirer cette image', galleryKey(index, 'remove'), values)}
+        ${imageFileHtml('product', galleryKey(index, 'content'), t('field.file'), current)}
+        ${textField(t('field.alt'), galleryKey(index, 'alt'), values, errors)}
+        <p>${t('help.gallery_alt')}</p>
+        ${
+          current === null
+            ? ''
+            : otherLocales().map((locale) =>
+                textField(
+                  labelIn(t('field.alt'), locale),
+                  inLocale(locale, galleryAltField(current.key)),
+                  values,
+                  errors,
+                ),
+              )
+        }
+        ${textField(t('field.position'), galleryKey(index, 'position'), values, errors, 'number')}
+        ${current === null ? '' : checkboxField(t('gallery.remove'), galleryKey(index, 'remove'), values)}
       </fieldset>`
     })}
   </fieldset>`

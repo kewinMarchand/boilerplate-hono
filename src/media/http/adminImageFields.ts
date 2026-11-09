@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { html, raw } from 'hono/html'
 
 import { checkboxField, field, maxLength, textField } from '#/shared/http/adminForms.ts'
+import { t } from '#/shared/http/adminI18n.ts'
 
 import { audioFileName } from '#/media/domain/audioRules.ts'
 import {
@@ -75,8 +76,8 @@ const previewCaption = (image: Media.Image, usage: Media.Usage, label: string): 
     return label
   }
   return image.alt === ''
-    ? `${label}, décorative (sans texte de remplacement)`
-    : `${label}, texte de remplacement : « ${image.alt} »`
+    ? t('image.caption_decorative', { label })
+    : t('image.caption_alt', { label, alt: image.alt })
 }
 
 /** Cellule « Image » des listes : la plus petite variante, ou un tiret sans image. */
@@ -104,7 +105,7 @@ const PREVIEW_SCRIPT = `
       const [file] = input.files;
       if (!file) return;
       preview.querySelector('img').src = URL.createObjectURL(file);
-      preview.querySelector('figcaption').textContent = 'Image choisie, enregistrée à l’envoi du formulaire';
+      preview.querySelector('figcaption').textContent = preview.dataset.choisie;
       preview.hidden = false;
     });
   });
@@ -120,16 +121,20 @@ const helpText = (usage: Media.Usage): string => {
   const ratio = ratioOf(usage)
   const minimum = minimumWidth(usage)
   if (ratio === null) {
-    return `PNG, WebP ou AVIF (transparence gardée) ou JPEG, 10 Mo au plus, sans recadrage, ${minimum} px de large au moins. Pas de SVG. Sans fichier, l'image actuelle est gardée.`
+    return t('help.image_uncropped', { min: minimum })
   }
   if (usage === 'icon') {
-    return `PNG, WebP ou AVIF (transparence gardée), carrée, ${minimum} px de large au moins, recadrée au centre. Pas de SVG ni d'ICO. Les favicons sont générés en PNG de 32, 180, 192 et 512 px.`
+    return t('help.image_icon', { min: minimum })
   }
-  const sharpest =
-    minimum < largestWidth(usage)
-      ? `, ${largestWidth(usage)} px pour la meilleure netteté (jamais agrandie)`
-      : ''
-  return `JPEG, PNG, WebP ou AVIF, 10 Mo au plus, recadrée au centre au format ${ratio[0]}:${ratio[1]}, ${minimum} px de large au moins${sharpest}. Sans fichier, l'image actuelle est gardée.`
+  const [ratioWidth, ratioHeight] = ratio
+  return minimum < largestWidth(usage)
+    ? t('help.image_cropped_sharpest', {
+        ratioWidth,
+        ratioHeight,
+        min: minimum,
+        largest: largestWidth(usage),
+      })
+    : t('help.image_cropped', { ratioWidth, ratioHeight, min: minimum })
 }
 
 /**
@@ -141,9 +146,13 @@ export const imageFileHtml = (
   name: string,
   label: string,
   current: Media.Image | null,
-  previewLabel = 'Image actuelle',
+  previewLabel = t('image.current'),
 ) =>
-  html`<figure data-apercu="${name}" ${current === null ? 'hidden' : ''}>
+  html`<figure
+      data-apercu="${name}"
+      data-choisie="${t('image.chosen')}"
+      ${current === null ? 'hidden' : ''}
+    >
       <img
         ${current === null ? '' : html`src="${previewUrl(current, usage)}"`}
         alt=""
@@ -175,24 +184,16 @@ export const imageFieldsHtml = (
   errors: Errors,
   current: Media.Image | null = null,
   {
-    label = 'Image',
+    label = t('field.image'),
     decorative = true,
     prefix = 'image',
-    previewLabel = 'Image actuelle',
+    previewLabel = t('image.current'),
   }: { label?: string; decorative?: boolean; prefix?: string; previewLabel?: string } = {},
 ) =>
   html`${imageFileHtml(usage, `${prefix}Content`, label, current, previewLabel)}
-    ${textField('Texte de remplacement', `${prefix}Alt`, values, errors)}
+    ${textField(t('field.alt'), `${prefix}Alt`, values, errors)}
     <p>${altHelp}</p>
-    ${
-      decorative
-        ? checkboxField(
-            'Image décorative (aucun texte de remplacement)',
-            `${prefix}Decorative`,
-            values,
-          )
-        : ''
-    }`
+    ${decorative ? checkboxField(t('field.decorative'), `${prefix}Decorative`, values) : ''}`
 
 /** Lecteur du fichier audio actuel d'un article, avant le champ d'envoi (ADR 0009). */
 export const audioPreviewHtml = (audio: Media.Audio | null) =>
@@ -201,6 +202,9 @@ export const audioPreviewHtml = (audio: Media.Audio | null) =>
     : html`<figure data-apercu-audio>
         <audio controls preload="none" src="/media/${audioFileName(audio)}"></audio>
         <figcaption>
-          Fichier audio actuel, ${audio.format.toUpperCase()}, ${audio.durationSeconds} s
+          ${t('audio.current', {
+            format: audio.format.toUpperCase(),
+            seconds: audio.durationSeconds,
+          })}
         </figcaption>
       </figure>`

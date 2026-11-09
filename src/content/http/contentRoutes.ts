@@ -28,7 +28,7 @@ const allPageMetas = async ({ pageMetas }: ContentRepositories, locale: string) 
   const saved = new Map(
     (await pageMetas.findAll()).map((meta) => [meta.page, pageMetaIn(meta, locale)]),
   )
-  return META_PAGES.map(([page]) => ({
+  return META_PAGES.map((page) => ({
     page,
     title: saved.get(page)?.title ?? '',
     description: saved.get(page)?.description ?? '',

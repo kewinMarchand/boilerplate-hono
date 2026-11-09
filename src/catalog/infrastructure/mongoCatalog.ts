@@ -180,6 +180,15 @@ export class MongoCategoryRepository implements Catalog.CategoryRepository, Cata
   async remove(slug: string): Promise<void> {
     await this.collection.deleteOne({ _id: slug })
   }
+
+  async replaceAll(categories: readonly Catalog.Category[]): Promise<void> {
+    await this.collection.deleteMany({})
+    if (categories.length > 0) {
+      await this.collection.insertMany(
+        categories.map(({ slug, ...category }) => ({ _id: slug, ...category })),
+      )
+    }
+  }
 }
 
 const SORTS: Record<'relevance' | 'price-asc' | 'price-desc', Sort> = {
@@ -264,6 +273,22 @@ const toDocumentFields = ({
   }
 }
 
+/** Document d'un produit lu, image éventuelle comprise (un produit d'avant l'envoi des images n'en a pas). */
+const toStoredProduct = (
+  { id, image, gallery, attributeValues, price, ...product }: Catalog.Product,
+  categoryPath: readonly string[],
+): ProductDocument => ({
+  _id: id,
+  ...product,
+  price,
+  imageKey: image?.key ?? null,
+  imageAlt: image?.alt ?? '',
+  imageWidth: image?.width ?? null,
+  attributeValues: { ...attributeValues },
+  gallery: gallery.map(toStoredImage),
+  categoryPath: [...categoryPath],
+})
+
 const attributeField = (code: string): string => `attributeValues.${code}`
 
 /**
@@ -347,6 +372,20 @@ export class MongoProductRepository implements Catalog.ProductRepository, Catalo
       { categorySlug: previousSlug },
       { $set: { categorySlug: slug, categoryPath: [...categoryPath] } },
     )
+  }
+
+  async replaceAll(
+    products: readonly {
+      readonly product: Catalog.Product
+      readonly categoryPath: readonly string[]
+    }[],
+  ): Promise<void> {
+    await this.collection.deleteMany({})
+    if (products.length > 0) {
+      await this.collection.insertMany(
+        products.map(({ product, categoryPath }) => toStoredProduct(product, categoryPath)),
+      )
+    }
   }
 
   async removeAttributeValue(code: string): Promise<void> {

@@ -1,5 +1,7 @@
 import { html } from 'hono/html'
 
+import { t } from './adminI18n.ts'
+
 /**
  * Formulaires de l'admin, communs aux modules : lecture des champs envoyés, contrôle de forme à la
  * frontière (champs obligatoires, longueurs, slug, entiers) avec les messages de Symfony des
@@ -27,17 +29,16 @@ export const field = (body: Record<string, unknown>, name: string): string => {
 
 export const requiredText = (errors: Errors, name: string, value: string): void => {
   if (value === '') {
-    errors[name] = 'Cette valeur ne doit pas être vide.'
+    errors[name] = t('validator.not_blank')
   } else if (Array.from(value).length > MAX_LENGTH) {
-    errors[name] =
-      `Cette chaîne est trop longue. Elle doit avoir au maximum ${MAX_LENGTH} caractères.`
+    errors[name] = t('validator.too_long', { max: MAX_LENGTH })
   }
 }
 
 export const slugField = (errors: Errors, value: string): void => {
   requiredText(errors, 'slug', value)
   if (errors.slug === undefined && !SLUG_PATTERN.test(value)) {
-    errors.slug = 'Minuscules, chiffres et tirets seulement.'
+    errors.slug = t('constraint.slug')
   }
 }
 
@@ -49,7 +50,7 @@ const EMAIL_PATTERN =
 export const requiredEmail = (errors: Errors, name: string, value: string): void => {
   requiredText(errors, name, value)
   if (errors[name] === undefined && !EMAIL_PATTERN.test(value)) {
-    errors[name] = "Cette valeur n'est pas une adresse email valide."
+    errors[name] = t('validator.email')
   }
 }
 
@@ -113,7 +114,7 @@ export const selectField = (
 
 export const maxLength = (errors: Errors, name: string, value: string, max: number): void => {
   if (Array.from(value).length > max) {
-    errors[name] = `Cette chaîne est trop longue. Elle doit avoir au maximum ${max} caractères.`
+    errors[name] = t('validator.too_long', { max })
   }
 }
 
@@ -166,10 +167,7 @@ export const metaFieldsHtml = (
   titleName = 'metaTitle',
   descriptionName = 'metaDescription',
 ) =>
-  html`${textField('Titre pour les moteurs de recherche', titleName, values, errors)}
-    <p>${META_TITLE_MAX_LENGTH} caractères au plus. Vide : le titre calculé par le front.</p>
-    ${textareaField('Description pour les moteurs de recherche', descriptionName, values, errors, 3)}
-    <p>
-      ${META_DESCRIPTION_MAX_LENGTH} caractères au plus. Vide : la description calculée par le
-      front.
-    </p>`
+  html`${textField(t('field.meta_title'), titleName, values, errors)}
+    <p>${t('help.meta_title', { max: META_TITLE_MAX_LENGTH })}</p>
+    ${textareaField(t('field.meta_description'), descriptionName, values, errors, 3)}
+    <p>${t('help.meta_description', { max: META_DESCRIPTION_MAX_LENGTH })}</p>`

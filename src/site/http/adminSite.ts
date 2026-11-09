@@ -10,10 +10,18 @@ import {
   selectField,
   textField,
 } from '#/shared/http/adminForms.ts'
+import { refusalMessage, t } from '#/shared/http/adminI18n.ts'
 import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
+import {
+  CONTENT_LANGUAGES,
+  inLocale,
+  languageTabs,
+  otherLocales,
+  readTranslations,
+  translationValues,
+} from '#/shared/http/adminTranslations.ts'
 
-import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
-import { COLOR_SCHEMES, SiteRuleViolation } from '#/site/domain/SiteIdentity.ts'
+import { COLOR_SCHEMES } from '#/site/domain/SiteIdentity.ts'
 import { getSiteIdentity, updateSiteIdentity } from '#/site/application/siteIdentity.ts'
 import {
   fileContent,
@@ -37,13 +45,15 @@ import type { SiteIdentity } from '#/site/domain/SiteIdentity.ts'
  * couleur ne sait pas exprimer.
  */
 const PATH = '/admin/identite-du-site'
-const TITLE = 'Identité du site'
 
-const SCHEME_LABELS: Record<SiteIdentity.ColorScheme, string> = {
-  auto: 'Celui du système du visiteur',
-  light: 'Clair',
-  dark: 'Sombre',
-}
+/** Nom et accroche se traduisent (ADR 0014). */
+const IDENTITY_TRANSLATED = ['name', 'tagline'] as const
+
+/** Langues du contenu proposées : codes de la liste fixe, chacune écrite dans sa langue. */
+const LANGUAGE_CODES = Object.keys(CONTENT_LANGUAGES)
+
+/** Case d'une autre langue du contenu : `otherLocales[en]`. */
+const otherLocaleField = (locale: string): string => `otherLocales[${locale}]`
 
 const isColorScheme = (value: string): value is SiteIdentity.ColorScheme =>
   COLOR_SCHEMES.some((scheme) => scheme === value)
@@ -73,14 +83,29 @@ export const readSiteIdentityForm = async (
     salesEnabled: checkbox(body, 'salesEnabled'),
     contactRecipient,
   }
+  const defaultLocale = field(body, 'defaultLocale')
+  values.defaultLocale = defaultLocale
+  const others = LANGUAGE_CODES.filter((locale) => {
+    const checked = checkbox(body, otherLocaleField(locale))
+    values[otherLocaleField(locale)] = checked
+    return checked === 'on' && locale !== defaultLocale
+  })
   const errors: Errors = {}
   if (name === '') {
-    errors.name = 'Cette valeur ne doit pas être vide.'
+    errors.name = t('validator.not_blank')
   }
   maxLength(errors, 'name', name, 60)
   maxLength(errors, 'tagline', tagline, 160)
   if (!isColorScheme(defaultColorScheme)) {
-    errors.defaultColorScheme = 'Le choix sélectionné est invalide.'
+    errors.defaultColorScheme = t('validator.choice')
+  }
+  if (!LANGUAGE_CODES.includes(defaultLocale)) {
+    errors.defaultLocale = t('validator.choice')
+  }
+  const translations = readTranslations(body, IDENTITY_TRANSLATED, values, errors)
+  for (const locale of otherLocales()) {
+    maxLength(errors, inLocale(locale, 'name'), values[inLocale(locale, 'name')] ?? '', 60)
+    maxLength(errors, inLocale(locale, 'tagline'), values[inLocale(locale, 'tagline')] ?? '', 160)
   }
   requiredEmail(errors, 'contactRecipient', contactRecipient)
   const image = await readImageFields(body, values, errors)
@@ -109,6 +134,9 @@ export const readSiteIdentityForm = async (
             removeIcon: values.removeIcon === 'on',
             salesEnabled: values.salesEnabled === 'on',
             contactRecipient,
+            defaultLocale,
+            otherLocales: others,
+            ...(translations === undefined ? {} : { translations }),
           }
         : null,
   }
@@ -123,6 +151,8 @@ const valuesOf = ({
   shareImage,
   salesEnabled,
   contactRecipient,
+  locales: [defaultLocale, ...others],
+  translations,
 }: SiteIdentity.Entity): Values => ({
   name,
   tagline,
@@ -137,7 +167,38 @@ const valuesOf = ({
   removeIcon: '',
   salesEnabled: salesEnabled ? 'on' : '',
   contactRecipient,
+  defaultLocale,
+  ...Object.fromEntries(
+    LANGUAGE_CODES.map((locale) => [otherLocaleField(locale), others.includes(locale) ? 'on' : '']),
+  ),
+  ...translationValues(translations, IDENTITY_TRANSLATED),
 })
+
+/** Langue par défaut et autres langues du contenu (ADR 0014), chacune écrite dans sa langue. */
+const localeFields = (values: Values, errors: Errors) =>
+  html`${selectField(
+      t('field.default_locale'),
+      'defaultLocale',
+      Object.entries(CONTENT_LANGUAGES),
+      values,
+      errors,
+    )}
+    <p>${t('help.default_locale')}</p>
+    <fieldset aria-describedby="aide-otherLocales">
+      <legend>${t('field.other_locales')}</legend>
+      ${Object.entries(CONTENT_LANGUAGES).map(
+        ([locale, name]) =>
+          html`<label for="${otherLocaleField(locale)}">
+            <input
+              id="${otherLocaleField(locale)}"
+              name="${otherLocaleField(locale)}"
+              type="checkbox"
+              ${values[otherLocaleField(locale)] === 'on' ? 'checked' : ''}
+            /><span lang="${locale}">${name}</span>
+          </label>`,
+      )}
+      <p id="aide-otherLocales">${t('help.other_locales')}</p>
+    </fieldset>`
 
 const formPage = (
   values: Values,
@@ -149,97 +210,81 @@ const formPage = (
   }: { errors?: Errors; error?: string; message?: string | undefined } = {},
 ) =>
   adminPage(
-    TITLE,
+    t('entity.site_identity'),
     PATH,
-    html`<h1>${TITLE}</h1>
+    html`<h1>${t('entity.site_identity')}</h1>
       ${flash(message)} ${formError(error)}
       <form method="post" action="${PATH}" enctype="multipart/form-data" novalidate>
-        ${textField('Nom du site', 'name', values, errors)}
-        ${textField('Accroche', 'tagline', values, errors)}
-        <p>Texte du hero de l'accueil et description par défaut des pages.</p>
-        ${imageFieldsHtml('logo', 'Vide : le nom du site.', values, errors, identity.logo, {
-          label: 'Logo',
-          decorative: false,
-          previewLabel: 'Logo actuel',
-        })}
-        ${checkboxField(
-          'Retirer le logo',
-          'removeLogo',
-          values,
-          'Le header affiche alors le pictogramme et le nom du site. Un fichier envoyé en même temps est ignoré.',
+        ${languageTabs(
+          'identite',
+          IDENTITY_TRANSLATED,
+          errors,
+          (locale) =>
+            html`${textField(t('field.site_name'), inLocale(locale, 'name'), values, errors)}
+              ${textField(t('field.tagline'), inLocale(locale, 'tagline'), values, errors)}
+              <p>${t('help.tagline')}</p>`,
         )}
+        ${localeFields(values, errors)}
+        ${imageFieldsHtml('logo', t('help.site_alt'), values, errors, identity.logo, {
+          label: t('field.logo'),
+          decorative: false,
+          previewLabel: t('image.current_logo'),
+        })}
+        ${checkboxField(t('field.remove_logo'), 'removeLogo', values, t('help.remove_logo'))}
         ${imageFileHtml(
           'icon',
           'iconContent',
-          'Icône du site (favicons)',
+          t('field.icon'),
           identity.icon,
-          'Icône actuelle (192 px)',
+          t('image.current_icon'),
         )}
-        ${checkboxField(
-          "Retirer l'icône",
-          'removeIcon',
-          values,
-          'Les fronts servent alors leurs propres favicons. Un fichier envoyé en même temps est ignoré.',
-        )}
-        ${imageFieldsHtml('share', 'Vide : le nom du site.', values, errors, identity.shareImage, {
-          label: 'Image de partage',
+        ${checkboxField(t('field.remove_icon'), 'removeIcon', values, t('help.remove_icon'))}
+        ${imageFieldsHtml('share', t('help.site_alt'), values, errors, identity.shareImage, {
+          label: t('field.share_image'),
           decorative: false,
           prefix: 'shareImage',
-          previewLabel: 'Image de partage actuelle',
+          previewLabel: t('image.current_share'),
         })}
         ${checkboxField(
-          "Retirer l'image de partage",
+          t('field.remove_share_image'),
           'removeShareImage',
           values,
-          'Les fronts servent alors leur propre image de partage. Un fichier envoyé en même temps est ignoré.',
+          t('help.remove_share_image'),
         )}
         ${checkboxField(
-          'Utiliser les couleurs de la bibliothèque',
+          t('field.library_colors'),
           'useLibraryColors',
           values,
-          'Cochée : pas de couleurs de marque, les fronts gardent les jetons de boilerplates-ui et les deux couleurs ci-dessous sont ignorées.',
+          t('help.library_colors'),
         )}
-        ${textField('Couleur principale', 'primaryColor', values, errors, 'color')}
-        <p>
-          Couleur des liens et des boutons : elle doit contraster à 4,5:1 au moins avec le fond
-          blanc. Le thème sombre et les déclinaisons sont calculés.
-        </p>
-        ${textField('Couleur secondaire', 'secondaryColor', values, errors, 'color')}
-        <p>Elle doit porter un texte lisible (blanc ou quasi-noir à 4,5:1 au moins).</p>
+        ${textField(t('field.primary_color'), 'primaryColor', values, errors, 'color')}
+        <p>${t('help.primary_color')}</p>
+        ${textField(t('field.secondary_color'), 'secondaryColor', values, errors, 'color')}
+        <p>${t('help.secondary_color')}</p>
         ${selectField(
-          'Thème par défaut',
+          t('field.color_scheme'),
           'defaultColorScheme',
-          COLOR_SCHEMES.map((scheme) => [scheme, SCHEME_LABELS[scheme]] as const),
+          COLOR_SCHEMES.map((scheme) => [scheme, t(`color_scheme.${scheme}`)] as const),
           values,
           errors,
         )}
-        <p>Thème servi tant que le visiteur n'a rien choisi.</p>
-        ${checkboxField(
-          'Vente en ligne (prix, panier et commande)',
-          'salesEnabled',
-          values,
-          "Décochée : les fronts n'affichent ni prix ni panier, chaque produit propose une demande de renseignement.",
-        )}
-        ${textField('Adresse qui reçoit les messages', 'contactRecipient', values, errors, 'email')}
-        <p>Messages du formulaire de contact et demandes de renseignement. Jamais publiée.</p>
-        <button type="submit">Enregistrer</button>
+        <p>${t('help.color_scheme')}</p>
+        ${checkboxField(t('field.sales'), 'salesEnabled', values, t('help.sales'))}
+        ${textField(t('field.contact_recipient'), 'contactRecipient', values, errors, 'email')}
+        <p>${t('help.contact_recipient')}</p>
+        <button type="submit">${t('form.save')}</button>
       </form>
       ${imagePreviewScript}`,
   )
 
-const refusal = (error: unknown): string => {
-  if (error instanceof SiteRuleViolation || error instanceof MediaRuleViolation) {
-    return error.message
-  }
-  throw error
-}
+const refusal = refusalMessage
 
 export const adminSiteRoutes = (dependencies: SiteDependencies) => {
   const app = new Hono()
 
   app.get(PATH, async (c) => {
     const identity = await getSiteIdentity(dependencies)
-    const message = c.req.query('ok') === 'modifie' ? 'Identité du site enregistrée.' : undefined
+    const message = c.req.query('ok') === 'modifie' ? t('flash.site_identity_saved') : undefined
     return c.html(formPage(valuesOf(identity), identity, { message }))
   })
 

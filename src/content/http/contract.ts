@@ -29,7 +29,7 @@ export const legalPageContract = z
 
 export const pageMetaContract = z
   .object({
-    page: z.enum(META_PAGES.map(([page]) => page)),
+    page: z.enum(META_PAGES),
     title: z.string().meta({
       description:
         'Titre pour les moteurs de recherche, 60 caractères au plus ; chaîne vide si non saisi.',

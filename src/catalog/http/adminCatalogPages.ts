@@ -1,7 +1,9 @@
 import { html } from 'hono/html'
 
 import { metaFieldsHtml, selectField, textareaField, textField } from '#/shared/http/adminForms.ts'
+import { t } from '#/shared/http/adminI18n.ts'
 import { adminPage, flash, formError } from '#/shared/http/adminLayout.ts'
+import { inLocale, languageTabs, translationValues } from '#/shared/http/adminTranslations.ts'
 
 import { EXPOSURES, SIZES } from '#/catalog/domain/catalog.ts'
 import { MAX_DEPTH } from '#/catalog/domain/catalogRules.ts'
@@ -13,8 +15,13 @@ import {
   imageValues,
 } from '#/media/http/adminImageFields.ts'
 
-import { centsToEuros } from './adminCatalogForms.ts'
-import { galleryFieldsHtml, galleryValues, withEmptyGalleryRows } from './adminGalleryFields.ts'
+import { CATEGORY_TRANSLATED, centsToEuros, PRODUCT_TRANSLATED } from './adminCatalogForms.ts'
+import {
+  galleryAltField,
+  galleryFieldsHtml,
+  galleryValues,
+  withEmptyGalleryRows,
+} from './adminGalleryFields.ts'
 
 import type { Catalog } from '#/catalog/domain/catalog.ts'
 import type { Media } from '#/media/domain/Media.ts'
@@ -34,20 +41,26 @@ const inTreeOrder = (
     ...inTreeOrder(tree, category),
   ])
 
+/** Liens Modifier et Supprimer d'une ligne, nommés pour les lecteurs d'écran. */
+export const rowActions = (path: string, name: string) =>
+  html`<a href="${path}/modifier">${t('action.edit')}<span class="sr"> ${name}</span></a>
+    ·
+    <a href="${path}/supprimer">${t('action.delete')}<span class="sr"> ${name}</span></a>`
+
 export const categoriesPage = (tree: CategoryTree, message?: string, error?: string) =>
   adminPage(
-    'Catégories',
+    t('entity.categories'),
     '/admin/categories',
-    html`<h1>Catégories</h1>
+    html`<h1>${t('entity.categories')}</h1>
       ${flash(message)} ${formError(error)}
-      <p><a href="/admin/categories/nouvelle">Nouvelle catégorie</a></p>
+      <p><a href="/admin/categories/nouvelle">${t('title.new_category')}</a></p>
       <table>
         <thead>
           <tr>
-            <th scope="col">Nom</th>
-            <th scope="col">Slug</th>
-            <th scope="col">Position</th>
-            <th scope="col">Actions</th>
+            <th scope="col">${t('field.name')}</th>
+            <th scope="col">${t('field.slug')}</th>
+            <th scope="col">${t('field.position')}</th>
+            <th scope="col">${t('field.actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -57,15 +70,7 @@ export const categoriesPage = (tree: CategoryTree, message?: string, error?: str
                 <td>${indented(tree, category)}</td>
                 <td><code>${category.slug}</code></td>
                 <td>${category.position}</td>
-                <td>
-                  <a href="/admin/categories/${category.slug}/modifier"
-                    >Modifier<span class="sr"> ${category.name}</span></a
-                  >
-                  ·
-                  <a href="/admin/categories/${category.slug}/supprimer"
-                    >Supprimer<span class="sr"> ${category.name}</span></a
-                  >
-                </td>
+                <td>${rowActions(`/admin/categories/${category.slug}`, category.name)}</td>
               </tr>`,
           )}
         </tbody>
@@ -91,12 +96,27 @@ export const categoryFormPage = (
     html`<h1>${title}</h1>
       ${formError(error)}
       <form method="post" action="${action}" novalidate>
-        ${textField('Nom', 'name', values, errors)} ${textField('Slug', 'slug', values, errors)}
-        ${textField('Position', 'position', values, errors, 'number')}
-        ${selectField('Parent', 'parent', [['', 'Aucun (catégorie racine)'], ...parents], values, errors)}
-        <button type="submit">Enregistrer</button>
+        ${languageTabs(
+          'categorie',
+          CATEGORY_TRANSLATED,
+          errors,
+          (locale) =>
+            html`${textField(t('field.name'), inLocale(locale, 'name'), values, errors)}
+            ${textField(t('field.slug'), inLocale(locale, 'slug'), values, errors)}
+            ${locale === null ? '' : html`<p>${t('help.translated_slug')}</p>`}`,
+        )}
+        <p>${t('help.category_slug')}</p>
+        ${textField(t('field.position'), 'position', values, errors, 'number')}
+        ${selectField(
+          t('field.parent'),
+          'parent',
+          [['', t('category.no_parent')], ...parents],
+          values,
+          errors,
+        )}
+        <button type="submit">${t('form.save')}</button>
       </form>
-      <p><a href="/admin/categories">Retour aux catégories</a></p>`,
+      <p><a href="/admin/categories">${t('category.back')}</a></p>`,
   )
 }
 
@@ -113,9 +133,9 @@ export const confirmDeletePage = (
     html`<h1>${title}</h1>
       <p>${question}</p>
       <form method="post" action="${action}">
-        <button type="submit" class="danger">Supprimer</button>
+        <button type="submit" class="danger">${t('action.delete')}</button>
       </form>
-      <p><a href="${back}">Annuler</a></p>`,
+      <p><a href="${back}">${t('form.cancel')}</a></p>`,
   )
 
 export const productsPage = (
@@ -127,21 +147,21 @@ export const productsPage = (
   const names = new Map(tree.categories.map((category) => [category.slug, category.name]))
 
   return adminPage(
-    'Produits',
+    t('entity.products'),
     '/admin/produits',
-    html`<h1>Produits</h1>
+    html`<h1>${t('entity.products')}</h1>
       ${flash(message)} ${formError(error)}
-      <p><a href="/admin/produits/nouveau">Nouveau produit</a></p>
+      <p><a href="/admin/produits/nouveau">${t('title.new_product')}</a></p>
       <table>
         <thead>
           <tr>
-            <th scope="col">Image</th>
-            <th scope="col">Nom</th>
-            <th scope="col">Catégorie</th>
-            <th scope="col">Prix</th>
-            <th scope="col">Stock</th>
-            <th scope="col">À la une</th>
-            <th scope="col">Actions</th>
+            <th scope="col">${t('field.image')}</th>
+            <th scope="col">${t('field.name')}</th>
+            <th scope="col">${t('field.category')}</th>
+            <th scope="col">${t('field.price')}</th>
+            <th scope="col">${t('field.stock')}</th>
+            <th scope="col">${t('field.featured')}</th>
+            <th scope="col">${t('field.actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -152,17 +172,9 @@ export const productsPage = (
                 <td>${product.name}</td>
                 <td>${names.get(product.categorySlug) ?? product.categorySlug}</td>
                 <td>${centsToEuros(product.price)} €</td>
-                <td>${product.inStock ? 'En stock' : 'Épuisé'}</td>
-                <td>${product.featured ? 'Oui' : 'Non'}</td>
-                <td>
-                  <a href="/admin/produits/${product.id}/modifier"
-                    >Modifier<span class="sr"> ${product.name}</span></a
-                  >
-                  ·
-                  <a href="/admin/produits/${product.id}/supprimer"
-                    >Supprimer<span class="sr"> ${product.name}</span></a
-                  >
-                </td>
+                <td>${product.inStock ? t('field.in_stock') : t('product.sold_out')}</td>
+                <td>${product.featured ? t('common.yes') : t('common.no')}</td>
+                <td>${rowActions(`/admin/produits/${product.id}`, product.name)}</td>
               </tr>`,
           )}
         </tbody>
@@ -189,7 +201,10 @@ const attributeFields = (
       return selectField(
         text,
         name,
-        [['', 'Non renseigné'], ...choices.map((choice) => [choice.value, choice.label] as const)],
+        [
+          ['', t('product.attribute_unset')],
+          ...choices.map((choice) => [choice.value, choice.label] as const),
+        ],
         values,
         errors,
       )
@@ -207,7 +222,7 @@ const attributeFields = (
   })
 
   return html`<fieldset>
-    <legend>Attributs</legend>
+    <legend>${t('field.attributes')}</legend>
     ${fields}
   </fieldset>`
 }
@@ -229,12 +244,14 @@ export const productFormPage = (
     html`<h1>${title}</h1>
       ${formError(error)}
       <form method="post" action="${action}" enctype="multipart/form-data" novalidate>
-        ${textField('Nom', 'name', values, errors)} ${textField('Slug', 'slug', values, errors)}
+        ${languageTabs('produit', PRODUCT_TRANSLATED, errors, (locale) =>
+          productTexts(locale, values, errors),
+        )}
         ${selectField(
-          'Catégorie',
+          t('field.category'),
           'categorySlug',
           [
-            ['', 'Choisir une catégorie'],
+            ['', t('product.choose_category')],
             ...inTreeOrder(tree).map(
               (category) => [category.slug, indented(tree, category)] as const,
             ),
@@ -242,17 +259,16 @@ export const productFormPage = (
           values,
           errors,
         )}
-        ${textField('Prix (€)', 'price', values, errors)}
-        ${textareaField('Description (texte brut, une ligne vide sépare deux paragraphes)', 'description', values, errors, 6)}
+        ${textField(t('field.price_euros'), 'price', values, errors)}
         ${selectField(
-          'Exposition',
+          t('field.exposure'),
           'exposure',
-          EXPOSURES.map((value) => [value, value] as const),
+          EXPOSURES.map((value) => [value, t(`exposure.${value}`)] as const),
           values,
           errors,
         )}
         ${selectField(
-          'Taille',
+          t('field.size'),
           'size',
           SIZES.map((value) => [value, value] as const),
           values,
@@ -264,7 +280,7 @@ export const productFormPage = (
             name="inStock"
             type="checkbox"
             ${values.inStock === 'on' ? 'checked' : ''}
-          />En stock
+          />${t('field.in_stock')}
         </label>
         <label for="featured">
           <input
@@ -273,19 +289,29 @@ export const productFormPage = (
             type="checkbox"
             aria-describedby="aide-featured"
             ${values.featured === 'on' ? 'checked' : ''}
-          />À la une
+          />${t('field.featured')}
         </label>
-        <p id="aide-featured">
-          Montré dans le carrousel de la page d'accueil, par ordre alphabétique.
-        </p>
-        ${imageFieldsHtml('product', 'Vide : le nom du produit, qui suffit le plus souvent.', values, errors, image)}
-        ${galleryFieldsHtml(values, errors, gallery)} ${metaFieldsHtml(values, errors)}
-        ${attributeFields(attributes, values, errors)}
-        <button type="submit">Enregistrer</button>
+        <p id="aide-featured">${t('help.featured')}</p>
+        ${imageFieldsHtml('product', t('help.product_alt'), values, errors, image)}
+        ${galleryFieldsHtml(values, errors, gallery)} ${attributeFields(attributes, values, errors)}
+        <button type="submit">${t('form.save')}</button>
       </form>
       ${imagePreviewScript}
-      <p><a href="/admin/produits">Retour aux produits</a></p>`,
+      <p><a href="/admin/produits">${t('product.back')}</a></p>`,
   )
+
+/**
+ * Textes traduisibles d'un produit, dans une langue (null : la langue par défaut, avec son
+ * référencement ; le texte de remplacement de l'image de la langue par défaut reste avec l'image).
+ */
+const productTexts = (locale: string | null, values: Values, errors: Errors) =>
+  html`${textField(t('field.name'), inLocale(locale, 'name'), values, errors)}
+    ${textField(t('field.slug'), inLocale(locale, 'slug'), values, errors)}
+    ${locale === null ? '' : html`<p>${t('help.translated_slug')}</p>`}
+    ${textareaField(t('field.description'), inLocale(locale, 'description'), values, errors, 6)}
+    <p>${t('help.product_description')}</p>
+    ${locale === null ? '' : textField(t('field.alt'), inLocale(locale, 'imageAlt'), values, errors)}
+    ${metaFieldsHtml(values, errors, inLocale(locale, 'metaTitle'), inLocale(locale, 'metaDescription'))}`
 
 /** Valeurs du formulaire d'une catégorie ou d'un produit existants. */
 export const categoryValues = (category: Catalog.Category): Values => ({
@@ -293,6 +319,7 @@ export const categoryValues = (category: Catalog.Category): Values => ({
   slug: category.slug,
   position: String(category.position),
   parent: category.parent ?? '',
+  ...translationValues(category.translations, CATEGORY_TRANSLATED),
 })
 
 export const productValues = (product: Catalog.Product): Values => ({
@@ -309,6 +336,10 @@ export const productValues = (product: Catalog.Product): Values => ({
   ...withEmptyGalleryRows(galleryValues(product.gallery)),
   metaTitle: product.metaTitle,
   metaDescription: product.metaDescription,
+  ...translationValues(product.translations, [
+    ...PRODUCT_TRANSLATED,
+    ...product.gallery.map(({ key }) => galleryAltField(key)),
+  ]),
   ...Object.fromEntries(
     Object.entries(product.attributeValues).map(([code, value]) => [
       attributeFieldName(code),

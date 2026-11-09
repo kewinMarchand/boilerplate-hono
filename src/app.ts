@@ -171,6 +171,7 @@ export const createApp = (
     '/',
     adminRoutes(dependencies, {
       sessionSecret: config.ADMIN_SESSION_SECRET,
+      contentLocales: async () => (await getSiteIdentity(dependencies)).locales,
       sections: [
         adminCatalogRoutes(dependencies),
         adminBlogRoutes(dependencies),

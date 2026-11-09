@@ -119,6 +119,8 @@ export declare namespace Article {
     create(article: Saved): Promise<Entity>
     update(id: number, article: Saved): Promise<void>
     remove(id: number): Promise<void>
+    /** Remplace tous les articles, identifiants gardés : nouvelle langue par défaut (ADR 0014). */
+    replaceAll(articles: readonly Entity[]): Promise<void>
   }
 
   /** Saisie d'une rubrique ou d'un format ; la forme (slug, longueurs) est validée à la frontière. */
@@ -144,6 +146,8 @@ export declare namespace Article {
     create(kind: TermKind, term: TermSaved): Promise<Term>
     update(id: number, term: TermSaved): Promise<void>
     remove(id: number): Promise<void>
+    /** Remplace toutes les rubriques et tous les formats, identifiants gardés (ADR 0014). */
+    replaceAll(terms: readonly Term[]): Promise<void>
   }
 }
 

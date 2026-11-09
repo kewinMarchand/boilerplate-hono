@@ -5,7 +5,13 @@ import {
   checkGallerySize,
   checkPlacement,
 } from '#/catalog/domain/catalogRules.ts'
-import { categoryIn } from '#/catalog/domain/catalogTranslations.ts'
+import {
+  categoryIn,
+  switchAttributeLocale,
+  switchCategoryLocale,
+  switchProductLocale,
+  withoutStaleGalleryAlts,
+} from '#/catalog/domain/catalogTranslations.ts'
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
 import { checkAttributeValues, productAttribute } from '#/catalog/domain/productAttribute.ts'
 import { changeImage } from '#/media/application/storeImage.ts'
@@ -238,7 +244,10 @@ const savedProduct = async (
     gallery,
     metaTitle: metaTitle.trim(),
     metaDescription: metaDescription.trim(),
-    translations: translationsOf(translations, current?.translations),
+    translations: withoutStaleGalleryAlts(
+      translationsOf(translations, current?.translations),
+      gallery,
+    ),
   }
 }
 
@@ -382,4 +391,44 @@ export const deleteProductAttribute = async (
   await requireAttribute(dependencies, code)
   await dependencies.productWriter.removeAttributeValue(code)
   await dependencies.attributeWriter.remove(code)
+}
+
+/**
+ * Nouvelle langue par défaut du site (ADR 0014) : catégories, produits et attributs font passer les
+ * traductions de `to` dans leurs champs, les textes actuels deviennent la traduction de `from`. Une
+ * catégorie dont le slug change est renommée partout (sous-catégories, produits et leurs chemins).
+ */
+export const switchCatalogDefaultLocale = async (
+  dependencies: Pick<
+    CatalogAdminDependencies,
+    'categories' | 'categoryWriter' | 'productWriter' | 'attributes' | 'attributeWriter'
+  >,
+  from: string,
+  to: string,
+): Promise<void> => {
+  const previous = await dependencies.categories.findAll()
+  const renamed = new Map(
+    previous.map((category) => [category.slug, switchCategoryLocale(category, from, to).slug]),
+  )
+  const tree = CategoryTree.of(
+    previous.map((category) => {
+      const switched = switchCategoryLocale(category, from, to)
+      return {
+        ...switched,
+        parent: category.parent === null ? null : (renamed.get(category.parent) ?? category.parent),
+      }
+    }),
+  )
+  await dependencies.categoryWriter.replaceAll(tree.categories)
+  const products = (await dependencies.productWriter.findAll()).map((product) => {
+    const categorySlug = renamed.get(product.categorySlug) ?? product.categorySlug
+    return {
+      product: { ...switchProductLocale(product, from, to), categorySlug },
+      categoryPath: CategoryTree.pathTo(tree, categorySlug),
+    }
+  })
+  await dependencies.productWriter.replaceAll(products)
+  for (const attribute of await dependencies.attributes.findAll()) {
+    await dependencies.attributeWriter.update(switchAttributeLocale(attribute, from, to))
+  }
 }

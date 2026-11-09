@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { translated } from '#/shared/domain/translations.ts'
+
 import { CatalogRuleViolation } from '#/catalog/domain/catalogRules.ts'
 import { Price } from '#/catalog/domain/price.ts'
 import {
@@ -105,12 +107,21 @@ const catalogue = () => {
         categories = categories.filter((c) => c.slug !== slug)
         return Promise.resolve()
       },
+      replaceAll: (all: readonly Catalog.Category[]) => {
+        categories = [...all]
+        return Promise.resolve()
+      },
     },
     productWriter: {
       findById: (id: number) =>
         Promise.resolve(products.map(strip).find((p) => p.id === id) ?? null),
-      findBySlug: (slug: string) =>
-        Promise.resolve(products.map(strip).find((p) => p.slug === slug) ?? null),
+      findBySlug: (slug: string, locale?: string | null) =>
+        Promise.resolve(
+          products
+            .map(strip)
+            .find((p) => translated(p.translations, 'slug', p.slug, locale ?? null) === slug) ??
+            null,
+        ),
       findAll: () => Promise.resolve(products.map(strip)),
       countInCategory: (slug: string) =>
         Promise.resolve(products.filter((p) => p.categorySlug === slug).length),
@@ -139,6 +150,18 @@ const catalogue = () => {
         products = products.map(({ attributeValues: { [code]: _, ...kept }, ...p }) => ({
           ...p,
           attributeValues: kept,
+        }))
+        return Promise.resolve()
+      },
+      replaceAll: (
+        all: readonly {
+          readonly product: Catalog.Product
+          readonly categoryPath: readonly string[]
+        }[],
+      ) => {
+        products = all.map(({ product, categoryPath }) => ({
+          ...product,
+          categoryPath: [...categoryPath],
         }))
         return Promise.resolve()
       },

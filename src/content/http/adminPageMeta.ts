@@ -2,10 +2,17 @@ import { Hono } from 'hono'
 import { html } from 'hono/html'
 
 import { metaFieldsHtml, readMetaFields } from '#/shared/http/adminForms.ts'
+import { refusalMessage, t } from '#/shared/http/adminI18n.ts'
 import { adminPage, flash, formError, notFoundPage } from '#/shared/http/adminLayout.ts'
+import {
+  inLocale,
+  languageTabs,
+  otherLocales,
+  readTranslations,
+  translationValues,
+} from '#/shared/http/adminTranslations.ts'
 
-import { ContentRuleViolation } from '#/content/domain/contentRules.ts'
-import { isMetaPage, META_PAGES, metaPageLabel } from '#/content/domain/PageMeta.ts'
+import { isMetaPage, META_PAGES } from '#/content/domain/PageMeta.ts'
 import { updatePageMeta } from '#/content/application/adminContent.ts'
 
 import type { ContentAdminDependencies } from '#/content/application/adminContent.ts'
@@ -17,42 +24,60 @@ import type { Errors, FormResult, Values } from '#/shared/http/adminForms.ts'
  * PageMetaCrudController de l'API Platform. Longueurs vérifiées ici (60 et 160 caractères).
  */
 const PATH = '/admin/referencement'
-const TITLE = 'Référencement'
+
+/** Champs traduisibles du référencement d'une page fixe (ADR 0014). */
+const PAGE_META_TRANSLATED = ['title', 'description'] as const
+
+/** Nom d'une page fixe dans la langue de l'interface. */
+const pageLabel = (page: PageMeta.Page): string => t(`meta_page.${page}`)
 
 export const readPageMetaForm = (body: Record<string, unknown>): FormResult<PageMeta.Input> => {
   const values: Values = {}
   const errors: Errors = {}
   const { title, description } = readMetaFields(body, values, errors, 'title', 'description')
+  for (const locale of otherLocales()) {
+    readMetaFields(body, values, errors, inLocale(locale, 'title'), inLocale(locale, 'description'))
+  }
+  const translations = readTranslations(body, PAGE_META_TRANSLATED, values, errors)
 
-  return { values, errors, data: Object.keys(errors).length === 0 ? { title, description } : null }
+  return {
+    values,
+    errors,
+    data:
+      Object.keys(errors).length === 0
+        ? { title, description, ...(translations === undefined ? {} : { translations }) }
+        : null,
+  }
 }
 
 const listPage = (metas: readonly PageMeta.Entity[], message?: string) => {
   const saved = new Map(metas.map((meta) => [meta.page, meta]))
   return adminPage(
-    TITLE,
+    t('entity.page_metas'),
     PATH,
-    html`<h1>${TITLE}</h1>
+    html`<h1>${t('entity.page_metas')}</h1>
       ${flash(message)}
-      <p>Vide : le front garde son titre et sa description.</p>
+      <p>${t('help.page_metas')}</p>
       <table>
         <thead>
           <tr>
-            <th scope="col">Page</th>
-            <th scope="col">Titre</th>
-            <th scope="col">Description</th>
-            <th scope="col">Actions</th>
+            <th scope="col">${t('field.page')}</th>
+            <th scope="col">${t('field.title')}</th>
+            <th scope="col">${t('field.description')}</th>
+            <th scope="col">${t('field.actions')}</th>
           </tr>
         </thead>
         <tbody>
           ${META_PAGES.map(
-            ([page, label]) =>
+            (page) =>
               html`<tr>
-                <td>${label}</td>
+                <td>${pageLabel(page)}</td>
                 <td>${saved.get(page)?.title ?? ''}</td>
                 <td>${saved.get(page)?.description ?? ''}</td>
                 <td>
-                  <a href="${PATH}/${page}/modifier">Modifier<span class="sr"> ${label}</span></a>
+                  <a href="${PATH}/${page}/modifier"
+                    >${t('action.edit')}<span class="sr"> ${pageLabel(page)}</span></a
+                  >
                 </td>
               </tr>`,
           )}
@@ -68,26 +93,28 @@ const formPage = (
   errors: Errors = {},
   error?: string,
 ) => {
-  const title = `Référencement de « ${metaPageLabel(page)} »`
+  const title = t('title.page_meta', { name: pageLabel(page) })
   return adminPage(
     title,
     PATH,
     html`<h1>${title}</h1>
       ${formError(error)}
       <form method="post" action="${action}" novalidate>
-        ${metaFieldsHtml(values, errors, 'title', 'description')}
-        <button type="submit">Enregistrer</button>
+        ${languageTabs('referencement', PAGE_META_TRANSLATED, errors, (locale) =>
+          metaFieldsHtml(
+            values,
+            errors,
+            inLocale(locale, 'title'),
+            inLocale(locale, 'description'),
+          ),
+        )}
+        <button type="submit">${t('form.save')}</button>
       </form>
-      <p><a href="${PATH}">Retour au référencement</a></p>`,
+      <p><a href="${PATH}">${t('page_meta.back')}</a></p>`,
   )
 }
 
-const refusal = (error: unknown): string => {
-  if (error instanceof ContentRuleViolation) {
-    return error.message
-  }
-  throw error
-}
+const refusal = refusalMessage
 
 export const adminPageMetaRoutes = (dependencies: ContentAdminDependencies) => {
   const app = new Hono()
@@ -95,7 +122,7 @@ export const adminPageMetaRoutes = (dependencies: ContentAdminDependencies) => {
   app.get(PATH, async (c) => {
     const ok = c.req.query('ok')
     const metas = await dependencies.pageMetaWriter.findAll()
-    return c.html(listPage(metas, ok === 'modifie' ? 'Référencement enregistré.' : undefined))
+    return c.html(listPage(metas, ok === 'modifie' ? t('flash.page_meta_saved') : undefined))
   })
 
   app.get(`${PATH}/:page/modifier`, async (c) => {
@@ -104,7 +131,11 @@ export const adminPageMetaRoutes = (dependencies: ContentAdminDependencies) => {
     return meta === null
       ? c.html(notFoundPage(), 404)
       : c.html(
-          formPage(meta.page, c.req.path, { title: meta.title, description: meta.description }),
+          formPage(meta.page, c.req.path, {
+            title: meta.title,
+            description: meta.description,
+            ...translationValues(meta.translations, PAGE_META_TRANSLATED),
+          }),
         )
   })
 

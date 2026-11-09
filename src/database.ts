@@ -4,6 +4,9 @@ import { counterCollection } from '#/shared/infrastructure/counters.ts'
 import { ensureCollections, typedCollection } from '#/shared/infrastructure/mongo.ts'
 
 import { CategoryTree } from '#/catalog/domain/categoryTree.ts'
+import { switchBlogDefaultLocale } from '#/blog/application/adminBlog.ts'
+import { switchCatalogDefaultLocale } from '#/catalog/application/adminCatalog.ts'
+import { switchContentDefaultLocale } from '#/content/application/adminContent.ts'
 import { storeAudio } from '#/media/application/storeAudio.ts'
 import { storeImage } from '#/media/application/storeImage.ts'
 import { getSiteIdentity } from '#/site/application/siteIdentity.ts'
@@ -205,6 +208,34 @@ export const createRepositories = (
     },
     contactRecipient: {
       address: async () => (await getSiteIdentity({ siteIdentities })).contactRecipient,
+    },
+    // Nouvelle langue par défaut (ADR 0014) : l'identité la change, chaque module échange ses textes
+    switchContentLocale: async (from, to) => {
+      await switchCatalogDefaultLocale(
+        {
+          categories,
+          categoryWriter: categories,
+          productWriter: products,
+          attributes,
+          attributeWriter: attributes,
+        },
+        from,
+        to,
+      )
+      await switchBlogDefaultLocale(
+        { articles, articleWriter: articles, articleRenderer: markdownArticle, articleTerms },
+        from,
+        to,
+      )
+      await switchContentDefaultLocale(
+        {
+          legalPageWriter: legalPages,
+          legalPageRenderer: markdownLegalPage,
+          pageMetaWriter: pageMetas,
+        },
+        from,
+        to,
+      )
     },
     categories,
     products,

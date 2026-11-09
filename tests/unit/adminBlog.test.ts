@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { translated } from '#/shared/domain/translations.ts'
+
 import { BlogRuleViolation } from '#/blog/domain/Article.ts'
 import { MediaRuleViolation } from '#/media/domain/imageRules.ts'
 import {
@@ -67,7 +69,8 @@ const blog = () => {
   }
   const articleWriter: Article.Writer = {
     findById: (id) => find((a) => a.id === id),
-    findBySlug: (slug) => find((a) => a.slug === slug),
+    findBySlug: (slug, locale) =>
+      find((a) => translated(a.translations, 'slug', a.slug, locale ?? null) === slug),
     create: (input) => {
       const article = { id: articles.length + 1, ...input }
       articles = [...articles, article]
@@ -81,6 +84,14 @@ const blog = () => {
       articles = articles.filter((a) => a.id !== id)
       return Promise.resolve()
     },
+    replaceAll: (all) => {
+      articles = all.map(({ section, format, ...article }) => ({
+        ...article,
+        sectionId: section?.id ?? null,
+        formatId: format?.id ?? null,
+      }))
+      return Promise.resolve()
+    },
   }
   const articleTerms: Article.TermRepository = {
     findByKind: (kind) =>
@@ -90,8 +101,13 @@ const blog = () => {
           .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name)),
       ),
     findById: (id) => Promise.resolve(term(id)),
-    findBySlug: (kind, slug) =>
-      Promise.resolve(terms.find((t) => t.kind === kind && t.slug === slug) ?? null),
+    findBySlug: (kind, slug, locale) =>
+      Promise.resolve(
+        terms.find(
+          (t) =>
+            t.kind === kind && translated(t.translations, 'slug', t.slug, locale ?? null) === slug,
+        ) ?? null,
+      ),
     create: (kind, input) => {
       const created = { id: terms.length + 1, kind, ...input }
       terms = [...terms, created]
@@ -103,6 +119,10 @@ const blog = () => {
     },
     remove: (id) => {
       terms = terms.filter((t) => t.id !== id)
+      return Promise.resolve()
+    },
+    replaceAll: (all) => {
+      terms = [...all]
       return Promise.resolve()
     },
   }

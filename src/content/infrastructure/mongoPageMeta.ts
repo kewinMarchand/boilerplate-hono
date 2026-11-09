@@ -8,7 +8,7 @@ import type { PageMeta } from '#/content/domain/PageMeta.ts'
 import type { CollectionDefinition } from '#/shared/infrastructure/mongo.ts'
 import type { Collection } from 'mongodb'
 
-const PAGES = META_PAGES.map(([page]) => page)
+const PAGES = META_PAGES
 
 /** Référencement d'une page fixe (ADR 0010) : la clé de la page sert d'identifiant. */
 const pageMetaDocumentSchema = z.object({
